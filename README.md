@@ -25,9 +25,9 @@ Fritzing is a useful sketchpad for breadboard-based designs but it's
 incredibly quirky.  No guarantees anyone will be able to load these
 sketches, not to mention modify them.
 
-Fritzing really, *really* wants everything in "~/Documents/Fritzing" on
+Fritzing really, *really* wants everything in "``~/Documents/Fritzing``" on
 Mac, and on Mac, setting $HOME does not affect the expansion of tilde.
-But I found that making "~/Documents/Fritzing" a symlink into this repo
+But I found that making "``~/Documents/Fritzing``" a symlink into this repo
 works.
 
 ## doc - YARC documentation (well, eventually...)
