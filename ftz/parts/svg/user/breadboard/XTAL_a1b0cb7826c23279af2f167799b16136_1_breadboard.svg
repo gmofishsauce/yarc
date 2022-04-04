@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" height="0.33in" id="svg2" viewBox="0 0 40 33"  gorn="0" width="0.4in" baseProfile="tiny" version="1.2">
+    <desc>
+        <referenceFile>generic_ic_dip_8_300mil_bread.svg</referenceFile>
+    </desc>
+    <g id="breadboard"  gorn="0.0">
+        <rect height="27" id="middle" x="0" y="3"  gorn="0.0.0" width="40" fill="#303030"/>
+        <rect height="2.46" id="top" x="0" y="3.0"  gorn="0.0.1" width="40" fill="#3D3D3D"/>
+        <rect height="2.46" id="bottom" x="0" y="27.54"  gorn="0.0.2" width="40" fill="#000000"/>
+        <polygon id="right" points="40,3 39.25,5.46 39.25,27.54 40,30"  gorn="0.0.3" fill="#141414"/>
+        <polygon id="left" points="0,3 0.75,5.46 0.75,27.54 0,30"  gorn="0.0.4" fill="#1F1F1F"/>
+        <polygon id="left-upper-rect" points="5,11.5 0.75,11.46 0.56,13.58 0.56,16.5 5,16.5"  gorn="0.0.5" fill="#1C1C1C"/>
+        <polygon id="left-lower-rect" points="0.75,21.55 5,21.55 5,16.5 0.56,16.5 0.56,19.42"  gorn="0.0.6" fill="#383838"/>
+        <path id="slot" d="M0.56,13.58v5.83c1.47-0.17,2.62-1.4,2.62-2.92C3.18,14.97,2.04,13.75,0.56,13.58z"  gorn="0.0.7" fill="#262626"/>
+        <path id="cover" d="M0.75,5.46V11.45c2.38,0.45,4.19,2.53,4.19,5.04c0,2.51-1.8,4.6-4.19,5.05V21.55h5.0V5.46H0.75z"  gorn="0.0.8" fill="#303030"/>
+        <circle cy="23.47"  cx="6.5" r="2.06" fill="#212121"/>
+        <text id="label" font-family="OCRA" x="6.5" y="16.5"  text-anchor="start" font-size="8" gorn="0.0.10" stroke="none" fill="#e6e6e6">IC</text>
+        <rect height="4.34" id="connector0pin" x="3.5" y="28.66"  gorn="0.0.11" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector0terminal" x="3.5" y="30"  gorn="0.0.12" width="3" fill="#8C8C8C"/>
+        <polygon points="3.5,28.66 3.5,30.66 6.5,30.66 8.5,29.74 8.5,28.66 "  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector7pin" x="3.5"  gorn="0.0.14" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector7terminal" x="3.5"  gorn="0.0.15" width="3" fill="#8C8C8C"/>
+        <polygon points="8.5,4.34 8.5,3.26 6.5,2.34 3.5,2.34 3.5,4.34"  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector3pin" x="33.5" y="28.66"  gorn="0.0.17" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector3terminal" x="33.5" y="30"  gorn="0.0.18" width="3" fill="#8C8C8C"/>
+        <polygon points="31.5,28.66 31.5,29.74 33.5,30.66 36.5,30.66 36.5,28.66"  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector4pin" x="33.5" y="0"  gorn="0.0.20" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector4terminal" x="33.5" y="0"  gorn="0.0.21" width="3" fill="#8C8C8C"/>
+        <polygon points="36.5,4.34 36.5,2.34 33.5,2.34 31.5,3.26 31.5,4.34 "  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector6pin" x="13.5" y="0"  gorn="0.0.23" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector6terminal" x="13.5"  gorn="0.0.24" width="3" fill="#8C8C8C"/>
+        <polygon points="18.5,4.34 18.5,3.26 16.5,2.34 13.5,2.34 11.5,3.26 11.5,4.34"  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector5pin" x="23.5" y="0"  gorn="0.0.26" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector5terminal" x="23.5"  gorn="0.0.27" width="3" fill="#8C8C8C"/>
+        <polygon points="28.5,4.34 28.5,3.26 26.5,2.34 23.5,2.34 21.5,3.26 21.5,4.34"  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector1pin" x="13.5" y="28.66"  gorn="0.0.29" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector1terminal" x="13.5" y="30"  gorn="0.0.30" width="3" fill="#8C8C8C"/>
+        <polygon points="11.5,28.66 11.5,29.74 13.5,30.66 16.5,30.66 18.5,29.74 18.5,28.66"  fill="#8C8C8C"/>
+        <rect height="4.34" id="connector2pin" x="23.5" y="28.66"  gorn="0.0.32" width="3" fill="#8C8C8C"/>
+        <rect height="3" id="connector2terminal" x="23.5" y="30"  gorn="0.0.33" width="3" fill="#8C8C8C"/>
+        <polygon points="21.5,28.66 21.5,29.74 23.5,30.66 26.5,30.66 28.5,29.74 28.5,28.66"  fill="#8C8C8C"/>
+    </g>
+</svg>

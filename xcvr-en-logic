@@ -1,0 +1,24 @@
+				/ODDBYTE
+						/EVENORWORD
+BYTE/	ODD =	74HC00	74HC08			74HC00	74HC00
+MEM16	ADDR0	pin 8	pin 8	RAM/IO  pin 6	pin 3	Notes
+~~~~~~	~~~~~	~~~~~~	~~~~~~	~~~~~~	~~~~~~	~~~~~	~~~~~
+0		0		1		0		0		1		1		I/O cycle
+0		1		1		0		0		1		1		I/O cycle
+1		0		1		0		0		1		1		I/O cycle
+1		1		0		1		0		1		1		I/O cycle
+0		0		1		0		0		1		1		I/O cycle
+0		1		1		0		0		1		1		I/O cycle
+1		0		1		0		0		1		1		I/O cycle
+1		1		0		1		0		1		1		I/O cycle
+0		0		1		0		1		0		1		RAM cycle, even or word (straight)
+0		1		1		0		1		0		1		RAM cycle, even or word (straight)
+1		0		1		0		1		0		1		RAM cycle, even or word (straight)
+1		1		0		1		1		1		0		RAM cycle, odd byte (cross)
+0		0		1		0		1		0		1		RAM cycle, even or word (straight)
+0		1		1		0		1		0		1		RAM cycle, even or word (straight)
+1		0		1		0		1		0		1		RAM cycle, even or word (straight)
+1		1		0		1		1		1		0		RAM cycle, odd byte (cross)
+
+Therefore, 74HC00 pin 6 is the /straight signal.
+74HC00 pin 3 is the /cross signal.

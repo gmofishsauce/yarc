@@ -1,0 +1,670 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid 22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca)
+
+  (paper "USLetter" portrait)
+
+  (title_block
+    (title "YARC")
+    (date "2022-01-12")
+    (comment 1 "Floorplan")
+  )
+
+  (lib_symbols
+  )
+
+
+  (image (at 111.76 132.08) (scale 1.49784)
+    (uuid e4fbf719-6de4-402f-b6bf-d1ffc3c542b2)
+    (data
+      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
+    )
+  )
+
+  (sheet (at 114.3 187.96) (size 55.88 22.86) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid) (color 0 0 0 0))
+    (fill (color 0 0 0 0.0000))
+    (uuid 32a6a89d-8e27-4c41-a8a1-866f443f001b)
+    (property "Sheet name" "Memory" (id 0) (at 114.3 187.2484 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheet file" "Memory.kicad_sch" (id 1) (at 114.3 211.4046 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+  )
+
+  (sheet (at 152.4 134.62) (size 43.18 22.86)
+    (stroke (width 0.1524) (type solid) (color 0 0 0 0))
+    (fill (color 0 0 0 0.0000))
+    (uuid 4512e1de-1ae8-4271-aab5-cfad75ab4cbf)
+    (property "Sheet name" "Clock and Downloader Extension" (id 0) (at 152.4 137.16 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheet file" "ClockDownloaderExtension.kicad_sch" (id 1) (at 152.4 154.94 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+  )
+
+  (sheet (at 175.26 175.26) (size 17.78 35.56)
+    (stroke (width 0.1524) (type solid) (color 0 0 0 0))
+    (fill (color 0 0 0 0.0000))
+    (uuid baeeec1c-6d89-4b09-ba07-b183ebc66f47)
+    (property "Sheet name" "Downloader Core" (id 0) (at 175.26 174.5484 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheet file" "DownloaderCore.kicad_sch" (id 1) (at 177.8 208.28 90)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47" (page "2"))
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf" (page "3"))
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b" (page "4"))
+  )
+
+  (symbol_instances
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/0662f878-ff9c-493f-9caa-fd70364c8986"
+      (reference "#FLG01") (unit 1) (value "PWR_FLAG") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/540d3808-2b26-45b3-a5b3-725aecaf7338"
+      (reference "#PWR01") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/82e5c34e-a6c0-4871-81e1-6fa0c9f72016"
+      (reference "#PWR02") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/db4d329b-00ad-46e9-94d9-f01ea3dfc883"
+      (reference "#PWR03") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/f94ac1ac-52fe-4ee6-8715-ccfa09ab5b43"
+      (reference "#PWR04") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/7efe0649-b23c-4a72-8d49-355944e25d74"
+      (reference "#PWR05") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/b909eaa6-b61c-4a99-b7ef-c78cbc233c99"
+      (reference "#PWR06") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/45a3ac5c-5b5b-4a87-8122-ab1316f9d0a3"
+      (reference "#PWR07") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/c463be4f-3db0-41ab-8eb4-117f1d70f7e5"
+      (reference "#PWR08") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/e0335dec-09ba-41b8-b8a4-daf0bac8e15b"
+      (reference "#PWR09") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/79bc076a-9289-4b9f-8283-f916dc371698"
+      (reference "#PWR010") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/284a0fe9-91ed-40d7-b279-3681e84ded1b"
+      (reference "#PWR011") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/633cb41f-edb6-4402-b546-c4bd307b9863"
+      (reference "#PWR012") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/72d3bc87-9184-4fbf-a18e-c5bf0a39a45e"
+      (reference "#PWR013") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/435f8ac4-4728-45ff-a065-8eefbeb3da71"
+      (reference "#PWR014") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/7b4cace8-5c89-47e3-8c3e-c3e81420c988"
+      (reference "#PWR018") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/7f39cf0a-c82a-4c79-8c8c-708f35f19777"
+      (reference "#PWR019") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/d0e7df51-0a7f-461c-91a3-f69ed22aeacc"
+      (reference "#PWR020") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/7130e0da-6e75-460e-962d-b62cb3c18eb2"
+      (reference "#PWR021") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/a1a1dea0-8b20-4490-8841-84138b8fc228"
+      (reference "#PWR022") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/b141a2cc-2e05-42c8-91ae-470a788f8fbb"
+      (reference "#PWR023") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/dd9c290b-c34b-4ae3-8fda-4e09e9b5dfec"
+      (reference "#PWR024") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/a54321df-a1a5-49d7-8cb8-0583d2dbe6f6"
+      (reference "#PWR025") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/f14f994f-b04b-41f4-9b3e-129b69bf936c"
+      (reference "#PWR026") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/ee550d18-8557-44aa-9f43-b715b8783662"
+      (reference "#PWR028") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/c54f6dab-dd8b-433d-820d-0826b89aaca2"
+      (reference "#PWR029") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/a1a26910-ad02-491b-87ba-b3ce2db8ff52"
+      (reference "#PWR030") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/740d808e-81c5-443d-b28d-65c820283f9a"
+      (reference "#PWR031") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/19024c39-ee5c-45d7-901c-a0c973c1e921"
+      (reference "#PWR034") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/2a39349e-7fb9-4b3d-b294-5a856946217a"
+      (reference "#PWR035") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/f61cd545-a0d2-48b1-8ad5-43a725554575"
+      (reference "#PWR036") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/8b185eaa-09d4-44a5-9bf7-a6c4fe29f646"
+      (reference "#PWR037") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/6e59acef-cc69-4cd9-a8c8-5c2eef615e49"
+      (reference "#PWR038") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/80544ede-667c-4aa8-8163-ac257eb18550"
+      (reference "#PWR040") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/ea873f6a-c063-4a2f-b6d5-973420432b3e"
+      (reference "#PWR042") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/5422a94d-c84a-48bd-aaa5-3a18f28c6fed"
+      (reference "#PWR0101") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/7b1a11a3-dda6-4e40-9d62-37f5b4b44545"
+      (reference "#PWR0102") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/a58b6bd2-61ff-452e-9f5d-4b2659caf11e"
+      (reference "#PWR0103") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/1b924573-8820-49cd-89a4-2b496b2d0a7b"
+      (reference "#PWR0104") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/c8131c2b-48f1-416e-b0aa-537b1298d4ba"
+      (reference "#PWR0105") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/0f4f26cd-8ba1-42fc-96c7-54d73defad17"
+      (reference "#PWR0106") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/32f5cb98-e1a5-4085-b312-07dce7167ac6"
+      (reference "#PWR0107") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/4c3c5bee-81be-4259-b967-aa5c12f47330"
+      (reference "#PWR0108") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/08dd6c1c-241c-49f6-8488-e2fba1f1a085"
+      (reference "#PWR0109") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/bd5df873-dbad-4aca-84fa-80b66353b99a"
+      (reference "#PWR0110") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/01f80648-ea69-4e7a-b059-f145793c76c4"
+      (reference "#PWR0111") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/1d390953-50bf-47c0-965b-272c9d6ea945"
+      (reference "#PWR0112") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/73322e78-cfed-4cfc-9b9a-faad1cf2b427"
+      (reference "#PWR0113") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/e43595a8-2bd2-40fa-907a-10dfc0f0b5da"
+      (reference "#PWR0114") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/a3bb7c04-fd82-450e-906b-7fa820ea9269"
+      (reference "#PWR0115") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/b6820548-7b63-445b-b165-ec3c1d59d8b1"
+      (reference "#PWR0116") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/034e520b-342b-4fce-9f8a-e094e6463a7c"
+      (reference "#PWR0117") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/4c475c35-1dac-4fb9-91e4-c8e056b11b2f"
+      (reference "#PWR0118") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/c27fdc75-6303-4ad5-a72c-1fd23536c216"
+      (reference "#PWR0119") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/ab26a42e-b7f6-4a80-b26c-c01085e448c7"
+      (reference "A1") (unit 1) (value "Arduino_Nano_v3.x") (footprint "Module:Arduino_Nano")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/deb6bb74-5963-47ff-a74b-c2a25edb09e3"
+      (reference "C1") (unit 1) (value "C_Polarized_Small_US") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/a2e293ea-33cc-4ecf-b02f-69bc76e5470c"
+      (reference "J1") (unit 1) (value "NANOIO_EXT") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/94eeda0f-068b-4f1f-9489-9b4ce915009d"
+      (reference "J2") (unit 1) (value "MCR_EXT") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/cfecf40c-80a4-418c-8bb1-aa14eadfac97"
+      (reference "J3") (unit 1) (value "PULSE_EXT") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/0fe9e525-e3a8-46cc-800f-899dfab6f8e4"
+      (reference "J4") (unit 1) (value "NANOIO_EXT") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/bcd72a0a-b7b5-464a-b609-6125b311486c"
+      (reference "J5") (unit 1) (value "MCR_EXT") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/cd85b4fd-518a-4c9c-9826-f9c27e4d59f3"
+      (reference "J6") (unit 1) (value "PULSE_EXT") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/69506fd9-c217-424c-809c-dfd5f5e64e57"
+      (reference "J7") (unit 1) (value "CONTROLS") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/3043dbca-5be5-4a86-8ff7-db5a27778edd"
+      (reference "R1") (unit 1) (value "R_US") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/e48f2005-46f1-4750-831f-dff7ca406e90"
+      (reference "R2") (unit 1) (value "R_US") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/385bfcab-5698-4005-9cd1-87fc9896fb60"
+      (reference "R3") (unit 1) (value "R_US") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/b3f73d9c-7450-4dd9-8e5c-3e1e04208432"
+      (reference "RN1") (unit 1) (value "R_Network08_US") (footprint "Resistor_THT:R_Array_SIP9")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/26690c74-9ef1-4714-99af-adaf729b4b1e"
+      (reference "RN2") (unit 1) (value "R_Pack08") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/3cedf398-cec3-48c5-a307-18732d8eda39"
+      (reference "U1") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/63da0436-3d53-41a0-9280-52b796c0abcb"
+      (reference "U2") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/ec881026-3f98-41fd-9856-b308cabdd9a9"
+      (reference "U3") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/030b0595-aa30-4263-905a-eef5fb06be95"
+      (reference "U4") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/2f4afac2-0ada-43d3-89d0-a835a2483e3b"
+      (reference "U5") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/23e558e8-0d6c-461e-bd92-8151d6cf550d"
+      (reference "U6") (unit 1) (value "74LS138") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/6fc948ee-a599-4407-a684-9df234f93a6c"
+      (reference "U7") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/197576df-304c-441b-aeb0-8c224988d982"
+      (reference "U8") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/fb7a1a3e-e448-41ab-aa2f-15c21c650ab5"
+      (reference "U9") (unit 1) (value "74LS138") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/d010f286-2698-4e00-8cd9-85dde247d637"
+      (reference "U10") (unit 1) (value "74HC74") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/49594bc8-4531-4420-8480-d11bdf0ebee8"
+      (reference "U10") (unit 2) (value "74HC74") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/bac94754-3a97-474e-8c31-d03347628b8a"
+      (reference "U10") (unit 3) (value "74HC74") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/7edb2f6a-57f3-4ee0-93d9-41dc3f261c4c"
+      (reference "U11") (unit 1) (value "74HCT574") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/88c5085a-2b89-475c-9148-9a99794ac605"
+      (reference "U12") (unit 1) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/620eb872-8a87-44ce-9fc9-2d497d601537"
+      (reference "U12") (unit 2) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/e48bf7b3-13e0-43ea-947a-4ac0d2d039bd"
+      (reference "U12") (unit 3) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/79f69c60-24a5-46d7-abee-a4b0b0134dd1"
+      (reference "U12") (unit 4) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/4b2f3699-c6b5-477f-8581-4de3dc4c7ed0"
+      (reference "U12") (unit 5) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/881f6c3e-23c1-46f1-a8a5-c066d643c943"
+      (reference "U12") (unit 6) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/4a6f54d0-12b4-4b14-976c-fbb9b8baeefc"
+      (reference "U12") (unit 7) (value "74HC14") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/63fcd9cd-ffc2-4b29-8899-0493eb9c49c4"
+      (reference "U13") (unit 1) (value "74LS32") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/785b87e5-5497-46ae-90a4-d74b338dc149"
+      (reference "U13") (unit 2) (value "74LS32") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/5f940303-a4a8-420c-a7a1-06b325542fc4"
+      (reference "U13") (unit 3) (value "74LS32") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/bf4cd4e1-012f-42b7-8c27-76a7b81a4f28"
+      (reference "U13") (unit 4) (value "74LS32") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/d1be11f5-eb1d-478d-a506-633772f17f5e"
+      (reference "U13") (unit 5) (value "74LS32") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/1a74fb14-3cea-4723-89a4-e1daf71e3e2c"
+      (reference "U14") (unit 1) (value "74LS20") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/165cb266-4ed8-4b8a-b0c9-f9018d1c003b"
+      (reference "U14") (unit 2) (value "74LS20") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/67d5a359-e645-42fd-8878-688bcd98810b"
+      (reference "U14") (unit 3) (value "74LS20") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/88a9555b-4fd7-43b2-9ab3-3715b9374662"
+      (reference "U15") (unit 1) (value "74LS08") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/457e2344-10ad-47ba-841d-f264a066fd04"
+      (reference "U15") (unit 2) (value "74LS08") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/c1460502-5637-417c-a666-2b076e34c880"
+      (reference "U15") (unit 3) (value "74LS08") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/ee963bf4-5f5e-4dde-b60e-b315227efba4"
+      (reference "U15") (unit 4) (value "74LS08") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/92203840-e7e3-4dd2-ad64-2b977df92549"
+      (reference "U15") (unit 5) (value "74LS08") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/9b0bdd01-8671-43b0-a690-85b1b211ff4e"
+      (reference "U16") (unit 1) (value "74LS138") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/5ae365ee-a75f-47a0-97a0-24e260f746a9"
+      (reference "U17") (unit 1) (value "74HC244") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/82bd9562-7ec4-424c-ad26-178a84482e1c"
+      (reference "U18") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/b0b4726e-2db0-44b7-89f9-18ddacbccb83"
+      (reference "U19") (unit 1) (value "YSLB-102510R3-10") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/76374f75-b9fa-433a-9dbd-8b2877a2226b"
+      (reference "U20") (unit 1) (value "74HC00") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/3721c13a-a81c-49ea-a49a-5a4654bcad56"
+      (reference "U20") (unit 2) (value "74HC00") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/e131fdec-c26a-422d-95f9-31e7bb297bc0"
+      (reference "U20") (unit 3) (value "74HC00") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/e5891e7f-8009-4bb9-9a4d-af8a364cd8b3"
+      (reference "U20") (unit 4) (value "74HC00") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/e94c9b5c-ff7d-431d-b2a8-b9f1fb2642c6"
+      (reference "U20") (unit 5) (value "74HC00") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/10d53a54-4164-46a2-8c35-88cba8736211"
+      (reference "U21") (unit 1) (value "74LS08") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/f3ad7b48-fa65-4df8-b4e3-3a4dcb547708"
+      (reference "U21") (unit 2) (value "74LS08") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/e910bd2c-5a1f-416e-b3ba-a52924b06c16"
+      (reference "U21") (unit 3) (value "74LS08") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/32c6d420-b6a3-43ab-a0ea-53fc1788d773"
+      (reference "U21") (unit 4) (value "74LS08") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/64c9b99f-469e-4b73-bfb9-309aa9b84771"
+      (reference "U21") (unit 5) (value "74LS08") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/49cbe533-f7a4-45db-9ae2-83248067504a"
+      (reference "U22") (unit 1) (value "74LS139") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/d6177f3d-7a24-4bb9-ad87-6df2f71a26cd"
+      (reference "U22") (unit 2) (value "74LS139") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/cf1b3b10-f8ce-49e9-8ec4-583b63366911"
+      (reference "U22") (unit 3) (value "74LS139") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/78d293a7-5e7e-47c7-88b6-9284b534c4d2"
+      (reference "U23") (unit 1) (value "74LS32") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/f6571c99-7fc8-4a58-a887-3abe8d0aa42a"
+      (reference "U23") (unit 2) (value "74LS32") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/22b3d99f-6492-4045-adb8-1396d3c44bf5"
+      (reference "U23") (unit 3) (value "74LS32") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/ad2bf5f6-0f31-46fc-ad89-8f2da013f3ee"
+      (reference "U23") (unit 4) (value "74LS32") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/b479d326-3a67-49e4-bc99-1e5a60dc4a8d"
+      (reference "U23") (unit 5) (value "74LS32") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/143825b9-75a5-4134-a16e-62c66f5a54f7"
+      (reference "U24") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/2393e5a3-b3c1-4eb1-af16-5bc66a7ac8f5"
+      (reference "U25") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/dd1d5935-6f68-4048-9dcc-595761a9e872"
+      (reference "U26") (unit 1) (value "74LS157") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/8c1db11c-dc74-48a1-ae62-7a483a8b7fb9"
+      (reference "U27") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/00d7bdb8-e5cc-4c48-a1a8-da005ded2e3f"
+      (reference "U28") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/9048b42f-cf1a-4f3c-8d81-d8a85a7ffed4"
+      (reference "U29") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/98d12bd2-b01e-4753-a486-570613f1cba2"
+      (reference "U30") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/f8ebbe10-0751-4bba-bb4f-21bf35b8e2ef"
+      (reference "X1") (unit 1) (value "CXO_DIP8") (footprint "Oscillator:Oscillator_DIP-8")
+    )
+  )
+)

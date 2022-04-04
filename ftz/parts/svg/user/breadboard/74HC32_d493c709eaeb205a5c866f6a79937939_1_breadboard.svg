@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" id="svg2" version="1.2" gorn="0" width="0.7in"  baseProfile="tiny" viewBox="0 0 70 33" height="0.33in">
+    <desc >
+        <referenceFile >generic_ic_dip_14_300mil_bread.svg</referenceFile>
+    </desc>
+    <g id="breadboard" gorn="0.1" >
+        <rect y="3" id="middle" x="0" fill="#303030" gorn="0.1.0" width="70"  height="27"/>
+        <rect y="3.0" id="top" x="0" fill="#3D3D3D" gorn="0.1.1" width="70"  height="2.46"/>
+        <rect y="27.54" id="bottom" x="0" fill="#000000" gorn="0.1.2" width="70"  height="2.46"/>
+        <polygon id="right" fill="#141414" gorn="0.1.3"  points="70,3 69.25,5.46 69.25,27.54 70,30"/>
+        <polygon id="left" fill="#1F1F1F" gorn="0.1.4"  points="0,3 0.75,5.46 0.75,27.54 0,30"/>
+        <polygon id="left-upper-rect" fill="#1C1C1C" gorn="0.1.5"  points="5,11.5 0.75,11.46 0.56,13.58 0.56,16.5 5,16.5"/>
+        <polygon id="left-lower-rect" fill="#383838" gorn="0.1.6"  points="0.75,21.55 5,21.55 5,16.5 0.56,16.5 0.56,19.42"/>
+        <path id="slot" fill="#262626" gorn="0.1.7" d="M0.56,13.58v5.83c1.47-0.17,2.62-1.4,2.62-2.92C3.18,14.97,2.04,13.75,0.56,13.58z" />
+        <path id="cover" fill="#303030" gorn="0.1.8" d="M0.75,5.46V11.45c2.38,0.45,4.19,2.53,4.19,5.04c0,2.51-1.8,4.6-4.19,5.05V21.55h5.0V5.46H0.75z" />
+        <circle cx="6.5" r="2.06" fill="#212121" cy="23.47" />
+        <text y="16.5" id="label" x="6.5" fill="#e6e6e6" text-anchor="start" gorn="0.1.10"  font-size="8" font-family="OCRA" stroke="none">IC</text>
+        <rect y="28.66" id="connector0pin" x="3.5" fill="#8C8C8C" gorn="0.1.11" width="3"  height="4.34"/>
+        <rect y="30" id="connector0terminal" x="3.5" fill="#8C8C8C" gorn="0.1.12" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="3.5,28.66 3.5,30.66 6.5,30.66 8.5,29.74 8.5,28.66 "/>
+        <rect id="connector13pin" x="3.5" fill="#8C8C8C" gorn="0.1.14" width="3"  height="4.34"/>
+        <rect id="connector13terminal" x="3.5" fill="#8C8C8C" gorn="0.1.15" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="8.5,4.34 8.5,3.26 6.5,2.34 3.5,2.34 3.5,4.34"/>
+        <rect y="28.66" id="connector6pin" x="63.5" fill="#8C8C8C" gorn="0.1.17" width="3"  height="4.34"/>
+        <rect y="30" id="connector6terminal" x="63.5" fill="#8C8C8C" gorn="0.1.18" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="61.5,28.66 61.5,29.74 63.5,30.66 66.5,30.66 66.5,28.66"/>
+        <rect y="0" id="connector7pin" x="63.5" fill="#8C8C8C" gorn="0.1.20" width="3"  height="4.34"/>
+        <rect y="0" id="connector7terminal" x="63.5" fill="#8C8C8C" gorn="0.1.21" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="66.5,4.34 66.5,2.34 63.5,2.34 61.5,3.26 61.5,4.34 "/>
+        <rect y="0" id="connector12pin" x="13.5" fill="#8C8C8C" gorn="0.1.23" width="3"  height="4.34"/>
+        <rect id="connector12terminal" x="13.5" fill="#8C8C8C" gorn="0.1.24" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="18.5,4.34 18.5,3.26 16.5,2.34 13.5,2.34 11.5,3.26 11.5,4.34"/>
+        <rect y="0" id="connector11pin" x="23.5" fill="#8C8C8C" gorn="0.1.26" width="3"  height="4.34"/>
+        <rect id="connector11terminal" x="23.5" fill="#8C8C8C" gorn="0.1.27" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="28.5,4.34 28.5,3.26 26.5,2.34 23.5,2.34 21.5,3.26 21.5,4.34"/>
+        <rect y="0" id="connector10pin" x="33.5" fill="#8C8C8C" gorn="0.1.29" width="3"  height="4.34"/>
+        <rect id="connector10terminal" x="33.5" fill="#8C8C8C" gorn="0.1.30" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="38.5,4.34 38.5,3.26 36.5,2.34 33.5,2.34 31.5,3.26 31.5,4.34"/>
+        <rect y="0" id="connector9pin" x="43.5" fill="#8C8C8C" gorn="0.1.32" width="3"  height="4.34"/>
+        <rect id="connector9terminal" x="43.5" fill="#8C8C8C" gorn="0.1.33" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="48.5,4.34 48.5,3.26 46.5,2.34 43.5,2.34 41.5,3.26 41.5,4.34"/>
+        <rect y="0" id="connector8pin" x="53.5" fill="#8C8C8C" gorn="0.1.35" width="3"  height="4.34"/>
+        <rect id="connector8terminal" x="53.5" fill="#8C8C8C" gorn="0.1.36" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="58.5,4.34 58.5,3.26 56.5,2.34 53.5,2.34 51.5,3.26 51.5,4.34"/>
+        <rect y="28.66" id="connector1pin" x="13.5" fill="#8C8C8C" gorn="0.1.38" width="3"  height="4.34"/>
+        <rect y="30" id="connector1terminal" x="13.5" fill="#8C8C8C" gorn="0.1.39" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="11.5,28.66 11.5,29.74 13.5,30.66 16.5,30.66 18.5,29.74 18.5,28.66"/>
+        <rect y="28.66" id="connector2pin" x="23.5" fill="#8C8C8C" gorn="0.1.41" width="3"  height="4.34"/>
+        <rect y="30" id="connector2terminal" x="23.5" fill="#8C8C8C" gorn="0.1.42" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="21.5,28.66 21.5,29.74 23.5,30.66 26.5,30.66 28.5,29.74 28.5,28.66"/>
+        <rect y="28.66" id="connector3pin" x="33.5" fill="#8C8C8C" gorn="0.1.44" width="3"  height="4.34"/>
+        <rect y="30" id="connector3terminal" x="33.5" fill="#8C8C8C" gorn="0.1.45" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="31.5,28.66 31.5,29.74 33.5,30.66 36.5,30.66 38.5,29.74 38.5,28.66"/>
+        <rect y="28.66" id="connector4pin" x="43.5" fill="#8C8C8C" gorn="0.1.47" width="3"  height="4.34"/>
+        <rect y="30" id="connector4terminal" x="43.5" fill="#8C8C8C" gorn="0.1.48" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="41.5,28.66 41.5,29.74 43.5,30.66 46.5,30.66 48.5,29.74 48.5,28.66"/>
+        <rect y="28.66" id="connector5pin" x="53.5" fill="#8C8C8C" gorn="0.1.50" width="3"  height="4.34"/>
+        <rect y="30" id="connector5terminal" x="53.5" fill="#8C8C8C" gorn="0.1.51" width="3"  height="3"/>
+        <polygon fill="#8C8C8C"  points="51.5,28.66 51.5,29.74 53.5,30.66 56.5,30.66 58.5,29.74 58.5,28.66"/>
+    </g>
+</svg>

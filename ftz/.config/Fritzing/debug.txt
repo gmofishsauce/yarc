@@ -1,0 +1,68 @@
+candidate:/Applications/Fritzing.app/Contents/MacOS
+candidate:/Applications/Fritzing.app/Contents/Resources
+data folders found: /Applications/Fritzing.app/Contents/Resources
+translation en_US loaded 1 from /Applications/Fritzing.app/Contents/Resources/translations
+registering font family: Droid Sans DroidSans
+registering font family: OCRA OCRA
+got transaction
+referenceModel::loadAll completed
+parts count 2188
+load something
+checking for backups
+check files to load 0
+create empty sketch
+loading bin 'Core Parts'
+module id mystery_part_sip_3_100mil not found in database
+module id generic_ic_dip_8_300mil not found in database
+module id generic_female_pin_header_2_100mil not found in database
+module id generic_shrouded_pin_header_10_100mil not found in database
+module Mystery Part - 3 pins:mystery_part_sip_3_100mil obsolete svg /Applications/Fritzing.app/Contents/Resources/fritzing-parts/svg/obsolete/icon/mystery_part_icon.svg
+module DIP-Relay-D31A:71d4db74a3a0ec43d9303ddffee7361b obsolete svg /Applications/Fritzing.app/Contents/Resources/fritzing-parts/svg/obsolete/icon/DIP_Relay_D31A_icon.svg
+module Generic female header - 2 pins:generic_female_pin_header_2_100mil obsolete svg /Applications/Fritzing.app/Contents/Resources/fritzing-parts/svg/obsolete/icon/generic_female_header.svg
+module Audio Jack (TRS) 3.5mm:stereo-jack-3_5mm obsolete svg /Applications/Fritzing.app/Contents/Resources/fritzing-parts/svg/obsolete/icon/stereo-jack-3_5mm.svg
+Setting platform to Arduino
+updating link
+Setting board to Arduino BT
+Setting board to Arduino UNO
+Setting board to Arduino UNO
+Setting board to Arduino UNO
+Setting port to cu.Bluetooth-Incoming-Port
+adding layer kin 57681 3 25 7f80caa216e0
+adding layer kin 57682 3 18 7f80caa20ca0
+TLS on Want: Secure Transport, macOS 10.15 Found: Secure Transport, macOS 10.15
+finish up sketch loading
+https://fritzing.org/download/feed/atom/mac-os-x-105/?version=0.9.6b.2021-02-21.CD-175-0-8a1e0682&sysname=Mac%20OS%20X&kernname=Darwin&kernversion=19.6.0&arch=x86_64&sysversion=UNKNOWN&pid=edd9a5feba3c37a5a9043a749adbe585
+http check new version
+handle error
+handle error done
+http check new version no error
+remote https://github.com/fritzing/fritzing-parts.git
+current head refs/heads/release_0.9.6
+head oid b82c8c3abd9bca5d30a4d0c28fb4327ac38cf511
+remote head name HEAD, 0, refs/heads/develop
+ref oid ed32113a7741f1389f1e44a5316e94ac4191c816
+remote head name refs/heads/206, 0, 
+ref oid 63ea29837ec3fdabff09665e21e90e11d77cc957
+remote head name refs/heads/Nitaym-frc-parts, 0, 
+ref oid c149d2b6b334b8b8add664dda59bdf869693232f
+remote head name refs/heads/arduino-logo, 0, 
+ref oid 98589d39054dda482d01ed504dd14d79d4357e86
+remote head name refs/heads/arduino_due_icsp, 0, 
+ref oid 768e126b197dc91c002e768ab6aeacd017707dc5
+remote head name refs/heads/ci, 0, 
+ref oid 1e073999efc0dc7c47396604941d68bfa68974a6
+remote head name refs/heads/develop, 0, 
+ref oid ed32113a7741f1389f1e44a5316e94ac4191c816
+remote head name refs/heads/generic-smd, 0, 
+ref oid 186b9479498e5124caecaf409763c80c8788adc6
+remote head name refs/heads/gh-pages, 0, 
+ref oid 981c95df0708d5dcca8be9cf52cb08f09c5f2fb4
+remote head name refs/heads/main, 0, 
+ref oid 640fa25650211afccd369f960375ade8ec3e8653
+remote head name refs/heads/master, 0, 
+ref oid e79a69765026f3fda8aab1b3e7a4952c28047a62
+remote head name refs/heads/obsolete, 0, 
+ref oid 7cd715cba903e148c3394b16d1316416e481034d
+remote head name refs/heads/release_0.9.6, 0, 
+ref oid b82c8c3abd9bca5d30a4d0c28fb4327ac38cf511
+loading bin 'My Parts'

@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+TEST_FILES=$(pushd test_data > /dev/null; ls|tr '\n' ',' | sed 's/,$//' ; popd > /dev/null)
+PIGEON_OPTS="-alternate-entrypoints $TEST_FILES"
+echo "generating..." ; pigeon $PIGEON_OPTS isa.peg > isa_zz.go && \
+echo "testing..." ; go test

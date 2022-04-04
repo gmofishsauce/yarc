@@ -1,0 +1,6 @@
+github.com/creack/goselect v0.1.2 h1:2DNy14+JPjRBgPzAd1thbQp4BSIihxcBf0IXhQXDRa0=
+github.com/creack/goselect v0.1.2/go.mod h1:a/NhLweNvqIYMuxcMOuWY516Cimucms3DglDzQP3hKY=
+go.bug.st/serial.v1 v0.0.0-20191202182710-24a6610f0541 h1:eQfoPfT+gNSh63t/oKanQlZyKgblRa/LMZRPIT+MHzA=
+go.bug.st/serial.v1 v0.0.0-20191202182710-24a6610f0541/go.mod h1:dRSl/CVCTf56CkXgJMDOdSwNfo2g1orOGE/gBGdvjZw=
+golang.org/x/sys v0.0.0-20211003122950-b1ebd4e1001c h1:EyJTLQbOxvk8V6oDdD8ILR1BOs3nEJXThD6aqsiPNkM=
+golang.org/x/sys v0.0.0-20211003122950-b1ebd4e1001c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

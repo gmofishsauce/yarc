@@ -1,0 +1,84 @@
+{
+package peg
+
+import "fmt"
+import "reflect"
+
+func makeSliceOfNodes(wut interface{}) []node {
+    if wut == nil {
+		fmt.Println("BINGO - nil")
+        return nil
+    } else if _, ok := wut.([]node); ok {
+		fmt.Println("BINGO - []node")
+        return wut.([]node)
+    } else if kid, ok := wut.(node); ok {
+        return []node{kid}
+	} else if sliceOfAny, ok := wut.([]interface{}); ok {
+		all := []node{}
+		for _, any := range sliceOfAny {
+			all = append(all, makeSliceOfNodes(any)...)
+		}
+		return all
+	}
+	fmt.Printf("unknown type  in makeSliceOfNodes: %v\n", wut)
+	return nil
+}
+
+}
+
+// The current version of PEG processor (Pigeon 1.1) doesn't support breaking
+// grammars up into multiple .peg source files (all the boilerplate is emitted
+// unconditionally into the output every time pigeon runs). It's possible to
+// clean up the generated Go code to work around this, but for now not worth it.
+// So the entire grammar has to be expressed in this one file. At least all the
+// supporting Go code (except the mandatory package statement) has been removed
+// to other source files that are combined with the generated isa.go file at
+// build time.
+
+Goal <- ConstStmt / SimpleSymbol / Number
+
+ConstStmt <- ck:ConstKeyword _ ss:SimpleSymbol _ asn:Assignment _ ce:ConstExpr {
+	return NewParentNode("ConstStmt", []node{ ck.(node), ss.(node), asn.(node), ce.(node) }), nil
+}
+
+ConstExpr <- _ first:ConstTerm rest:( _ AddOp _ ConstTerm )* _ {
+	nodes := makeSliceOfNodes(first)
+	nodes = append(nodes, makeSliceOfNodes(rest)...)
+	return NewParentNode("ConstExpr", nodes), nil
+}
+
+ConstTerm <- '(' expr:ConstExpr ')' {
+	return NewParentNode("ConstTerm", makeSliceOfNodes(expr)), nil
+} / number:Number {
+    return number, nil
+}
+
+AddOp <- '+' {
+	return NewTerminalNode("AddOp", c.text), nil
+}
+
+ConstKeyword <- "const" {
+	return NewTerminalNode("Keyword", c.text), nil
+}
+
+SimpleSymbol <- [a-z_]i[a-z0-9_]i+ {
+	return NewTerminalNode("SimpleSymbol", c.text), nil
+}
+
+// Very cheesy number identifier. There's a better one here:
+// https://github.com/pegn/spec/blob/master/grammar.pegn
+Number <- '-'? ("0x" [0-9a-f]i+ / "0o" [0-7]+ / "0b" [01]+ / [0-9]+) ![0-9a-z]i {
+	return NewTerminalNode("Number", c.text), nil
+}
+
+Assignment <- "=" {
+	return NewTerminalNode("Operator", c.text), nil
+}
+
+_ "whitespace" <- [ \n\t\r]* {
+	return NewTerminalNode("Whitespace", c.text), nil
+}
+
+// I have left this here, but in my tests so far its presence
+// or absence doesn't seem to make any difference.
+EOF <- !.

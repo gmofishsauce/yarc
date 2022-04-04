@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" height="0.72in" baseProfile="tiny" width="0.42in"  version="1.2" viewBox="0 0 420 720">
+    <desc >
+        <referenceFile >dip_14_300mil_pcb.svg</referenceFile>
+    </desc>
+    <desc >Fritzing footprint SVG</desc>
+    <g id="silkscreen" gorn="0.2" >
+        <line y2="710" y1="10" stroke="white" stroke-width="10" x2="10" x1="10" />
+        <line y2="710" y1="710" stroke="white" stroke-width="10" x2="410" x1="10" />
+        <line y2="10" y1="710" stroke="white" stroke-width="10" x2="410" x1="410" />
+        <line y2="10" y1="10" stroke="white" stroke-width="10" x2="160" x1="10" />
+        <line y2="10" y1="10" stroke="white" stroke-width="10" x2="410" x1="260" />
+    </g>
+    <g id="copper1" gorn="0.3" >
+        <g id="copper0" gorn="0.3.0" >
+            <rect height="55" width="55" stroke="rgb(255, 191, 0)" y="32.5" stroke-width="20" x="32.5" id="square" gorn="0.3.0.0" fill="none" />
+            <circle cy="60" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector0pin" r="27.5" gorn="0.3.0.1" fill="none" />
+            <circle cy="60" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector13pin" r="27.5" gorn="0.3.0.2" fill="none" />
+            <circle cy="160" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector1pin" r="27.5" gorn="0.3.0.3" fill="none" />
+            <circle cy="160" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector12pin" r="27.5" gorn="0.3.0.4" fill="none" />
+            <circle cy="260" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector2pin" r="27.5" gorn="0.3.0.5" fill="none" />
+            <circle cy="260" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector11pin" r="27.5" gorn="0.3.0.6" fill="none" />
+            <circle cy="360" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector3pin" r="27.5" gorn="0.3.0.7" fill="none" />
+            <circle cy="360" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector10pin" r="27.5" gorn="0.3.0.8" fill="none" />
+            <circle cy="460" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector4pin" r="27.5" gorn="0.3.0.9" fill="none" />
+            <circle cy="460" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector9pin" r="27.5" gorn="0.3.0.10" fill="none" />
+            <circle cy="560" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector5pin" r="27.5" gorn="0.3.0.11" fill="none" />
+            <circle cy="560" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector8pin" r="27.5" gorn="0.3.0.12" fill="none" />
+            <circle cy="660" cx="60" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector6pin" r="27.5" gorn="0.3.0.13" fill="none" />
+            <circle cy="660" cx="360" stroke="rgb(255, 191, 0)" stroke-width="20" id="connector7pin" r="27.5" gorn="0.3.0.14" fill="none" />
+        </g>
+    </g>
+</svg>

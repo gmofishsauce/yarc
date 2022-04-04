@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module fritzingVersion="0.9.6b.2021-02-21.CD-175-0-8a1e0682" icon="Mine.png">
+    <title>My Parts</title>
+    <instances>
+        <instance moduleIdRef="IC14_511c94b996cddf65afdff433cd0d6337_1" modelIndex="6075" path="/Users/jeff/Documents/Fritzing/parts/user/IC14_511c94b996cddf65afdff433cd0d6337_1.fzp">
+            <property name="chip label" value="IC14"/>
+            <views/>
+        </instance>
+        <instance moduleIdRef="IC16_6b0fd62765168fba3294597e0487063b_1" modelIndex="6067" path="/Users/jeff/Documents/Fritzing/parts/user/IC16_6b0fd62765168fba3294597e0487063b_1.fzp">
+            <property name="chip label" value="IC16"/>
+            <views/>
+        </instance>
+        <instance moduleIdRef="IC20_5b57ab517ec65e489429ef12e97cbd6a_1" modelIndex="6069" path="/Users/jeff/Documents/Fritzing/parts/user/IC20_5b57ab517ec65e489429ef12e97cbd6a_1.fzp">
+            <property name="chip label" value="IC20"/>
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC244_86bcf68d2f86f49dc03a581974713335_1" modelIndex="6070" path="/Users/jeff/Documents/Fritzing/parts/user/74HC244_86bcf68d2f86f49dc03a581974713335_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC374_56075982c1804f16cdbf4d7b5cf21317_1" modelIndex="6071" path="/Users/jeff/Documents/Fritzing/parts/user/74HC374_56075982c1804f16cdbf4d7b5cf21317_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="AS6C6264_55ba4366e83e1a2fa5159bbc8c6f6ac1_1" modelIndex="6072" path="/Users/jeff/Documents/Fritzing/parts/user/AS6C6264_55ba4366e83e1a2fa5159bbc8c6f6ac1_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="IC28_82b76778b2ff5a2f55e8f7dd727308b4_1" modelIndex="6073" path="/Users/jeff/Documents/Fritzing/parts/user/IC28_82b76778b2ff5a2f55e8f7dd727308b4_1.fzp">
+            <property name="chip label" value="IC28"/>
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC138_0cf7280414286de148ad4221ba5d66b9_1" modelIndex="6074" path="/Users/jeff/Documents/Fritzing/parts/user/74HC138_0cf7280414286de148ad4221ba5d66b9_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC00_e8e298b2b62f3e3cbe7050f24cdec15b_1" modelIndex="6076" path="/Users/jeff/Documents/Fritzing/parts/user/74HC00_e8e298b2b62f3e3cbe7050f24cdec15b_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC27_984fa5713a8b976f579f232806ef46d3_1" modelIndex="6077" path="/Users/jeff/Documents/Fritzing/parts/user/74HC27_984fa5713a8b976f579f232806ef46d3_1.fzp">
+            <property name="chip label" value="7427"/>
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC245_07f30078aa682fe9a6faf286c9ecd1ee_1" modelIndex="6078" path="/Users/jeff/Documents/Fritzing/parts/user/74HC245_07f30078aa682fe9a6faf286c9ecd1ee_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC574_2b265999f7ed32d29b43090d7e8546f0_1" modelIndex="6079" path="/Users/jeff/Documents/Fritzing/parts/user/74HC574_2b265999f7ed32d29b43090d7e8546f0_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC74_463289165af80455c510dd17c22c0b56_1" modelIndex="6080" path="/Users/jeff/Documents/Fritzing/parts/user/74HC74_463289165af80455c510dd17c22c0b56_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC14_28ac40d7d4ccacf6922301470c6a045b_1" modelIndex="6081" path="/Users/jeff/Documents/Fritzing/parts/user/74HC14_28ac40d7d4ccacf6922301470c6a045b_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="XTAL_a1b0cb7826c23279af2f167799b16136_1" modelIndex="6066" path="/Users/jeff/Documents/Fritzing/parts/user/XTAL_a1b0cb7826c23279af2f167799b16136_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC193_fe05111686e69b64a94bc682e71c7b2c_1" modelIndex="6068" path="/Users/jeff/Documents/Fritzing/parts/user/74HC193_fe05111686e69b64a94bc682e71c7b2c_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC32_d493c709eaeb205a5c866f6a79937939_1" modelIndex="6095" path="/Users/jeff/Documents/Fritzing/parts/user/74HC32_d493c709eaeb205a5c866f6a79937939_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC595_8fb89affe461b6d6de69321eeb40b110_1" modelIndex="6119" path="/Users/jeff/Documents/Fritzing/parts/user/74HC595_8fb89affe461b6d6de69321eeb40b110_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC08_7a5fcad99f540555fb51074a164aa835_1" modelIndex="6150" path="/Users/jeff/Documents/Fritzing/parts/user/74HC08_7a5fcad99f540555fb51074a164aa835_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC139_18e72bc4b0f7c72cdce6fc3717360abb_1" modelIndex="6188" path="/Users/jeff/Documents/Fritzing/parts/user/74HC139_18e72bc4b0f7c72cdce6fc3717360abb_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC157_fdcdc50c332b282b78da08afa08ec071_1" modelIndex="6218" path="/Users/jeff/Documents/Fritzing/parts/user/74HC157_fdcdc50c332b282b78da08afa08ec071_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC20_81ead4e3beef4390acb85bf64a88c149_1" modelIndex="6246" path="/Users/jeff/Documents/Fritzing/parts/user/74HC20_81ead4e3beef4390acb85bf64a88c149_1.fzp">
+            <views/>
+        </instance>
+    </instances>
+</module>

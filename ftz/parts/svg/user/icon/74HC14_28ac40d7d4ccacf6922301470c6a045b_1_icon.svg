@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- Created with Fritzing (http://www.fritzing.org/) -->
+<svg xmlns="http://www.w3.org/2000/svg" y="0in" viewBox="0 0 300 330"  baseProfile="tiny" width="0.3in" height="0.33in" x="0in" version="1.2">
+    <desc >
+        <referenceFile >dip_icon.svg</referenceFile>
+    </desc>
+    <g id="icon"  gorn="0.1">
+        <rect y="30" id="middle"  width="300" gorn="0.1.0" fill="#303030" height="270" x="0"/>
+        <rect y="30" id="top"  width="300" gorn="0.1.1" fill="#3D3D3D" height="24.6" x="0"/>
+        <rect y="275.4" id="bottom"  width="300" gorn="0.1.2" fill="#000000" height="24.6" x="0"/>
+        <polygon id="right" points="300,30,292.5,54.6,292.5,275.4,300,300"  gorn="0.1.3" fill="#141414"/>
+        <polygon id="left" points="0,30,7.5,54.6,7.5,275.4,0,300"  gorn="0.1.4" fill="#1F1F1F"/>
+        <polygon id="left-upper-rect" points="50,115,7.5,114.6,5.6,135.8,5.6,165,50,165"  gorn="0.1.5" fill="#1C1C1C"/>
+        <polygon id="left-lower-rect" points="7.5,215.5,50,215.5,50,165,5.6,165,5.6,194.2"  gorn="0.1.6" fill="#383838"/>
+        <path id="slot"  gorn="0.1.7" d="M5.6,135.8l0,58.3c14.7,-1.7,26.2,-14,26.2,-29.2C31.8,149.7,20.4,137.5,5.6,135.8z" fill="#262626"/>
+        <path id="cover"  gorn="0.1.8" d="M7.5,54.6L7.5,114.5c23.8,4.5,41.9,25.3,41.9,50.4c0,25.1,-18,46,-41.9,50.5L7.5,215.5l50,0L57.5,54.6L7.5,54.6z" fill="#303030"/>
+        <circle cx="65"  r="20.6" fill="#212121" cy="234.7"/>
+        <text y="165" id="label" font-size="80"  stroke="none" gorn="0.1.10" fill="#dddddd" font-family="OCRA" text-anchor="start" x="65">IC14</text>
+        <rect y="286.6" id="connector0pin"  width="30" gorn="0.1.11" fill="#8C8C8C" height="43.4" x="35"/>
+        <rect y="300" id="connector0terminal"  width="30" gorn="0.1.12" fill="#8C8C8C" height="30" x="35"/>
+        <polygon points="35,286.6,35,306.6,65,306.6,85,297.4,85,286.6"  fill="#8C8C8C"/>
+        <rect id="connector5pin"  width="30" gorn="0.1.14" fill="#8C8C8C" height="43.4" x="35"/>
+        <rect id="connector5terminal"  width="30" gorn="0.1.15" fill="#8C8C8C" height="30" x="35"/>
+        <polygon points="85,43.4,85,32.6,65,23.4,35,23.4,35,43.4"  fill="#8C8C8C"/>
+        <rect y="286.6" id="connector2pin"  width="30" gorn="0.1.17" fill="#8C8C8C" height="43.4" x="235"/>
+        <rect y="300" id="connector2terminal"  width="30" gorn="0.1.18" fill="#8C8C8C" height="30" x="235"/>
+        <polygon points="215,286.6,215,297.4,235,306.6,265,306.6,265,286.6"  fill="#8C8C8C"/>
+        <rect y="0" id="connector3pin"  width="30" gorn="0.1.20" fill="#8C8C8C" height="43.4" x="235"/>
+        <rect y="0" id="connector3terminal"  width="30" gorn="0.1.21" fill="#8C8C8C" height="30" x="235"/>
+        <polygon points="265,43.4,265,23.4,235,23.4,215,32.6,215,43.4"  fill="#8C8C8C"/>
+        <rect y="286.6" id="connector1pin"  width="30" gorn="0.1.23" fill="#8C8C8C" height="43.4" x="135"/>
+        <rect y="300" id="connector1terminal"  width="30" gorn="0.1.24" fill="#8C8C8C" height="30" x="135"/>
+        <polygon points="115,286.6,115,297.4,135,306.6,165,306.6,185,297.4,185,286.6"  fill="#8C8C8C"/>
+        <rect y="0" id="connector4pin"  width="30" gorn="0.1.26" fill="#8C8C8C" height="43.4" x="135"/>
+        <rect id="connector4terminal"  width="30" gorn="0.1.27" fill="#8C8C8C" height="30" x="135"/>
+        <polygon points="185,43.4,185,32.6,165,23.4,135,23.4,115,32.6,115,43.4"  fill="#8C8C8C"/>
+    </g>
+</svg>

@@ -1,0 +1,243 @@
+ERC report (Saturday, February 26, 2022 at 10:43:34 AM, Encoding UTF8)
+
+***** Sheet /
+
+***** Sheet /Downloader Core/
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(99.06 mm, 137.16 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 1 [D1/TX, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(55.88 mm, 53.34 mm): Symbol U12A [74HC14] Pin 1 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(124.46 mm, 134.62 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 28 [~{RESET}, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(124.46 mm, 137.16 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 3 [~{RESET}, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(99.06 mm, 134.62 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 2 [D0/RX, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(99.06 mm, 139.70 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 5 [D2, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(99.06 mm, 142.24 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 6 [D3, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(99.06 mm, 167.64 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 16 [D13, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(114.30 mm, 124.46 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 17 [3V3, Power output, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(109.22 mm, 124.46 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 30 [VIN, Power input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(99.06 mm, 144.78 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 7 [D4, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(124.46 mm, 162.56 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 24 [A5, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(124.46 mm, 165.10 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 25 [A6, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(124.46 mm, 167.64 mm): Symbol A1 [Arduino_Nano_v3.x] Pin 26 [A7, Bidirectional, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(165.10 mm, 121.92 mm): Symbol U6 [74LS138] Pin 7 [O7, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(162.56 mm, 121.92 mm): Symbol U6 [74LS138] Pin 9 [O6, Output, Output low]
+[pin_to_pin]: Pins of type Tri-state and Output are connected
+    ; Severity: warning
+    @(218.44 mm, 96.52 mm): Symbol U8 [74HC245] Pin 5 [A3, Tri-state, Line]
+    @(71.12 mm, 38.10 mm): Symbol U12B [74HC14] Pin 4 [, Output, Inverted]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(218.44 mm, 134.62 mm): Symbol U9 [74LS138] Pin 13 [O2, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(218.44 mm, 132.08 mm): Symbol U9 [74LS138] Pin 14 [O1, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(218.44 mm, 129.54 mm): Symbol U9 [74LS138] Pin 15 [O0, Output, Output low]
+
+***** Sheet /Clock and Downloader Extension/
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(114.30 mm, 149.86 mm): Symbol J5 [Conn_01x04] Pin 4 [Pin_4, Passive, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(66.04 mm, 78.74 mm): Symbol U10B [74HC74] Pin 8 [~{Q}, Output, Line]
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(106.68 mm, 22.86 mm): Global Label '~{POR1}'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(106.68 mm, 30.48 mm): Global Label '~{POR2}'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(106.68 mm, 53.34 mm): Global Label '~{POR5}'
+[label_dangling]: Label not connected to anything
+    ; Severity: error
+    @(106.68 mm, 45.72 mm): Global Label '~{POR4}'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(106.68 mm, 45.72 mm): Global Label '~{POR4}'
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(231.14 mm, 127.00 mm): Symbol J7 [Conn_01x08] Pin 3 [Pin_3, Passive, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(231.14 mm, 124.46 mm): Symbol J7 [Conn_01x08] Pin 4 [Pin_4, Passive, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(231.14 mm, 121.92 mm): Symbol J7 [Conn_01x08] Pin 5 [Pin_5, Passive, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(231.14 mm, 119.38 mm): Symbol J7 [Conn_01x08] Pin 6 [Pin_6, Passive, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(144.78 mm, 38.10 mm): Symbol U13D [74LS32] Pin 11 [, Output, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(165.10 mm, 38.10 mm): Symbol U15D [74LS08] Pin 11 [, Output, Line]
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(243.84 mm, 43.18 mm): Global Label 'SYSCLK5'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(243.84 mm, 33.02 mm): Global Label 'SYSCLK1'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(243.84 mm, 35.56 mm): Global Label 'SYSCLK2'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(243.84 mm, 30.48 mm): Global Label 'SYSCLK0'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(243.84 mm, 40.64 mm): Global Label 'SYSCLK4'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(243.84 mm, 38.10 mm): Global Label 'SYSCLK3'
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(127.00 mm, 149.86 mm): Symbol J6 [Conn_01x04] Pin 1 [Pin_1, Passive, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(154.94 mm, 101.60 mm): Symbol U10A [74HC74] Pin 6 [~{Q}, Output, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 111.76 mm): Symbol U16 [74LS138] Pin 15 [O0, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 127.00 mm): Symbol U16 [74LS138] Pin 9 [O6, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 124.46 mm): Symbol U16 [74LS138] Pin 10 [O5, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 121.92 mm): Symbol U16 [74LS138] Pin 11 [O4, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 119.38 mm): Symbol U16 [74LS138] Pin 12 [O3, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 116.84 mm): Symbol U16 [74LS138] Pin 13 [O2, Output, Output low]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(187.96 mm, 114.30 mm): Symbol U16 [74LS138] Pin 14 [O1, Output, Output low]
+
+***** Sheet /Memory/
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(29.21 mm, 81.28 mm): Symbol U14A [74LS20] Pin 1 [, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(93.98 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 21 [A10, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(91.44 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 23 [A11, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(96.52 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 24 [A9, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(88.90 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 2 [A12, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(116.84 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 9 [A1, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(114.30 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 8 [A2, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(111.76 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 7 [A3, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(109.22 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 6 [A4, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(106.68 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 5 [A5, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(104.14 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 4 [A6, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(101.60 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 3 [A7, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(99.06 mm, 30.48 mm): Symbol U24 [AS6C6264] Pin 25 [A8, Input, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(132.08 mm, 170.18 mm): Symbol U26 [74LS157] Pin 1 [S, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error (excluded)
+    @(177.80 mm, 185.42 mm): Symbol U21A [74LS08] Pin 2 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error (excluded)
+    @(162.56 mm, 180.34 mm): Symbol U23A [74LS32] Pin 1 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error (excluded)
+    @(162.56 mm, 185.42 mm): Symbol U23A [74LS32] Pin 2 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error (excluded)
+    @(177.80 mm, 180.34 mm): Symbol U21A [74LS08] Pin 1 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(193.04 mm, 182.88 mm): Symbol U21A [74LS08] Pin 3 [, Output, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error (excluded)
+    @(177.80 mm, 182.88 mm): Symbol U23A [74LS32] Pin 3 [, Output, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error (excluded)
+    @(193.04 mm, 180.34 mm): Symbol U21D [74LS08] Pin 12 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(193.04 mm, 185.42 mm): Symbol U21D [74LS08] Pin 13 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(208.28 mm, 182.88 mm): Symbol U21D [74LS08] Pin 11 [, Output, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(208.28 mm, 180.34 mm): Symbol U21B [74LS08] Pin 4 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(208.28 mm, 185.42 mm): Symbol U21B [74LS08] Pin 5 [, Input, Line]
+[pin_not_connected]: Pin not connected
+    ; Severity: error
+    @(223.52 mm, 182.88 mm): Symbol U21B [74LS08] Pin 6 [, Output, Line]
+[pin_not_driven]: Input pin not driven by any Output pins
+    ; Severity: error
+    @(86.36 mm, 144.78 mm): Symbol U22B [74LS139] Pin 14 [A0, Input, Line]
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(73.66 mm, 86.36 mm): Global Label '~{IOWR}'
+[global_label_dangling]: Global label not connected anywhere else in the schematic
+    ; Severity: warning
+    @(73.66 mm, 88.90 mm): Global Label '~{IORD}'
+
+ ** ERC messages: 77  Errors 64  Warnings 13
