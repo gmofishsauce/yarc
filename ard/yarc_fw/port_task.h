@@ -305,8 +305,24 @@ void postInit() { // Power On Self Test and YARC initialization
   // Looks like an actual power on reset.
   // All MCR bits are active-low or doesn't matter; set inactive.
 
-  setMCR(0xFF);
+  setMCR(0xFF & ~PortPrivate::MCR_BIT_YARC_NANO_L);
 
+  // XXX temporary test of setting and resetting the service
+  // request flip-flop. Only hit on POR, not soft resets.
+  for(;;) {
+    setCCRH(0);
+    setCCRL(0);
+    setOCRH(0xFF);
+    setOCRL(0xFF);
+    clockOneState();
+    PortPrivate::togglePulse(PortPrivate::ResetService);
+    setCCRH(0x7F); // 0xFF would be a read
+    setCCRL(0xF0); // FFF0 or FFF1 sets the flip-flop
+    setOCRH(0x00);
+    setOCRL(0xFF);
+    clockOneState();
+  }
+  
   // Now reset the "request service" flip-flop from the YARC so we
   // don't later see a false service request.
   PortPrivate::togglePulse(PortPrivate::ResetService);
@@ -329,4 +345,6 @@ void postInit() { // Power On Self Test and YARC initialization
     postPanic(2);
     return;
   }
+
+  
 }
