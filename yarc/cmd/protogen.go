@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/gmofishsauce/yarc/yarc/protogen"
+	"yarc/protogen"
 )
 
 // protogenCmd represents the protogen command

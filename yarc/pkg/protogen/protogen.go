@@ -1,7 +1,7 @@
 // Copyright (c) Jeff Berkowitz 2021, 2022. All rights reserved.
 // Generate symbols for inclusion in by host and Arduino protocol engines
 
-package yarc/protogen
+package protogen
 
 import (
 	"fmt"
