@@ -1,5 +1,0 @@
-This directory contains some experiments in PEG parsing, originally
-intended to support a "little language" for ISA description. The
-processor would then generate a simulator and a crude assembler.
-I later decided software technology wasn't the goal of YARC so I
-would use more traditional, brute-force approaches to host software.
