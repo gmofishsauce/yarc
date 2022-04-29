@@ -54,24 +54,51 @@ data value, etc.
 
 ## Instruction set details
 
+### Absolute calls and jumps
+
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
-| 0x0000 - 0x7FFE, even) | CALL | target | Call self-address |
-| 0x0001 - 0x7FFF, odd) | JUMP | target | Jump to self-address |
-| 0x80 | ALU | src1, src2, dst | ALU operation 0 (TBD) |
-| 0x81 | ALU | src1, src2, dst | ALU operation 1 (TBD) |
-| 0x82 | ALU | src1, src2, dst | ALU operation 2 (TBD) |
-| 0x83 | ALU | src1, src2, dst | ALU operation 3 (TBD) |
-| 0x84 | ALU | src1, src2, dst | ALU operation 4 (TBD) |
-| 0x85 | ALU | src1, src2, dst | ALU operation 5 (TBD) |
-| 0x86 | ALU | src1, src2, dst | ALU operation 6 (TBD) |
-| 0x87 | ALU | src1, src2, dst | ALU operation 7 (TBD) |
-| 0x88 | ALU | src1, src2, dst | ALU operation 8 (TBD) |
-| 0x89 | ALU | src1, src2, dst | ALU operation 9 (TBD) |
-| 0x8A | ALU | src1, src2, dst | ALU operation 10 (TBD) |
-| 0x8B | ALU | src1, src2, dst | ALU operation 11 (TBD) |
-| 0x8C | ALU | src1, src2, dst | ALU operation 12 (TBD) |
-| 0x8D | ALU | src1, src2, dst | ALU operation 13 (TBD) |
-| 0x8E | ALU | src1, src2, dst | ALU operation 14 (TBD) |
-| 0x8F | ALU | src1, src2, dst | ALU operation 15 (TBD) |
+| 0x0000 - 0x7FFE (even) | CALL | target | Call self-address |
+| 0x0001 - 0x7FFF (odd) | JUMP | target | Jump to self-address |
+
+### ALU operations
+
+The low byte (LB) of these opcodes encodes the three operands in three
+fields, each two or three bits.
+
+| Opcode | Mnemonic | Operands | Notes |
+| :----- | :------: | :------- | :---- |
+| 0x80LB | ADD | src1, src2, dst | src1 + src2 => dst, operand in LB |
+| 0x81LB | SUB | src1, src2, dst | src1 - src2 => dst, operands in LB |
+| 0x82LB | RSUB | src1, src2, dst | src2 - src1 => dst, operands in LB |
+| 0x83LB | ADC | src1, src2, dst |  src1 + src2 + C => dst, operands in LB |
+| 0x84LB | SBB | src1, src2, dst | src1 - src2 - c => dst, operands in LB |
+| 0x85LB | RSBB | src1, src2, dst | src2 - src1 - c => dst, operands in LB |
+| 0x86LB | NAND | src1, src2, dst | src1 & ~src2 => dst, operands in LB |
+| 0x87LB | OR | src1, src2, dst | src1 | src2 => dst, operands in LB |
+| 0x88LB | NOT | src1, src2, dst | ~src1 => dst, operands in LB |
+| 0x89LB | XOR | src1, src2, dst | src1 ^ src2 => dst, operands in LB |
+| 0x8ALB | TBD | src1, src2, dst | ALU operation 10 (TBD), operands in LB |
+| 0x8BLB | TBD | src1, src2, dst | ALU operation 11 (TBD), operands in LB |
+| 0x8CLB | TBD | src1, src2, dst | ALU operation 12 (TBD), operands in LB |
+| 0x8DLB | TBD | src1, src2, dst | ALU operation 13 (TBD), operands in LB |
+| 0x8ELB | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
+| 0x8FLB | TBD | src1, src2, dst | ALU operation 15 (TBD), operands in LB |
+
+### Conditional branches
+
+TODO
+
+### Move and push instructions
+
+TODO
+
+### Special instructions
+
+TODO
+
+### Microcoded FORTH primitive instructions
+
+TODO
+
 
