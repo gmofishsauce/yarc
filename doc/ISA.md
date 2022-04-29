@@ -55,6 +55,7 @@ data value, etc.
 ## Instruction set details
 
 | Opcode | Mnemonic | Operands | Notes |
+| :----- | :------: | :------- | :---- |
 | 0x0000 - 0x7FFE, even) | CALL | target | Call self-address |
 | 0x0001 - 0x7FFF, odd) | JUMP | target | Jump to self-address |
 | 0x80 | ALU | src1, src2, dst | ALU operation 0 (TBD) |
