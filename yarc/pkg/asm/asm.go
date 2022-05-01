@@ -68,10 +68,28 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package asm
 
 import (
-	"fmt"
+	"bufio"
+	"log"
+	"os"
 )
 
 func Assemble(sourceFile string) {
-	fmt.Printf("package asm: Assemble(%s)\n", sourceFile)
+    log.SetFlags(log.Lmsgprefix|log.Lmicroseconds)
+    log.SetPrefix("asm: ")
+    log.Printf("assemble main source file %s\n", sourceFile)
+
+	f, err := os.Open(sourceFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	state := newGlobalState(bufio.NewReader(f), sourceFile)
+	process(state)
+	log.Println("done")
 }
+
+func process(state *globalState) {
+	log.Printf("process %v\n", state)
+}
+
 

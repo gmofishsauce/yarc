@@ -1,0 +1,8 @@
+# Copyright (c) Jeff Berkowitz 2022
+#
+# This trivial test file is convenient for quick runs of the YARC assembler.
+
+.set r0 0
+
+.bitfield alu_op 32 23:20
+.set alu_add "alu_op=0"

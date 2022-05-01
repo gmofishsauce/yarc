@@ -49,7 +49,7 @@ const baudRate = 115200 // Note: change requires updating the Arduino firmware
 
 func Main() {
 	log.SetFlags(log.Lmsgprefix|log.Lmicroseconds)
-	log.SetPrefix("ser: ")
+	log.SetPrefix("host: ")
 	log.Println("firing up")
 
 	nanoLogFile, err := os.OpenFile("Nano.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
