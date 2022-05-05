@@ -90,6 +90,12 @@ func Assemble(sourceFile string) {
 
 func process(state *globalState) {
 	log.Printf("process %v\n", state)
+	t := getToken(state)
+	keySymbol, ok := state.symbols[t.text()]
+	if !ok {
+		log.Printf("%s: expected key symbol\n", t.text)
+	}
+	keySymbol.action()
 }
 
 
