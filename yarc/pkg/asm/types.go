@@ -29,7 +29,6 @@ type scanState struct {
 }
 
 func newScanState(name string, reader io.ByteReader, line int) *scanState {
-	log.Printf("in newScanState(%v, %v, %v)\n", name, "reader", line)
 	return &scanState{name, reader, line}
 }
 
@@ -58,16 +57,14 @@ type scanStateStack struct {
 	elements []*scanState
 }
 
-func (ss scanStateStack) push(s *scanState) {
-	log.Printf("in push(%v)\n", s)
+func (ss *scanStateStack) push(s *scanState) {
 	ss.elements = append(ss.elements, s)
-	log.Printf("after push [0] %v, cap %d, len %d\n", ss.elements[0], cap(ss.elements), len(ss.elements))
 }
 
-func (ss scanStateStack) pop() *scanState {
+func (ss *scanStateStack) pop() *scanState {
 	n := len(ss.elements)
 	if n == 0 {
-		log.Println("internal error: pop from an empty stack")
+		log.Panicln("internal error: pop from an empty stack")
 		return nil
 	}
 	result := ss.elements[n-1]
@@ -75,10 +72,10 @@ func (ss scanStateStack) pop() *scanState {
 	return result
 }
 
-func (ss scanStateStack) peek() *scanState {
+func (ss *scanStateStack) peek() *scanState {
 	n := len(ss.elements)
 	if n == 0 {
-		log.Println("internal error: peek at an empty stack")
+		log.Panicln("internal error: peek at an empty stack")
 		return nil
 	}
 	return ss.elements[n-1]
@@ -108,8 +105,8 @@ func (s *symbol) data() interface{} {
 	return s.sData
 }
 
-func (s *symbol) action() actionFunc {
-	return s.sAction
+func (s *symbol) action(gs *globalState) {
+	s.sAction(gs)
 }
 
 // ------------
@@ -135,7 +132,6 @@ type globalState struct {
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs := &globalState{}
 	gs.scanState.push(newScanState(mainSourceFile, reader, 1))
-	log.Printf("Back in newGlobalState %v %d %d\n", gs.scanState.elements[0], cap(gs.scanState.elements), len(gs.scanState.elements))
 	gs.symbols = newSymbolTable()
 	registerBuiltins(gs)
 	return gs

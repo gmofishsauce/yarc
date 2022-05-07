@@ -33,4 +33,3 @@ var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
 }
-

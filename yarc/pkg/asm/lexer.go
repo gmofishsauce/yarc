@@ -17,20 +17,30 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package asm
 
-import (
-	//"log"
-)
+import "fmt"
 
-type tokenKind int
+//"log"
 
 // Token kinds
 const (
-	ttErr = iota
-	ttSym
-	ttStr
-	ttInt
+	tkErr = iota
+	tkSym
+	tkStr
+	tkInt
+	tkComma
+	tkEqu
+	tkSemi
 )
 
+var kindToString = []string{
+	"error",
+	"symbol",
+	"string",
+	"int",
+	"comma",
+	"equals",
+	"semicolon",
+}
 
 // Lexer states
 const (
@@ -38,29 +48,31 @@ const (
 )
 
 type token struct {
-	t string
-	k tokenKind
+	tokenText string
+	tokenKind int
+}
+
+func (t *token) String() string {
+	return fmt.Sprintf("{%s %s}", kindToString[t.tokenKind], t.tokenText)
 }
 
 func (t *token) text() string {
-	return t.t
+	return t.tokenText
 }
 
-func (t *token) kind() tokenKind {
-	return t.k
+func (t *token) kind() int {
+	return t.tokenKind
 }
 
 func getToken(gs *globalState) *token {
 	r := gs.scanState.peek().reader()
 	for b, err := r.ReadByte(); err == nil; b, err = r.ReadByte() {
 		if err != nil {
-			return &token{err.Error(), ttErr}
+			return &token{err.Error(), tkErr}
 		}
 		if b >= 0x80 {
-			return &token{"illegal character", ttErr}
+			return &token{"illegal character", tkErr}
 		}
 	}
-	return &token{".set", ttSym}
+	return &token{".set", tkSym}
 }
-
-
