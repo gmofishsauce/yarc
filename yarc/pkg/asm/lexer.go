@@ -17,7 +17,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package asm
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"log"
+)
 
 //"log"
 
@@ -30,6 +34,7 @@ const (
 	tkComma
 	tkEqu
 	tkSemi
+	tkEND
 )
 
 var kindToString = []string{
@@ -40,12 +45,18 @@ var kindToString = []string{
 	"comma",
 	"equals",
 	"semicolon",
+	"END",
 }
 
 // Lexer states
 const (
-	stStart = iota
+	stBetween = iota
+	stInSeq
+	stError
+	stEnd
 )
+
+var lexerState = stBetween
 
 type token struct {
 	tokenText string
@@ -65,14 +76,65 @@ func (t *token) kind() int {
 }
 
 func getToken(gs *globalState) *token {
-	r := gs.scanState.peek().reader()
-	for b, err := r.ReadByte(); err == nil; b, err = r.ReadByte() {
+	for b, err := gs.reader.ReadByte(); ; b, err = gs.reader.ReadByte() {
+		if err == io.EOF {
+			lexerState = stEnd
+			return &token{"EOF", tkEND}
+		}
 		if err != nil {
+			lexerState = stError
 			return &token{err.Error(), tkErr}
 		}
-		if b >= 0x80 {
-			return &token{"illegal character", tkErr}
+		switch lexerState {
+		default:
+			log.Fatalf("internal error: lexerState %d input 0x%2X\n", lexerState, b)
+			return &token{"internal error", tkErr}
+		case stBetween:
+			if isWhiteSpace(b) {
+				continue
+			}
+			if isInitialSymbol(b) {
+				lexerState = stInSeq
+
+			}
+			return &token{".set", tkSym}
+		case stInSeq:
+			return &token{"value", tkStr}
 		}
 	}
-	return &token{".set", tkSym}
 }
+
+func isWhiteSpace(b byte) bool {
+	return false // STUB
+}
+
+func isInitialSymbol(b byte) bool {
+	return false // STUB
+}
+
+// const (
+// 	chLetter = 1 << iota
+// 	chDigit
+// 	chSymbol
+// 	chInitialSymbol
+// 	stWhitespace
+// )
+
+// var characterizer = [128]int{
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// 	1, 2, 3, 4, 5, 6, 7, 8,
+// }

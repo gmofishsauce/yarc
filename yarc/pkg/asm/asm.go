@@ -96,6 +96,4 @@ func process(state *globalState) {
 		log.Printf("%s: expected key symbol\n", t.text())
 	}
 	keySymbol.action(state)
-	//log.Printf("keySymbol %v calling action\n", keySymbol)
-	//keySymbol.action()
 }

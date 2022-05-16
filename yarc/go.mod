@@ -3,12 +3,10 @@ module github.com/gmofishsauce/yarc
 go 1.16
 
 require (
-	github.com/spf13/cobra v1.4.0 // indirect
-	yarc/arduino v0.0.0-00010101000000-000000000000 // indirect
-	yarc/asm v0.0.0-00010101000000-000000000000 // indirect
-	yarc/host v0.0.0-00010101000000-000000000000 // indirect
-	yarc/proto v0.0.0-00010101000000-000000000000 // indirect
-	yarc/protogen v0.0.0-00010101000000-000000000000 // indirect
+	github.com/spf13/cobra v1.4.0
+	yarc/asm v0.0.0-00010101000000-000000000000
+	yarc/host v0.0.0-00010101000000-000000000000
+	yarc/protogen v0.0.0-00010101000000-000000000000
 )
 
 replace yarc/protogen => ./pkg/protogen
