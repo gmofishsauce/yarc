@@ -18,21 +18,33 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package asm
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"strings"
 )
+
+// Interface that can allow treating the two enhanced ByteReader types together
+type anyNameLineByteReader interface {
+	io.ByteReader
+	name() string
+	line() int
+}
 
 // nameLineByteReader is an enhanced io.ByteReader
 // The 0 value of this type is not useful. Create with newNameLineByteReader.
+// Note: the line number returned by the readers is incremented immediately after
+// a newline. This is misleading if the newline results in an error, but it keeps
+// the readers simple, particularly because the outer reader (below) implements
+// one byte of pushback.
 type nameLineByteReader struct {
 	sourceName   string        // source file name or symbol name
 	sourceReader io.ByteReader // the place to get the next input byte
 	sourceLine   int           // current line number within sourceName
-	newlineSeen  bool          // line increment pending on next read
 }
 
 func newNameLineByteReader(name string, reader io.ByteReader) *nameLineByteReader {
-	return &nameLineByteReader{name, reader, 1, false}
+	return &nameLineByteReader{name, reader, 1}
 }
 
 func (br *nameLineByteReader) line() int {
@@ -45,19 +57,17 @@ func (br *nameLineByteReader) name() string {
 
 func (br *nameLineByteReader) ReadByte() (byte, error) {
 	result, err := br.sourceReader.ReadByte()
-	// Whether to increment the line counter before or after
-	// reporting an error is a subtle point.
-	if br.newlineSeen {
-		br.sourceLine++
-		br.newlineSeen = false
-	}
 	if err != nil {
 		return 0, err
 	}
-	if result == '\n' {
-		br.newlineSeen = true
+	if result == NL {
+		br.sourceLine++
 	}
 	return result, nil
+}
+
+func (br *nameLineByteReader) String() string {
+	return fmt.Sprintf("at %s:%d", br.name(), br.line())
 }
 
 // stackingNameLineByteReader wraps a stack of nameLineByteReaders.
@@ -67,8 +77,12 @@ func (br *nameLineByteReader) ReadByte() (byte, error) {
 // empty and io.EOF is returned, stack pushes are not allowed. So the 0 value is ready for use,
 // but the first operation must be a push.
 type stackingNameLineByteReader struct {
-	elements []*nameLineByteReader
-	atEOF    bool
+	elements      []*nameLineByteReader
+	previousName  string
+	previousLine  int
+	previousByte  byte
+	wasPushedBack bool
+	atEOF         bool
 }
 
 func (sbr *stackingNameLineByteReader) push(s *nameLineByteReader) {
@@ -101,6 +115,9 @@ func (sbr *stackingNameLineByteReader) peek() *nameLineByteReader {
 }
 
 func (sbr *stackingNameLineByteReader) name() string {
+	if sbr.wasPushedBack {
+		return sbr.previousName
+	}
 	if br := sbr.peek(); br != nil {
 		return br.name()
 	}
@@ -108,15 +125,22 @@ func (sbr *stackingNameLineByteReader) name() string {
 }
 
 func (sbr *stackingNameLineByteReader) line() int {
+	if sbr.wasPushedBack {
+		return sbr.previousLine
+	}
 	if br := sbr.peek(); br != nil {
 		return br.line()
 	}
-	return 0
+	return 0 // at EOF
 }
 
 func (sbr *stackingNameLineByteReader) ReadByte() (byte, error) {
 	if sbr.atEOF {
 		return 0, io.EOF
+	}
+	if sbr.wasPushedBack {
+		sbr.wasPushedBack = false
+		return sbr.previousByte, nil
 	}
 	for {
 		br := sbr.peek()
@@ -130,19 +154,48 @@ func (sbr *stackingNameLineByteReader) ReadByte() (byte, error) {
 			continue
 		}
 		if err != nil {
-			return 0, err // hmmm...pop() for error recovery?
+			return 0, err
 		}
+		sbr.previousName = br.name()
+		sbr.previousLine = br.line()
+		sbr.previousByte = result
 		return result, nil
 	}
 }
 
-// TODO implement String()
+// Unread (push back) the most recent byte returned by the reader. Only one byte of pushback
+// is allowed, and the pushback byte must be the byte that as actually read. N.B. - yes, we
+// implement this without the argument byte; but it would be counterintuitive and would expose
+// details of the implementation.
+func (sbr *stackingNameLineByteReader) unreadByte(b byte) error {
+	if sbr.wasPushedBack {
+		return fmt.Errorf("at %s:%d: too many unreads", sbr.previousName, sbr.previousLine)
+	}
+	if b != sbr.previousByte {
+		return fmt.Errorf("at %s:%d: cannot unread a different value", sbr.previousName, sbr.previousLine)
+	}
+	sbr.wasPushedBack = true
+	if b == NL {
+		sbr.previousLine--
+	}
+	return nil
+}
 
-// Interface that can allow treating the enhanced ByteReader types together
-type anyNameLineByteReader interface {
-	io.ByteReader
-	name() string
-	line() int
+// String returns a stack trace-like dump of the reader. There are newlines between
+// lines, but not before the first line nor ater the last line of the backtrace.
+func (sbr *stackingNameLineByteReader) String() string {
+	if sbr.atEOF || sbr.peek() == nil {
+		return "at end of input"
+	}
+	var result strings.Builder
+	for i := len(sbr.elements) - 1; i >= 0; i-- {
+		nlbr := sbr.elements[i]
+		result.WriteString(nlbr.String())
+		if i > 0 {
+			result.WriteRune(rune(NL))
+		}
+	}
+	return result.String()
 }
 
 // Key symbols have action functions that process the rest of statement after the key symbol
@@ -183,14 +236,19 @@ type symbolTable map[string]*symbol
 // globalState is the state of the assembler. Only the lexer
 // has other private state.
 type globalState struct {
-	reader  stackingNameLineByteReader
+	reader  *stackingNameLineByteReader
 	symbols symbolTable
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs := &globalState{}
+	gs.reader = new(stackingNameLineByteReader)
 	gs.symbols = make(symbolTable)
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))
 	registerBuiltins(gs)
 	return gs
+}
+
+func (gs *globalState) String() string {
+	return fmt.Sprintf("%v\n%s", gs.symbols, gs.reader)
 }
