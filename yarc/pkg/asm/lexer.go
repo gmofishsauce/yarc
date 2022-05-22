@@ -34,86 +34,65 @@ const SEMI = byte(';')
 const DOT = byte('.')
 const UNDERSCORE = byte('_')
 
-// N.B. - the language does not even have constant expressions,
-// so the (small) set of "operators" are more like punctuation..
+const COMMENT = byte('#')
 
-var whitespaceChars []byte
-var operatorChars []byte
-var initialSymbolChars []byte
-var symbolChars []byte
-var decimalChars []byte
-var hexChars []byte
+// N.B. The below is my preferred solution to Go's appalling lack of support
+// for type-checked enumerations. Note that if e.g. lexerStateType is changed
+// to be an int instead of a struct containing an int, then assignments to the
+// lexerState are no longer type checked - the RHS can be any int.
 
-func init() {
-	whitespaceChars = []byte{SP, NL, TAB}
-	operatorChars = []byte{COMMA, EQUALS, SEMI}
+// Lexer states
 
-	initialSymbolChars = append(initialSymbolChars, DOT)
-	initialSymbolChars = append(initialSymbolChars, UNDERSCORE)
-	symbolChars = append(symbolChars, UNDERSCORE)
-
-	for i := 'A'; i <= 'Z'; i++ {
-		initialSymbolChars = append(initialSymbolChars, byte(i))
-		symbolChars = append(symbolChars, byte(i))
-		if i < 'G' {
-			hexChars = append(hexChars, byte(i))
-		}
-	}
-	for i := 'a'; i <= 'z'; i++ {
-		initialSymbolChars = append(initialSymbolChars, byte(i))
-		symbolChars = append(symbolChars, byte(i))
-		if i < 'g' {
-			hexChars = append(hexChars, byte(i))
-		}
-	}
-	for i := '0'; i <= '9'; i++ {
-		symbolChars = append(symbolChars, byte(i))
-		decimalChars = append(decimalChars, byte(i))
-		hexChars = append(hexChars, byte(i))
-	}
+type lexerStateType struct {
+	s int
 }
 
+var stInError lexerStateType = lexerStateType{0}
+var stInWhite lexerStateType = lexerStateType{1}
+var stInSymbol lexerStateType = lexerStateType{2}
+var stInString lexerStateType = lexerStateType{3}
+var stInNumber lexerStateType = lexerStateType{4}
+var stInOperator lexerStateType = lexerStateType{5}
+var stInComment lexerStateType = lexerStateType{6}
+var stEnd lexerStateType = lexerStateType{7}
+
+var lexerState lexerStateType = stInWhite
+
 // Token kinds
-const (
-	tkError = iota
-	tkNewline
-	tkSymbol
-	tkString
-	tkNumber
-	tkOperator
-	tkEnd
-)
+
+type tokenKindType struct {
+	k int
+}
+
+var tkError tokenKindType = tokenKindType{0}
+var tkNewline tokenKindType = tokenKindType{1}
+var tkSymbol tokenKindType = tokenKindType{2}
+var tkString tokenKindType = tokenKindType{3}
+var tkNumber tokenKindType = tokenKindType{4}
+var tkOperator tokenKindType = tokenKindType{5}
+var tkEnd tokenKindType = tokenKindType{6}
 
 var kindToString = []string{
-	"error",
-	"newline",
-	"symbol",
-	"string",
-	"number",
-	"operator",
+	"tkError",
+	"tkNewline",
+	"tkSymbol",
+	"tkString",
+	"tkNumber",
+	"tkOperator",
 	"EOF",
 }
 
-// Lexer states
-const (
-	stInError = iota
-	stInWhite
-	stInSymbol
-	stInString
-	stInNumber
-	stInOperator
-	stEnd
-)
-
-var lexerState = stInWhite
-
 type token struct {
 	tokenText string
-	tokenKind int
+	tokenKind tokenKindType
 }
 
 func (t *token) String() string {
-	return fmt.Sprintf("{%s %s}", kindToString[t.tokenKind], t.tokenText)
+	s := t.tokenText
+	if s == "\n" {
+		s = "\\n"
+	}
+	return fmt.Sprintf("{%s %s}", kindToString[t.tokenKind.k], s)
 }
 
 func (t *token) text() string {
@@ -121,7 +100,7 @@ func (t *token) text() string {
 }
 
 func (t *token) kind() int {
-	return t.tokenKind
+	return t.tokenKind.k
 }
 
 var eofToken = token{"EOF", tkEnd}
@@ -149,7 +128,7 @@ var nlToken = token{"\n", tkNewline}
 // 2. Single-character tokens. A few characters like equals, comma, semicolon (and
 // maybe others over time) form tokens and can therefore act as delimiters for symbols.
 // So foo=bar is accepted as is foo = bar and foo "bar". Newlines are also returned as
-// a separate token which the caller may choose to treat as whitesspace or a delimiter.
+// a separate token which the caller may choose to treat as whitespace or a delimiter.
 //
 // 3. Quoted strings. These are surrounded by double quotes. Double quotes do not
 // serve as single-character tokens for purposes of terminating a symbol, so a
@@ -157,6 +136,13 @@ var nlToken = token{"\n", tkNewline}
 // a sequence like foo="bar" legal given that "=" is a valid single-character token.
 // Newlines are never allowed in strings. Maybe add a multiline string deliminter in
 // the future if needed.
+//
+// EOF is not equivalent to whitespace; a token won't be recognized if it's terminated
+// by end of file without a newline (or tab or space). The language doesn't even have
+// constant expressions, so the small set of "operator" characters are more like
+// punctuation than arithment operators. Comments ("# ...") are terminated by newlines
+// and must be preceded by whitespace, which is usually desirable for readability
+// anyway.
 //
 // And for the initial version of the lexer, that's it.
 
@@ -183,6 +169,11 @@ func getToken(gs *globalState) *token {
 		}
 
 		switch lexerState {
+		case stInError, stInComment:
+			if b == NL {
+				lexerState = stInWhite
+				return &nlToken
+			}
 		case stInWhite:
 			if len(accumulator) != 0 {
 				log.Fatalf("token accumulator not empty between tokens: %s\n", accumulator)
@@ -192,7 +183,9 @@ func getToken(gs *globalState) *token {
 				// caller may implement a line-oriented higher level syntax
 				return &nlToken
 			}
-			if isWhiteSpaceChar(b) {
+			if b == COMMENT {
+				lexerState = stInComment
+			} else if isWhiteSpaceChar(b) {
 				// move along, nothing to see here
 			} else if isDigitChar(b) {
 				accumulator = append(accumulator, b)
@@ -201,29 +194,97 @@ func getToken(gs *globalState) *token {
 				accumulator = append(accumulator, b)
 				lexerState = stInSymbol
 			} else if isQuoteChar(b) {
-				//accumulator = append(accumulator, b)
+				// we do not capture the quotes in the result
 				lexerState = stInString
 			} else if isOperatorChar(b) {
 				accumulator = append(accumulator, b)
 				lexerState = stInOperator
+			} else {
+				msg := fmt.Sprintf("character 0x%02x (%c) unexpected", b, rune(b))
+				lexerState = stInError
+				return &token{msg, tkError}
 			}
 		case stInSymbol:
 			if len(accumulator) == 0 {
 				log.Fatalln("token accumulator empty in symbol")
 			}
-			if isWhiteSpaceChar(b) {
+			if isWhiteSpaceChar(b) || isOperatorChar(b) {
 				lexerState = stInWhite
 				result := &token{string(accumulator), tkSymbol}
 				accumulator = nil
+				// Even for whitespace, we need to push it back
+				// and process it next time we're called because
+				// it might be a newline, which gets returned as
+				// a separate token while still being white space.
+				gs.reader.unreadByte(b)
 				return result
+			} else if isSymbolChar(b) {
+				accumulator = append(accumulator, b)
+			} else {
+				msg := fmt.Sprintf("character 0x%02x (%c) unexpected", b, rune(b))
+				lexerState = stInError
+				return &token{msg, tkError}
+			}
+		case stInString:
+			if isQuoteChar(b) {
+				// Changing to InWhite here means a symbol or something
+				// can come after a quoted string without any actual
+				// white space. Wrong, but not worth fixing (also, the
+				// caller may separately demand that e.g. builtin symbols
+				// be preceded by a newline and optional whitespace, etc.)
+				lexerState = stInWhite
+				result := &token{string(accumulator), tkString}
+				accumulator = nil
+				return result
+			} else if b == NL {
+				lexerState = stInError
+				return &token{"newline in string", tkError}
 			} else {
 				accumulator = append(accumulator, b)
 			}
-		case stInString:
 		case stInNumber:
-
+			// We get into the number state when we see a digit 0-9. When
+			// in the number state, we accumulate any digit, a-f, A-F, x,
+			// or X. Then at the end we apply all the validity tests.
+			if isDigitChar(b) || isHexLetter(b) || isX(b) {
+				accumulator = append(accumulator, b)
+			} else if isWhiteSpaceChar(b) || isOperatorChar(b) {
+				if !validNumber(accumulator) {
+					// FIXME report an error
+				}
+				result := &token{string(accumulator), tkNumber}
+				accumulator = nil
+				lexerState = stInWhite
+				if isOperatorChar(b) {
+					lexerState = stInOperator
+				}
+				return result
+			} else {
+				msg := fmt.Sprintf("character 0x%02x (%c) unexpected in number", b, rune(b))
+				lexerState = stInError
+				return &token{msg, tkError}
+			}
+			// FIXME TODO
 		}
 	}
+}
+
+func validNumber(num []byte) bool {
+	isHex := false
+	digitOffset := 0
+	if len(num) > 2 && num[0] == byte('0') && isX(num[1]) {
+		isHex = true
+		digitOffset = 2
+	}
+	for i := digitOffset; i < len(num); i++ {
+		switch { // no fallthrough in Go
+		case isDigitChar(num[i]): // OK
+		case isHex && isHexLetter(num[i]): // OK
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func isWhiteSpaceChar(b byte) bool {
@@ -232,6 +293,20 @@ func isWhiteSpaceChar(b byte) bool {
 
 func isDigitChar(b byte) bool {
 	return b >= '0' && b <= '9'
+}
+
+func isHexLetter(b byte) bool {
+	switch {
+	case b >= 'A' && b <= 'F':
+		return true
+	case b >= 'a' && b <= 'f':
+		return true
+	}
+	return false
+}
+
+func isX(b byte) bool {
+	return b == 'x' || b == 'X'
 }
 
 func isQuoteChar(b byte) bool {
@@ -268,4 +343,14 @@ func isSymbolChar(b byte) bool {
 		return true
 	}
 	return false
+}
+
+// A single run of yasm involves a single lexer reading
+// a single logical stream, so there's no mileage in the
+// lexer being an instance. But the tests need to create
+// a bunch of lexers in a single process, so need a way
+// to reset the state.
+
+func reinitLexer() {
+	lexerState = stInWhite
 }

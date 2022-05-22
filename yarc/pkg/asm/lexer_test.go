@@ -25,9 +25,39 @@ import (
 )
 
 func TestLexer1(t *testing.T) {
+	reinitLexer()
 	data := ".symbol\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	tk := getToken(gs)
 	assert.Equal(t, tkSymbol, tk.tokenKind)
 	assert.Equal(t, data[:len(data)-1], tk.tokenText)
+}
+
+func TestLexer2(t *testing.T) {
+	reinitLexer()
+	data := ".sym\"bol\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	tk := getToken(gs)
+	assert.Equal(t, tkError, tk.tokenKind)
+	assert.Equal(t, "character 0x22 (\") unexpected", tk.tokenText)
+}
+
+func TestLexer3(t *testing.T) {
+	reinitLexer()
+	data := ".aSymbol \"and a string\"\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	tk := getToken(gs)
+	assert.Equal(t, tkSymbol, tk.tokenKind)
+	assert.Equal(t, ".aSymbol", tk.tokenText)
+	tk = getToken(gs)
+	assert.Equal(t, tkString, tk.tokenKind)
+	assert.Equal(t, "and a string", tk.tokenText)
+}
+
+func TestLexer4(t *testing.T) {
+	reinitLexer()
+	data := "# .symbol\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	tk := getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
 }

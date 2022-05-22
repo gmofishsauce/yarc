@@ -17,15 +17,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package asm
 
-import (
-	"log"
-)
-
 // action func for the .set builtin
 func actionSet(gs *globalState) {
-	log.Printf("actionSet(%v)\n", gs)
-	token := getToken(gs)
-	log.Printf("token: %v\n", token)
+	//name := getToken(gs)
 }
 
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)

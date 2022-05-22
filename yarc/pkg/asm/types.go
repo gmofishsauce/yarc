@@ -67,7 +67,7 @@ func (br *nameLineByteReader) ReadByte() (byte, error) {
 }
 
 func (br *nameLineByteReader) String() string {
-	return fmt.Sprintf("at %s:%d", br.name(), br.line())
+	return fmt.Sprintf("%s:%d", br.name(), br.line())
 }
 
 // stackingNameLineByteReader wraps a stack of nameLineByteReaders.
@@ -185,14 +185,14 @@ func (sbr *stackingNameLineByteReader) unreadByte(b byte) error {
 // lines, but not before the first line nor ater the last line of the backtrace.
 func (sbr *stackingNameLineByteReader) String() string {
 	if sbr.atEOF || sbr.peek() == nil {
-		return "at end of input"
+		return "(end of input)"
 	}
 	var result strings.Builder
 	for i := len(sbr.elements) - 1; i >= 0; i-- {
 		nlbr := sbr.elements[i]
 		result.WriteString(nlbr.String())
 		if i > 0 {
-			result.WriteRune(rune(NL))
+			result.WriteString("; ")
 		}
 	}
 	return result.String()

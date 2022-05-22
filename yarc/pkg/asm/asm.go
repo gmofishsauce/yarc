@@ -69,31 +69,63 @@ package asm
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func Assemble(sourceFile string) {
 	log.SetFlags(log.Lmsgprefix | log.Lmicroseconds)
 	log.SetPrefix("asm: ")
-	log.Printf("assemble main source file %s\n", sourceFile)
+	log.Printf("main source file %s\n", sourceFile)
 
 	f, err := os.Open(sourceFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	state := newGlobalState(bufio.NewReader(f), sourceFile)
-	process(state)
+	gs := newGlobalState(bufio.NewReader(f), sourceFile)
+	process(gs)
 	log.Println("done")
 }
 
-func process(state *globalState) {
-	log.Printf("process %v\n", state)
-	t := getToken(state)
-	keySymbol, ok := state.symbols[t.text()]
-	if !ok {
-		log.Printf("%s: expected key symbol\n", t.text())
+func process(gs *globalState) {
+	for {
+		t := getToken(gs)
+		log.Printf("process: token %s\n", t)
+
+		switch t.tokenKind {
+		case tkEnd:
+			return
+		case tkNewline:
+			break
+		case tkError:
+			log.Printf("error: %s\n", t.tokenText)
+		case tkSymbol:
+			if t.tokenText[0] != DOT {
+				errMsg(gs, "key symbol expected")
+				break
+			}
+			keySymbol, ok := gs.symbols[t.text()]
+			if !ok {
+				errMsg(gs, "key symbol expected")
+				break
+			}
+			if keySymbol.symbolAction == nil {
+				errMsg(gs, "internal error: key symbol has no action")
+				break
+			}
+			keySymbol.action(gs)
+		default:
+			errMsg(gs, "unexpected token %s", t)
+		}
 	}
-	keySymbol.action(state)
+}
+
+func errMsg(gs *globalState, format string, args ...interface{}) {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("error [%s]: ", gs.reader))
+	sb.WriteString(fmt.Sprintf(format, args...))
+	log.Println(sb.String())
 }

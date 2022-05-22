@@ -146,7 +146,7 @@ func TestToString1(t *testing.T) {
 	sbr.push(newNameLineByteReader("world-reader", sr))
 	sr = strings.NewReader("hello")
 	sbr.push(newNameLineByteReader("hello-reader", sr))
-	expected := "at hello-reader:1\nat world-reader:1"
+	expected := "hello-reader:1; world-reader:1"
 	assert.Equal(t, expected, sbr.String())
 }
 
