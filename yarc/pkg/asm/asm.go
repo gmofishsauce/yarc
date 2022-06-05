@@ -29,7 +29,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 //
 // The language is intended to be regular, i.e. requiring only lexical scanning
 // with no real parser. A small number of symbols ("builtins") are provided
-// by the implementation and have complex behaviors defined in this Go code.
+// by this implementation and have complex behaviors defined in this Go code.
 // Names of builtins begin with a dot, e.g. ".set", ".opcode", etc. The builtin
 // symbols are used to define other symbols, such as assembly language mnemonics,
 // in a sort of bootstrapping process leading to a language that can be used to
@@ -95,6 +95,14 @@ func process(gs *globalState) {
 		t := getToken(gs)
 		log.Printf("process: token %s\n", t)
 
+		// The main loop of the assembler serves only to identify a symbol
+		// at the start or a line and turn processing over to that symbol's
+		// action function. When the action function is called, the tokenizer
+		// is between the key symbol and whatever comes next. The action func
+		// then defines the sequences of tokens it will accept, consumes them,
+		// and makes some change(s) to the global state (or reports an error)
+		// before returning here.
+
 		switch t.tokenKind {
 		case tkEnd:
 			return
@@ -103,10 +111,10 @@ func process(gs *globalState) {
 		case tkError:
 			log.Printf("error: %s\n", t.tokenText)
 		case tkSymbol:
-			if t.tokenText[0] != DOT {
-				errMsg(gs, "key symbol expected")
-				break
-			}
+			// if t.tokenText[0] != DOT {
+			// 	errMsg(gs, "key symbol expected")
+			// 	break
+			// }
 			keySymbol, ok := gs.symbols[t.text()]
 			if !ok {
 				errMsg(gs, "key symbol expected")
@@ -116,7 +124,9 @@ func process(gs *globalState) {
 				errMsg(gs, "internal error: key symbol has no action")
 				break
 			}
-			keySymbol.action(gs)
+			if err := keySymbol.action(gs); err != nil {
+				errMsg(gs, err.Error())
+			}
 		default:
 			errMsg(gs, "unexpected token %s", t)
 		}

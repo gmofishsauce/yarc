@@ -203,7 +203,7 @@ func (sbr *stackingNameLineByteReader) String() string {
 // Symbols defined during the run have action functions defined by the symbol may use the
 // symbol value and act on the global state, for example pushing a byte reader that results
 // in the lexer consuming the symbol's value.
-type actionFunc func(gs *globalState)
+type actionFunc func(gs *globalState) error
 
 // symbol has a name, arbitrary data e.g. a value, and an action function
 type symbol struct {
@@ -226,8 +226,8 @@ func (s *symbol) data() interface{} {
 
 // Execute the symbol's action. The action will typically (but
 // not necessarily) consume from the scanState and act on it
-func (s *symbol) action(gs *globalState) {
-	s.symbolAction(gs)
+func (s *symbol) action(gs *globalState) error {
+	return s.symbolAction(gs)
 }
 
 // symbolTable is the global symbol table for an execution of yasm.

@@ -176,6 +176,7 @@ namespace PortPrivate {
   constexpr REGISTER_ID MachineControlRegisterInput = MCR_INPUT;
 
   // Register IDs on high decoder need bit 3 set
+  constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_0);
   constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
   constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
   constexpr REGISTER_ID DisplayRegister = (DECODER_SELECT_MASK|DISP_CLK);
@@ -287,64 +288,95 @@ void clockOneState() {
 
 inline void postPanic(byte n) { panic(PANIC_POST|n); }
 inline byte BYTE(int n) { return n&0xFF; } // XXX probably not the right way to solve this problem?
-  
-void postInit() { // Power On Self Test and YARC initialization
 
+// Power on self test and initialization. Startup will hang if this function returns false.
+bool postInit() {
+  
   // The panic below normally displays 0xF7 after power on. It could be 0xB7 if the service request
   // flip-flop came up cleared at power on, but it normally seems to come up set. The hardware doesn't
   // guarantee an initialization value for it, because it doesn't matter - we just clear it, below.
   // panic(getMCR());
-  // return;
+  // return false;
   
   byte postMcrInitialValue = getMCR();
   if (postMcrInitialValue & PortPrivate::MCR_BIT_POR_SENSE) {
     // A soft reset from the host opening the serial port.
-    return;
+    // We only run this code after a hard init (power cycle).
+    return true;
   }
 
   // Looks like an actual power on reset.
-  // All MCR bits are active-low or doesn't matter; set inactive.
 
   setMCR(0xFF & ~PortPrivate::MCR_BIT_YARC_NANO_L);
 
-  // XXX temporary test of setting and resetting the service
-  // request flip-flop. Only hit on POR, not soft resets.
-  for(;;) {
-    setCCRH(0);
-    setCCRL(0);
-    setOCRH(0xFF);
-    setOCRL(0xFF);
-    clockOneState();
+  // Set and reset the Service Request flip-flop a few times.
+  for(int i = 0; i < 10; ++i) {
     PortPrivate::togglePulse(PortPrivate::ResetService);
+    if ((getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) != 0) {
+      postPanic(1);
+      return false;
+    }
+    
     setCCRH(0x7F); // 0xFF would be a read
-    setCCRL(0xF0); // FFF0 or FFF1 sets the flip-flop
-    setOCRH(0x00);
+    setCCRL(0xF0); // 7FF0 or 7FF1 sets the flip-flop
+    setOCRH(0x00); // The data doesn't matter
     setOCRL(0xFF);
-    clockOneState();
+    clockOneState(); // set service
+
+    if ((getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) == 0) {
+      postPanic(2);
+      return false;
+    }
   }
   
   // Now reset the "request service" flip-flop from the YARC so we
   // don't later see a false service request.
   PortPrivate::togglePulse(PortPrivate::ResetService);
 
-  // The test below amounts to checking for 0xB7 (1011 0111)
   // panic(getMCR());
-  // return;
+  // return false;
 
-  if (getMCR() != BYTE(~(PortPrivate::MCR_BIT_POR_SENSE | PortPrivate::MCR_BIT_SERVICE_STATUS))) {
-    postPanic(1);
-    return;
+  // The RHS expression amounts to 0x97
+  if (getMCR() != BYTE(~(PortPrivate::MCR_BIT_POR_SENSE | PortPrivate::MCR_BIT_SERVICE_STATUS | PortPrivate::MCR_BIT_YARC_NANO_L))) {
+    postPanic(3);
+    return false;
   }
 
+  // TODO whatever other POR stuff here
+  // For now, cycle through a sequence of addresses, pulsing unused MCR bit 0
+  // each change to provide a sync pulse for the scope.
+
+  for(;;) {
+    setCCRH(0x00);
+    setCCRL(0x00);
+    PortPrivate::togglePulse(PortPrivate::ScopeSync);
+    clockOneState();
+
+    setCCRH(0x00);
+    setCCRL(0x01);
+    PortPrivate::togglePulse(PortPrivate::ScopeSync);
+    clockOneState();
+
+    setCCRH(0x40);
+    setCCRL(0x00);
+    PortPrivate::togglePulse(PortPrivate::ScopeSync);
+    clockOneState();
+
+    setCCRH(0x40);
+    setCCRL(0x01);
+    PortPrivate::togglePulse(PortPrivate::ScopeSync);
+    clockOneState();
+  }
+  
   // And now we'd better still in the /POR
   // state, or we're screwed.
 
    if (getMCR() & PortPrivate::MCR_BIT_POR_SENSE) {
     // Trouble, /POR should be low right now.
     // We are locked out from the bus, give up.
-    postPanic(2);
-    return;
+    postPanic(4);
+    return false;
   }
 
-  
+  return true;
 }

@@ -62,7 +62,11 @@ void InitTasks() {
     }
   }
   
-  postInit(); // power on self test and initialization
+  if (!postInit()) { // power on self test and initialization
+    for(;;) {
+      ; // POST failed - stuck until power cycle
+    }
+  }
 }
 
 void RunTasks() {

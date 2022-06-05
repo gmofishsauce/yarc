@@ -61,3 +61,48 @@ func TestLexer4(t *testing.T) {
 	tk := getToken(gs)
 	assert.Equal(t, tkNewline, tk.tokenKind)
 }
+
+func TestLexer5(t *testing.T) {
+	reinitLexer()
+	data := "10\n0x10\n0X3F\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+
+	tk := getToken(gs)
+	assert.Equal(t, tkNumber, tk.tokenKind)
+	assert.Equal(t, "10", tk.text())
+	tk = getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
+
+	tk = getToken(gs)
+	assert.Equal(t, tkNumber, tk.tokenKind)
+	assert.Equal(t, "0x10", tk.text())
+	tk = getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
+
+	tk = getToken(gs)
+	assert.Equal(t, tkNumber, tk.tokenKind)
+	assert.Equal(t, "0X3F", tk.text())
+	tk = getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
+}
+
+func TestLexer6(t *testing.T) {
+	reinitLexer()
+	data := "1x0\n0xxxx10\n3F\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+
+	tk := getToken(gs)
+	assert.Equal(t, tkError, tk.tokenKind)
+	tk = getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
+
+	tk = getToken(gs)
+	assert.Equal(t, tkError, tk.tokenKind)
+	tk = getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
+
+	tk = getToken(gs)
+	assert.Equal(t, tkError, tk.tokenKind)
+	tk = getToken(gs)
+	assert.Equal(t, tkNewline, tk.tokenKind)
+}

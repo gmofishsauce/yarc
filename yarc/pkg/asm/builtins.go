@@ -17,9 +17,47 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package asm
 
+import (
+	"fmt"
+	"log"
+	"strings"
+)
+
 // action func for the .set builtin
-func actionSet(gs *globalState) {
-	//name := getToken(gs)
+func actionSet(gs *globalState) error {
+	name := getToken(gs)
+	if name.kind() != tkSymbol {
+		return fmt.Errorf(".set: expected symbol, found \"%s\"", name)
+	}
+	val := getToken(gs)
+	if val.kind() != tkNumber && val.kind() != tkString && val.kind() != tkSymbol {
+		return fmt.Errorf(".set: expected value, found \"%s\"", val)
+	}
+	// The value of a symbol cannot contain a dot. This prevents redefining
+	// the builtin symbols as the values of other symbols. Also, symbols cannot
+	// be redefined.
+	if strings.Contains(val.text(), ".") {
+		return fmt.Errorf(".set: value may not contain a dot")
+	}
+	if _, ok := gs.symbols[name.text()]; ok {
+		return fmt.Errorf(".set: symbol may not be redefined: \"%s\"", name)
+	}
+	log.Printf("create symbol %s value [%s]\n", name.text(), val.text())
+	gs.symbols[name.text()] = newSymbol(name.text(), val.tokenText,
+		func(gs *globalState) error { return expand(gs, name.text()) })
+	log.Println("done with actionSet")
+	return nil
+}
+
+// Push the value of the named symbol on the reader stack
+func expand(gs *globalState, symToExpand string) error {
+	val, ok := gs.symbols[symToExpand]
+	if !ok {
+		return fmt.Errorf("internal error: unable to expand symbol \"%s\"", symToExpand)
+	}
+	s := fmt.Sprintf("%s", val.symbolData)
+	gs.reader.push(newNameLineByteReader(symToExpand, strings.NewReader(s)))
+	return nil
 }
 
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
