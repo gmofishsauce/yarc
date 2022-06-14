@@ -192,12 +192,8 @@ namespace PortPrivate {
   constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
   constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
 
-  // I wrote a nice clean modular version of this, and observed 28uSec
-  // between the two pulses. This version improves that to 9uSec.
   void internalClockOneState() {
     putPort(portSelect, RAW_NANO_CLK);
-    digitalWrite(PIN_SELECT_8_15, HIGH);
-    digitalWrite(PIN_SELECT_8_15, LOW);
     digitalWrite(PIN_SELECT_8_15, HIGH);
     digitalWrite(PIN_SELECT_8_15, LOW);
   }
@@ -342,30 +338,74 @@ bool postInit() {
     return false;
   }
 
-  // TODO whatever other POR stuff here
-  // For now, cycle through a sequence of addresses, pulsing unused MCR bit 0
-  // each change to provide a sync pulse for the scope.
+//  byte t;
+//  
+//  for (;;) {
+//    t = 0;
+//    for(int i = 0; i < 256; ++i) {
+//      setCCRH(0x00);
+//      setCCRL(t);
+//      setOCRL(t + 37);
+//      clockOneState();
+//      t++;
+//    }
+//
+//    t = 0;
+//    for(int i = 0; i < 256; ++i) {
+//      setCCRH(0x80);
+//      setCCRL(t);
+//      clockOneState();
+//      
+//      byte check = getBIR();
+//      setDisplay(check);
+//      //if (check != t + 37) {
+//      //  panic(check);
+//      //}
+//      delay(50);
+//      t++;
+//    }
+//  }
 
-  for(;;) {
-    setCCRH(0x00);
-    setCCRL(0x00);
-    PortPrivate::togglePulse(PortPrivate::ScopeSync);
-    clockOneState();
+  setCCRH(0x00);
+  setCCRL(0x00);
+  setOCRL('j' & 0xEF);
+  clockOneState();
 
-    setCCRH(0x00);
-    setCCRL(0x01);
-    PortPrivate::togglePulse(PortPrivate::ScopeSync);
-    clockOneState();
+  setCCRL(0x01);
+  setOCRL('e' & 0xEF);
+  clockOneState();
 
-    setCCRH(0x40);
-    setCCRL(0x00);
-    PortPrivate::togglePulse(PortPrivate::ScopeSync);
-    clockOneState();
+  setCCRL(0x02);
+  setOCRL('f' & 0xEF);
+  clockOneState();
 
-    setCCRH(0x40);
-    setCCRL(0x01);
-    PortPrivate::togglePulse(PortPrivate::ScopeSync);
-    clockOneState();
+  setCCRL(0x03);
+  setOCRL('f' & 0xEF);
+  clockOneState();
+
+  setCCRH(0x80);
+  setCCRL(0x00);
+  clockOneState();
+  if (getBIR() != ('j' & 0xEF)) {
+    postPanic(0x0A);
+  }
+
+  setCCRL(0x01);
+  clockOneState();
+  if (getBIR() != ('e' & 0xEF)) {
+    postPanic(0x0B);
+  }
+  
+  setCCRL(0x02);
+  clockOneState();
+  if (getBIR() != ('f' & 0xEF)) {
+    postPanic(0x0C);
+  }
+  
+  setCCRL(0x03);
+  clockOneState();
+  if (getBIR() != ('f' & 0xEF)) {
+    postPanic(0x0D);
   }
   
   // And now we'd better still in the /POR
