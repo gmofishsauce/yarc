@@ -59,7 +59,7 @@ data value, etc.
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
 | 0x0000 - 0x7FFE (even) | CALL | target | Call self-address |
-| 0x0001 - 0x7FFF (odd) | JUMP | target | Jump to self-address |
+| 0x0001 - 0x7FFF (odd) | JUMP | target | Jump to self-address - 1 |
 
 ### ALU operations
 
@@ -101,7 +101,6 @@ in the same cycle as the ALU operation (multiply step).
 
 ### Conditional branches
 
-
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
 | 0x9FLB | BR       | flags, offset | Branch on flags matching F to offset LB  |
@@ -121,8 +120,8 @@ branch offset in 16-bit instruction words from -128 through 127.
 | 0xA5xx | POPPSP   | --, --, d    | pop PSP to d (d is a general register only) |
 | 0xA6xx | PUSHRSP  | s1, --, --   | push s1 to RSP |
 | 0xA7xx | POPRSP   | --, --, d    | pop RSP to d (d is a general register only) |
-| 0xA8IM - 0x9BIM | MV immed8, r(N - 8)  | immediate value, register | sign extended byte IM to r0 - r3 low byte |
-| 0xACIM - 0x9FIM | MV immed16, r(N - 12) | immediate value, register | 16-bit word to r0 - r3 |
+| 0xANIM - 0xANIM | MV immed8, r(N - 8)  | immediate value, register | sign extended byte IM to r0 - r3 low byte |
+| 0xAN00 - 0xAN00 0xIMIM | MV immed16, r(N - 12) | immediate value, register | 16-bit word to r0 - r3 |
 
 ### Special instructions
 
