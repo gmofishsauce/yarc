@@ -13,7 +13,7 @@
 // implement a (slightly) better solution.
 //
 // We have two kinds of files: _decls files which contain only forward
-// declarations of functions intended to be public and _task files
+// declarations of functions intended to be public, and _task files
 // containing code. Each task file may define a C++11 namespace
 // conventionally named TaskPrivate, e.g. SerialPrivate, etc., for
 // its private functions and data. The task's public methods must

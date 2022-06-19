@@ -75,7 +75,7 @@ fields, each two or three bits.
 | 0x84LB | SBB | src1, src2, dst | src1 - src2 - c => dst, operands in LB |
 | 0x85LB | RSBB | src1, src2, dst | src2 - src1 - c => dst, operands in LB |
 | 0x86LB | NAND | src1, src2, dst | src1 & ~src2 => dst, operands in LB |
-| 0x87LB | OR | src1, src2, dst | src1 | src2 => dst, operands in LB |
+| 0x87LB | OR | src1, src2, dst | src1 OR src2 => dst, operands in LB |
 | 0x88LB | NOT | src1, src2, dst | ~src1 => dst, operands in LB |
 | 0x89LB | XOR | src1, src2, dst | src1 ^ src2 => dst, operands in LB |
 | 0x8ALB | TBD | src1, src2, dst | ALU operation 10 (TBD), operands in LB |
@@ -85,20 +85,71 @@ fields, each two or three bits.
 | 0x8ELB | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
 | 0x8FLB | TBD | src1, src2, dst | ALU operation 15 (TBD), operands in LB |
 
+The low byte (LB) of the instruction is interpreted from most significant
+to least significant as a 2-bit _source1_ field in the two MS bits, a 3-bit
+_source2_ field, and a 3-bit _destination_ field in the 3 LS bits.
+
+The source1 field selects one of 4 general registers to the first of the two ALU
+inputs. The source2 field selects either one of 4 general registers (0..3)
+or one of four small constant registers (-2, -1, 1, or 2 encoded by the values
+4..7) to the second ALU input. Finally, the 3-bit destination field selects
+either a write to one of the four general register (0..3) or no write (4..7).
+
+So for now, bit 2 (0x04) functions as a write enable. This "no write" case may
+be replaced in the future by a write of a left shift by one bit that occurs
+in the same cycle as the ALU operation (multiply step).
+
 ### Conditional branches
 
-TODO
+
+| Opcode | Mnemonic | Operands | Notes |
+| :----- | :------: | :------- | :---- |
+| 0x9FLB | BR       | flags, offset | Branch on flags matching F to offset LB  |
+
+The value of F matches on any combination of the four ALU flags set and LB is the
+branch offset in 16-bit instruction words from -128 through 127.
 
 ### Move and push instructions
 
-TODO
+| Opcode | Mnemonic | Operands     | Notes |
+| :----- | :------: | :-------     | :---- |
+| 0xA0xx | MV       | s1, --, d    | register to register move |
+| 0xA1xx | MV       | (s1), --, d  | memory to register move, memory address in s1, s1 in 0..3 |
+| 0xA2xx | MV       | s1, --, (d)  | register to memory move |
+| 0xA3xx | TBD      | none         | unassigend |
+| 0xA4xx | PUSHPSP  | s1, --, --   | push s1 to PSP |
+| 0xA5xx | POPPSP   | --, --, d    | pop PSP to d (d is a general register only) |
+| 0xA6xx | PUSHRSP  | s1, --, --   | push s1 to RSP |
+| 0xA7xx | POPRSP   | --, --, d    | pop RSP to d (d is a general register only) |
+| 0xA8IM - 0x9BIM | MV immed8, r(N - 8)  | immediate value, register | sign extended byte IM to r0 - r3 low byte |
+| 0xACIM - 0x9FIM | MV immed16, r(N - 12) | immediate value, register | 16-bit word to r0 - r3 |
 
 ### Special instructions
 
-TODO
+| Opcode | Mnemonic | Operands     | Notes |
+| :----- | :------: | :-------     | :---- |
+| 0xB000 | PUSHF    |              | Push flags to RSP|
+| 0xB100 | POPF     |              | Pop flags from RSP |
+| 0xB200 | RET      |              | Return (PC from RSP |
+| 0xB300 | RTI      |              | Return from interrupt |
+| 0xB400 | EI       |              | Enable interrupts |
+| 0xB500 | DI       |              | Disable interrupts |
+| 0xB6NN | INT      | NN - value   | R0 := value; interrupt |
+| 0xB700 | TBD      | unknown      | unassigned |
+| 0xB800 | TBD      |              |       |
+| 0xB900 | TBD      |              |       |
+| 0xBA00 | TBD      |              |       |
+| 0xBB00 | TBD      |              |       |
+| 0xBC00 | TBD      |              |       |
+| 0xBD00 | TBD      |              |       |
+| 0xBE00 | TBD      |              |       |
+| 0xBF00 | TBD      |              |       |
 
 ### Microcoded FORTH primitive instructions
 
-TODO
+| Opcode | Mnemonic | Operands     | Notes |
+| :----- | :------: | :-------     | :---- |
+| 0xC0BB - | TBD   | BB - unknown  | unassigned |
+| 0xFFBB   | TBD   | BB - unknown  | unassigned
 
 

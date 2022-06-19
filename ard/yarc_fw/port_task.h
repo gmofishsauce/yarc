@@ -41,7 +41,6 @@ namespace PortPrivate {
   typedef const byte PinList[];
   
   PinList portData   = {5, 6, 7, 8, 9, 10, 11, 12, NOT_PIN};
-  // PinList portData   = {12, 11, 10, 9, 8, 7, 6, 5, NOT_PIN};
   PinList portSelect = {14, 15, 16, NOT_PIN};
   
   // Write the bits of value to the port pins.
@@ -192,7 +191,7 @@ namespace PortPrivate {
   constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
   constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
 
-  void internalClockOneState() {
+  void internalSingleClock() {
     putPort(portSelect, RAW_NANO_CLK);
     digitalWrite(PIN_SELECT_8_15, HIGH);
     digitalWrite(PIN_SELECT_8_15, LOW);
@@ -231,22 +230,22 @@ void freezeDisplay(byte b) {
   PortPrivate::displayIsFrozen = 1;
 }
 
-// Public interface to the 4 write-only bus registers:
-// Ctl Cycle Register High, CCR low, Op Cycle High (OCRH), Low
+// Public interface to the 4 write-only bus registers: setAH
+// (address high), AL, DH (data high), DL.
 
-void setCCRH(byte b) {
+void setAH(byte b) {
   PortPrivate::setRegister(PortPrivate::CtlCycleRegisterHigh, b);
 }
 
-void setCCRL(byte b) {
+void setAL(byte b) {
   PortPrivate::setRegister(PortPrivate::CtlCycleRegisterLow, b);  
 }
 
-void setOCRH(byte b) {
+void setDH(byte b) {
   PortPrivate::setRegister(PortPrivate::OpCycleRegisterHigh, b);
 }
 
-void setOCRL(byte b) {
+void setDL(byte b) {
   PortPrivate::setRegister(PortPrivate::OpCycleRegisterLow, b);
 }
 
@@ -268,8 +267,8 @@ void setMCR(byte b) {
   PortPrivate::setRegister(PortPrivate::MachineControlRegister, b);
 }
 
-void clockOneState() {
-  PortPrivate::internalClockOneState();
+void singleClock() {
+  PortPrivate::internalSingleClock();
 }
 
 // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
@@ -313,11 +312,11 @@ bool postInit() {
       return false;
     }
     
-    setCCRH(0x7F); // 0xFF would be a read
-    setCCRL(0xF0); // 7FF0 or 7FF1 sets the flip-flop
-    setOCRH(0x00); // The data doesn't matter
-    setOCRL(0xFF);
-    clockOneState(); // set service
+    setAH(0x7F); // 0xFF would be a read
+    setAL(0xF0); // 7FF0 or 7FF1 sets the flip-flop
+    setDH(0x00); // The data doesn't matter
+    setDL(0xFF);
+    singleClock(); // set service
 
     if ((getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) == 0) {
       postPanic(2);
@@ -329,94 +328,66 @@ bool postInit() {
   // don't later see a false service request.
   PortPrivate::togglePulse(PortPrivate::ResetService);
 
-  // panic(getMCR());
-  // return false;
-
   // The RHS expression amounts to 0x97
   if (getMCR() != BYTE(~(PortPrivate::MCR_BIT_POR_SENSE | PortPrivate::MCR_BIT_SERVICE_STATUS | PortPrivate::MCR_BIT_YARC_NANO_L))) {
     postPanic(3);
     return false;
   }
 
-//  byte t;
-//  
-//  for (;;) {
-//    t = 0;
-//    for(int i = 0; i < 256; ++i) {
-//      setCCRH(0x00);
-//      setCCRL(t);
-//      setOCRL(t + 37);
-//      clockOneState();
-//      t++;
-//    }
-//
-//    t = 0;
-//    for(int i = 0; i < 256; ++i) {
-//      setCCRH(0x80);
-//      setCCRL(t);
-//      clockOneState();
-//      
-//      byte check = getBIR();
-//      setDisplay(check);
-//      //if (check != t + 37) {
-//      //  panic(check);
-//      //}
-//      delay(50);
-//      t++;
-//    }
-//  }
+  // Write and read the first 4 bytes
+  setAH(0x00);
+  setAL(0x00); setDL('j' & 0x7F); singleClock();
+  setAL(0x01); setDL('e' & 0x7F); singleClock();
+  setAL(0x02); setDL('f' & 0x7F); singleClock();
+  setAL(0x03); setDL('f' & 0x7F); singleClock();
 
-  setCCRH(0x00);
-  setCCRL(0x00);
-  setOCRL('j' & 0xEF);
-  clockOneState();
+  setAH(0x80);
+  setAL(0x00); singleClock();
+  if (getBIR() != ('j' & 0x7F)) { postPanic(0x0A); }
+  
+  setAL(0x01); singleClock();
+  if (getBIR() != ('e' & 0x7F)) { postPanic(0x0B); }
+  
+  setAL(0x02); singleClock();
+  if (getBIR() != ('f' & 0x7F)) { postPanic(0x0C); }
+  
+  setAL(0x03); singleClock();
+  if (getBIR() != ('f' & 0x7F)) { postPanic(0x0D); }
 
-  setCCRL(0x01);
-  setOCRL('e' & 0xEF);
-  clockOneState();
-
-  setCCRL(0x02);
-  setOCRL('f' & 0xEF);
-  clockOneState();
-
-  setCCRL(0x03);
-  setOCRL('f' & 0xEF);
-  clockOneState();
-
-  setCCRH(0x80);
-  setCCRL(0x00);
-  clockOneState();
-  if (getBIR() != ('j' & 0xEF)) {
-    postPanic(0x0A);
-  }
-
-  setCCRL(0x01);
-  clockOneState();
-  if (getBIR() != ('e' & 0xEF)) {
-    postPanic(0x0B);
+  // Write and read the first 256 bytes
+  setAH(0x00);
+  for (int j = 0; j < 256; ++j) {
+    setAL(BYTE(j)); setDL(BYTE(256 - j)); singleClock();
   }
   
-  setCCRL(0x02);
-  clockOneState();
-  if (getBIR() != ('f' & 0xEF)) {
-    postPanic(0x0C);
+  setAH(0x80);
+  for (int j = 0; j < 256; ++j) {
+    setAL(BYTE(j)); singleClock();
+    if (getBIR() != BYTE(256 - j)) { postPanic(0x0E); }
   }
-  
-  setCCRL(0x03);
-  clockOneState();
-  if (getBIR() != ('f' & 0xEF)) {
-    postPanic(0x0D);
-  }
-  
+
   // And now we'd better still in the /POR
   // state, or we're screwed.
 
    if (getMCR() & PortPrivate::MCR_BIT_POR_SENSE) {
     // Trouble, /POR should be low right now.
     // We are locked out from the bus, give up.
-    postPanic(4);
+    postPanic(5);
     return false;
   }
 
+  // // Write and read the entire 30k space
+  for (int i = 0; i < 0x7800; i++) {
+    setAH(BYTE(i >> 8)); setAL(BYTE(i & 0xFF));
+    setDL(BYTE(i & 0xFF)); singleClock();
+  }
+  for (int i = 0; i < 0x7800; i++) {
+    setAH(BYTE((i >> 8) | 0x80)); setAL(BYTE(i & 0xFF));
+    singleClock();
+    if (getBIR() != BYTE(i & 0xFF)) {
+      panic(BYTE((i >> 8) | 0x80));
+    }
+  }
+  
   return true;
 }
