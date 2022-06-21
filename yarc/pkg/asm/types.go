@@ -134,6 +134,18 @@ func (sbr *stackingNameLineByteReader) line() int {
 	return 0 // at EOF
 }
 
+XXX FIXME
+
+/*
+The unreadByte() and its corresponding functionality in ReadByte() must
+be implemented on the individual elements of the stacking reader, not on
+the stacking reader itself. Suppose a newline terminates a symbol and the
+newline is pushed back. Then the symbol's action function causes a push.
+The next read will read the pushed-back character rather then the pushed
+string. The pushed data needs to be stored on in the FileLineReader in the
+stack, not on the global stack.
+*/
+
 func (sbr *stackingNameLineByteReader) ReadByte() (byte, error) {
 	if sbr.atEOF {
 		return 0, io.EOF
@@ -236,8 +248,9 @@ type symbolTable map[string]*symbol
 // globalState is the state of the assembler. Only the lexer
 // has other private state.
 type globalState struct {
-	reader  *stackingNameLineByteReader
-	symbols symbolTable
+	reader     *stackingNameLineByteReader
+	lexerState lexerStateType
+	symbols    symbolTable
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {

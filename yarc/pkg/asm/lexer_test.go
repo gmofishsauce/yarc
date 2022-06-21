@@ -25,7 +25,6 @@ import (
 )
 
 func TestLexer1(t *testing.T) {
-	reinitLexer()
 	data := ".symbol\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	tk := getToken(gs)
@@ -34,7 +33,6 @@ func TestLexer1(t *testing.T) {
 }
 
 func TestLexer2(t *testing.T) {
-	reinitLexer()
 	data := ".sym\"bol\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	tk := getToken(gs)
@@ -43,7 +41,6 @@ func TestLexer2(t *testing.T) {
 }
 
 func TestLexer3(t *testing.T) {
-	reinitLexer()
 	data := ".aSymbol \"and a string\"\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	tk := getToken(gs)
@@ -55,7 +52,6 @@ func TestLexer3(t *testing.T) {
 }
 
 func TestLexer4(t *testing.T) {
-	reinitLexer()
 	data := "# .symbol\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	tk := getToken(gs)
@@ -63,7 +59,6 @@ func TestLexer4(t *testing.T) {
 }
 
 func TestLexer5(t *testing.T) {
-	reinitLexer()
 	data := "10\n0x10\n0X3F\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 
@@ -87,7 +82,6 @@ func TestLexer5(t *testing.T) {
 }
 
 func TestLexer6(t *testing.T) {
-	reinitLexer()
 	data := "1x0\n0xxxx10\n3F\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 

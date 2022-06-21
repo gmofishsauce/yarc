@@ -23,17 +23,13 @@ import (
 )
 
 func TestBuiltins1(t *testing.T) {
-	reinitLexer()
 	data := ".set foo bar\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	registerBuiltins(gs)
 	process(gs)
 }
 
 func TestBuiltins2(t *testing.T) {
-	reinitLexer()
-	data := ".set foo \"bar in the big blue house\"\nfoo\n"
+	data := ".set foo \"TROUBLE\"\nfoo\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	registerBuiltins(gs)
 	process(gs)
 }

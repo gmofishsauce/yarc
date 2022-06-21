@@ -111,10 +111,6 @@ func process(gs *globalState) {
 		case tkError:
 			log.Printf("error: %s\n", t.tokenText)
 		case tkSymbol:
-			// if t.tokenText[0] != DOT {
-			// 	errMsg(gs, "key symbol expected")
-			// 	break
-			// }
 			keySymbol, ok := gs.symbols[t.text()]
 			if !ok {
 				errMsg(gs, "key symbol expected")

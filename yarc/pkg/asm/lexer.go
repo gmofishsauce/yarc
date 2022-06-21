@@ -48,16 +48,14 @@ type lexerStateType struct {
 	s int
 }
 
-var stInError lexerStateType = lexerStateType{0}
-var stBetween lexerStateType = lexerStateType{1}
+var stBetween lexerStateType = lexerStateType{0}
+var stInError lexerStateType = lexerStateType{1}
 var stInSymbol lexerStateType = lexerStateType{2}
 var stInString lexerStateType = lexerStateType{3}
 var stInNumber lexerStateType = lexerStateType{4}
 var stInOperator lexerStateType = lexerStateType{5}
 var stInComment lexerStateType = lexerStateType{6}
 var stEnd lexerStateType = lexerStateType{7}
-
-var lexerState lexerStateType = stBetween
 
 // Token kinds
 
@@ -104,8 +102,8 @@ func (t *token) kind() tokenKindType {
 	return t.tokenKind
 }
 
-var eofToken = token{"EOF", tkEnd}
-var nlToken = token{"\n", tkNewline}
+var eofToken = token{"EOF", tkEnd}   // const
+var nlToken = token{"\n", tkNewline} // const
 
 // getToken returns the next lexer token (or an EOF or error token).
 //
@@ -152,7 +150,7 @@ var nlToken = token{"\n", tkNewline}
 // And for the initial version of the lexer, that's it.
 
 func getToken(gs *globalState) *token {
-	if lexerState == stEnd {
+	if gs.lexerState == stEnd {
 		return &eofToken
 	}
 
@@ -161,15 +159,15 @@ func getToken(gs *globalState) *token {
 	for b, err := gs.reader.ReadByte(); ; b, err = gs.reader.ReadByte() {
 		// Preliminaries
 		if err == io.EOF {
-			lexerState = stEnd
+			gs.lexerState = stEnd
 			return &eofToken
 		}
 		if err != nil {
-			lexerState = stInError
+			gs.lexerState = stInError
 			return &token{err.Error(), tkError}
 		}
 		if b >= 0x80 {
-			lexerState = stInError
+			gs.lexerState = stInError
 			return &token{fmt.Sprintf("non-ASCII character 0x%02x", b), tkError}
 		}
 
@@ -180,10 +178,10 @@ func getToken(gs *globalState) *token {
 		// remain in the "stBetween" state for sequences like 7:4 that contain no
 		// actual whitespace around the colon operator.
 
-		switch lexerState {
+		switch gs.lexerState {
 		case stInError, stInComment:
 			if b == NL {
-				lexerState = stBetween
+				gs.lexerState = stBetween
 				return &nlToken
 			}
 		case stBetween:
@@ -196,24 +194,24 @@ func getToken(gs *globalState) *token {
 				return &nlToken
 			}
 			if b == COMMENT {
-				lexerState = stInComment
+				gs.lexerState = stInComment
 			} else if isWhiteSpaceChar(b) {
 				// move along, nothing to see here
 			} else if isDigitChar(b) {
 				accumulator = append(accumulator, b)
-				lexerState = stInNumber
+				gs.lexerState = stInNumber
 			} else if isInitialSymbolChar(b) {
 				accumulator = append(accumulator, b)
-				lexerState = stInSymbol
+				gs.lexerState = stInSymbol
 			} else if isQuoteChar(b) {
 				// we do not capture the quotes in the result
-				lexerState = stInString
+				gs.lexerState = stInString
 			} else if isOperatorChar(b) {
-				lexerState = stBetween
+				gs.lexerState = stBetween
 				return &token{string(b), tkOperator}
 			} else {
 				msg := fmt.Sprintf("character 0x%02x (%c) unexpected", b, rune(b))
-				lexerState = stInError
+				gs.lexerState = stInError
 				return &token{msg, tkError}
 			}
 		case stInSymbol:
@@ -221,7 +219,7 @@ func getToken(gs *globalState) *token {
 				log.Fatalln("token accumulator empty in symbol")
 			}
 			if isWhiteSpaceChar(b) || isOperatorChar(b) {
-				lexerState = stBetween
+				gs.lexerState = stBetween
 				result := &token{string(accumulator), tkSymbol}
 				accumulator = nil
 				// Even for whitespace, we need to push it back
@@ -234,7 +232,7 @@ func getToken(gs *globalState) *token {
 				accumulator = append(accumulator, b)
 			} else {
 				msg := fmt.Sprintf("character 0x%02x (%c) unexpected", b, rune(b))
-				lexerState = stInError
+				gs.lexerState = stInError
 				return &token{msg, tkError}
 			}
 		case stInString:
@@ -244,13 +242,13 @@ func getToken(gs *globalState) *token {
 				// Wrong/ugly, but not worth fixing. Also, the caller may separately
 				// demand that e.g. builtin symbols be preceded by a newline and optional
 				// whitespace, etc., so this may be reported as an error there.
-				lexerState = stBetween
+				gs.lexerState = stBetween
 				result := &token{string(accumulator), tkString}
 				accumulator = nil
 				return result
 			} else if b == NL {
 				// There is no escape convention
-				lexerState = stInError
+				gs.lexerState = stInError
 				return &token{"newline in string", tkError}
 			} else {
 				accumulator = append(accumulator, b)
@@ -266,17 +264,17 @@ func getToken(gs *globalState) *token {
 				var result *token
 				if !validNumber(accumulator) {
 					result = &token{fmt.Sprintf("invalid number %s", string(accumulator)), tkError}
-					lexerState = stInError
+					gs.lexerState = stInError
 				} else {
 					result = &token{string(accumulator), tkNumber}
-					lexerState = stBetween
+					gs.lexerState = stBetween
 				}
 				accumulator = nil
 				gs.reader.unreadByte(b)
 				return result
 			} else {
 				msg := fmt.Sprintf("character 0x%02x (%c) unexpected in number", b, rune(b))
-				lexerState = stInError
+				gs.lexerState = stInError
 				return &token{msg, tkError}
 			}
 			// That's it - no state called stInOperator since they are all single characters
@@ -358,14 +356,4 @@ func isSymbolChar(b byte) bool {
 		return true
 	}
 	return false
-}
-
-// A single run of yasm involves a single lexer reading
-// a single logical stream, so there's no mileage in the
-// lexer being an instance. But the tests need to create
-// a bunch of lexers in a single process, so need a way
-// to reset the state.
-
-func reinitLexer() {
-	lexerState = stBetween
 }
