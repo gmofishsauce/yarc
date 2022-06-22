@@ -38,24 +38,38 @@ type anyNameLineByteReader interface {
 // the readers simple, particularly because the outer reader (below) implements
 // one byte of pushback.
 type nameLineByteReader struct {
-	sourceName   string        // source file name or symbol name
-	sourceReader io.ByteReader // the place to get the next input byte
-	sourceLine   int           // current line number within sourceName
+	sourceName    string        // source file name or symbol name
+	sourceReader  io.ByteReader // the place to get the next input byte
+	sourceLine    int           // current line number within sourceName
+	previousName  string
+	previousLine  int
+	previousByte  byte
+	wasPushedBack bool
 }
 
 func newNameLineByteReader(name string, reader io.ByteReader) *nameLineByteReader {
-	return &nameLineByteReader{name, reader, 1}
+	return &nameLineByteReader{name, reader, 1, "", 0, 0, false}
 }
 
 func (br *nameLineByteReader) line() int {
+	if br.wasPushedBack {
+		return br.previousLine
+	}
 	return br.sourceLine
 }
 
 func (br *nameLineByteReader) name() string {
+	if br.wasPushedBack {
+		return br.previousName
+	}
 	return br.sourceName
 }
 
 func (br *nameLineByteReader) ReadByte() (byte, error) {
+	if br.wasPushedBack {
+		br.wasPushedBack = false
+		return br.previousByte, nil
+	}
 	result, err := br.sourceReader.ReadByte()
 	if err != nil {
 		return 0, err
@@ -63,7 +77,28 @@ func (br *nameLineByteReader) ReadByte() (byte, error) {
 	if result == NL {
 		br.sourceLine++
 	}
+	br.previousName = br.name()
+	br.previousLine = br.line()
+	br.previousByte = result
 	return result, nil
+}
+
+// Unread (push back) the most recent byte returned by the reader. Only one byte of pushback
+// is allowed, and the pushback byte must be the byte that as actually read. N.B. - yes, we
+// implement this without the argument byte; but it would be counterintuitive and would expose
+// details of the implementation.
+func (br *nameLineByteReader) unreadByte(b byte) error {
+	if br.wasPushedBack {
+		return fmt.Errorf("at %s:%d: too many unreads", br.previousName, br.previousLine)
+	}
+	if b != br.previousByte {
+		return fmt.Errorf("at %s:%d: cannot unread a different value", br.previousName, br.previousLine)
+	}
+	br.wasPushedBack = true
+	if b == NL {
+		br.previousLine--
+	}
+	return nil
 }
 
 func (br *nameLineByteReader) String() string {
@@ -77,12 +112,8 @@ func (br *nameLineByteReader) String() string {
 // empty and io.EOF is returned, stack pushes are not allowed. So the 0 value is ready for use,
 // but the first operation must be a push.
 type stackingNameLineByteReader struct {
-	elements      []*nameLineByteReader
-	previousName  string
-	previousLine  int
-	previousByte  byte
-	wasPushedBack bool
-	atEOF         bool
+	elements []*nameLineByteReader
+	atEOF    bool
 }
 
 func (sbr *stackingNameLineByteReader) push(s *nameLineByteReader) {
@@ -115,9 +146,6 @@ func (sbr *stackingNameLineByteReader) peek() *nameLineByteReader {
 }
 
 func (sbr *stackingNameLineByteReader) name() string {
-	if sbr.wasPushedBack {
-		return sbr.previousName
-	}
 	if br := sbr.peek(); br != nil {
 		return br.name()
 	}
@@ -125,34 +153,15 @@ func (sbr *stackingNameLineByteReader) name() string {
 }
 
 func (sbr *stackingNameLineByteReader) line() int {
-	if sbr.wasPushedBack {
-		return sbr.previousLine
-	}
 	if br := sbr.peek(); br != nil {
 		return br.line()
 	}
 	return 0 // at EOF
 }
 
-XXX FIXME
-
-/*
-The unreadByte() and its corresponding functionality in ReadByte() must
-be implemented on the individual elements of the stacking reader, not on
-the stacking reader itself. Suppose a newline terminates a symbol and the
-newline is pushed back. Then the symbol's action function causes a push.
-The next read will read the pushed-back character rather then the pushed
-string. The pushed data needs to be stored on in the FileLineReader in the
-stack, not on the global stack.
-*/
-
 func (sbr *stackingNameLineByteReader) ReadByte() (byte, error) {
 	if sbr.atEOF {
 		return 0, io.EOF
-	}
-	if sbr.wasPushedBack {
-		sbr.wasPushedBack = false
-		return sbr.previousByte, nil
 	}
 	for {
 		br := sbr.peek()
@@ -168,29 +177,20 @@ func (sbr *stackingNameLineByteReader) ReadByte() (byte, error) {
 		if err != nil {
 			return 0, err
 		}
-		sbr.previousName = br.name()
-		sbr.previousLine = br.line()
-		sbr.previousByte = result
 		return result, nil
 	}
 }
 
-// Unread (push back) the most recent byte returned by the reader. Only one byte of pushback
-// is allowed, and the pushback byte must be the byte that as actually read. N.B. - yes, we
-// implement this without the argument byte; but it would be counterintuitive and would expose
-// details of the implementation.
 func (sbr *stackingNameLineByteReader) unreadByte(b byte) error {
-	if sbr.wasPushedBack {
-		return fmt.Errorf("at %s:%d: too many unreads", sbr.previousName, sbr.previousLine)
+	if sbr.atEOF {
+		return io.EOF
 	}
-	if b != sbr.previousByte {
-		return fmt.Errorf("at %s:%d: cannot unread a different value", sbr.previousName, sbr.previousLine)
+	br := sbr.peek()
+	if br == nil { // nowhere to push it
+		sbr.atEOF = true
+		return io.EOF
 	}
-	sbr.wasPushedBack = true
-	if b == NL {
-		sbr.previousLine--
-	}
-	return nil
+	return br.unreadByte(b)
 }
 
 // String returns a stack trace-like dump of the reader. There are newlines between

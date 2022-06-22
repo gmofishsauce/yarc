@@ -33,3 +33,19 @@ func TestBuiltins2(t *testing.T) {
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	process(gs)
 }
+
+func TestBuiltins3(t *testing.T) {
+	data := `
+	.set r0 0
+	.set r1 1
+	.set r2 2
+	.set r3 3
+	.bitfield src1 8 7:6
+	.bitfield src2 8 5:3
+	.bitfield dst  8 2:0
+	.set r0_r1_r2 "src1 = r0, src2 = r1, dst = r2;"
+	`
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	process(gs)
+
+}

@@ -18,12 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package asm
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 )
 
-// action func for the .set builtin
+// action func for the .set builtin. Create a new symbol that is not a key symbol.
 func actionSet(gs *globalState) error {
 	name := getToken(gs)
 	if name.kind() != tkSymbol {
@@ -45,7 +48,60 @@ func actionSet(gs *globalState) error {
 	log.Printf("create symbol %s value [%s]\n", name.text(), val.text())
 	gs.symbols[name.text()] = newSymbol(name.text(), val.tokenText,
 		func(gs *globalState) error { return expand(gs, name.text()) })
-	log.Println("done with actionSet")
+	return nil
+}
+
+func actionInclude(gs *globalState) error {
+	val := getToken(gs)
+	if val.kind() != tkString {
+		return fmt.Errorf(".set: expected string, found \"%s\"", val)
+	}
+	f, err := os.Open(val.text())
+	if err != nil {
+		return fmt.Errorf(".include: %s: %s", val.text(), err)
+	}
+	gs.reader.push(newNameLineByteReader(val.tokenText, bufio.NewReader(f)))
+	return nil
+}
+
+func actionBitfield(gs *globalState) error {
+	name := getToken(gs)
+	if name.kind() != tkSymbol {
+		return fmt.Errorf(".bitfield: name expected")
+	}
+	if _, ok := gs.symbols[name.text()]; ok {
+		return fmt.Errorf(".bitfield: symbol may not be redefined: \"%s\"", name)
+	}
+	wordsize := getToken(gs)
+	if wordsize.kind() != tkNumber {
+		return fmt.Errorf(".bitfield: numeric word size expected")
+	}
+	upperLimit := getToken(gs)
+	if upperLimit.kind() != tkNumber {
+		return fmt.Errorf(".bitfield: numeric upper bound expected")
+	}
+	colon := getToken(gs)
+	if colon.kind() != tkOperator || colon.tokenText != ":" {
+		return fmt.Errorf(".bitfield: colon expected")
+	}
+	lowerLimit := getToken(gs)
+	if lowerLimit.kind() != tkNumber {
+		return fmt.Errorf(".bitfield: numeric lower bound expected")
+	}
+
+	w, e := strconv.ParseInt(wordsize.text(), 0, 0)
+	if e != nil {
+		return e
+	}
+	u, e := strconv.ParseInt(upperLimit.text(), 0, 0)
+	if e != nil {
+		return e
+	}
+	l, e := strconv.ParseInt(lowerLimit.text(), 0, 0)
+	if e != nil {
+		return e
+	}
+	gs.symbols[name.text()] = newSymbol(name.text(), []int64{w, u, l}, nil)
 	return nil
 }
 
@@ -61,7 +117,11 @@ func expand(gs *globalState, symToExpand string) error {
 }
 
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
+var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
+var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
+	gs.symbols[builtinInclude.name()] = builtinInclude
+	gs.symbols[builtinBitfield.name()] = builtinBitfield
 }
