@@ -242,19 +242,30 @@ func (s *symbol) action(gs *globalState) error {
 	return s.symbolAction(gs)
 }
 
+func (s *symbol) String() string {
+	return fmt.Sprintf("%s: [%v]", s.name(), s.data())
+}
+
 // symbolTable is the global symbol table for an execution of yasm.
 type symbolTable map[string]*symbol
 
-// globalState is the state of the assembler. Only the lexer
-// has other private state.
+// globalState is the state of the assembler.
 type globalState struct {
 	reader     *stackingNameLineByteReader
 	lexerState lexerStateType
 	symbols    symbolTable
+	mem        []byte // memory, 0x0000 .. 0x7800
+	memNext    int
+	wcs        []byte // writeable control store, 0x0000 .. 0x7FFF
+	wcsNext    int
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs := &globalState{}
+	gs.mem = make([]byte, 0, 0x7800)
+	gs.memNext = 0
+	gs.wcs = make([]byte, 0, 0x8000)
+	gs.wcsNext = 0
 	gs.reader = new(stackingNameLineByteReader)
 	gs.symbols = make(symbolTable)
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))

@@ -20,7 +20,6 @@ package asm
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -45,12 +44,12 @@ func actionSet(gs *globalState) error {
 	if _, ok := gs.symbols[name.text()]; ok {
 		return fmt.Errorf(".set: symbol may not be redefined: \"%s\"", name)
 	}
-	log.Printf("create symbol %s value [%s]\n", name.text(), val.text())
 	gs.symbols[name.text()] = newSymbol(name.text(), val.tokenText,
 		func(gs *globalState) error { return expand(gs, name.text()) })
 	return nil
 }
 
+// action func for the .include builtin. Push a reader for the file.
 func actionInclude(gs *globalState) error {
 	val := getToken(gs)
 	if val.kind() != tkString {
@@ -64,6 +63,7 @@ func actionInclude(gs *globalState) error {
 	return nil
 }
 
+// action func for the .bitfield builtin. Define a bitfield.
 func actionBitfield(gs *globalState) error {
 	name := getToken(gs)
 	if name.kind() != tkSymbol {
@@ -101,7 +101,60 @@ func actionBitfield(gs *globalState) error {
 	if e != nil {
 		return e
 	}
+	if u < l || u-l+1 > w {
+		return fmt.Errorf(".bitfield: illegal bounds")
+	}
 	gs.symbols[name.text()] = newSymbol(name.text(), []int64{w, u, l}, nil)
+	return nil
+}
+
+type opcode struct {
+	code byte
+	args []*token
+}
+
+// actionFunc for the .opcode builtin. Define an opcode symbol
+// .opcode symbol opcode nargs arg0 ... argNargs - 1
+func actionOpcode(gs *globalState) error {
+	name := getToken(gs)
+	if name.kind() != tkSymbol {
+		return fmt.Errorf(".opcode: name expected")
+	}
+	code := getToken(gs)
+	if code.kind() != tkNumber {
+		return fmt.Errorf(".opcode: numeric opcode expected")
+	}
+	c, e := strconv.ParseInt(code.text(), 0, 0)
+	if e != nil {
+		return e
+	}
+	if c < 0x80 || c > 0xFF { // YARC specific
+		return fmt.Errorf(".opcode: opcodes must be in 0x80..0xFF")
+	}
+	nargs := getToken(gs)
+	if nargs.kind() != tkNumber {
+		return fmt.Errorf(".opcode: number of arguments expected")
+	}
+	n, e := strconv.ParseInt(nargs.text(), 0, 0)
+	if e != nil {
+		return e
+	}
+	if n < 0 || n > 8 {
+		return fmt.Errorf(".opcode: only 0 to 8 arguments allowed")
+	}
+	var i int64
+	args := make([]*token, n, n)
+	for i = 0; i < n; i++ {
+		argN := getToken(gs)
+		if argN.kind() != tkSymbol {
+			return fmt.Errorf("argument symbol expected")
+		}
+		args[i] = argN
+	}
+	data := &opcode{byte(c), args}
+
+	gs.symbols[name.text()] = newSymbol(name.text(), data,
+		func(gs *globalState) error { return doOpcode(gs, name.text()) })
 	return nil
 }
 
@@ -116,12 +169,19 @@ func expand(gs *globalState, symToExpand string) error {
 	return nil
 }
 
+func doOpcode(gs *globalState, symOpcode string) error {
+	// XXX FIXME
+	return nil
+}
+
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
 var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
+var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
 	gs.symbols[builtinInclude.name()] = builtinInclude
 	gs.symbols[builtinBitfield.name()] = builtinBitfield
+	gs.symbols[builtinOpcode.name()] = builtinOpcode
 }

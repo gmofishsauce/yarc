@@ -47,5 +47,42 @@ func TestBuiltins3(t *testing.T) {
 	`
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	process(gs)
+	dump(gs)
+}
 
+func TestBuiltins4(t *testing.T) {
+	data := `
+	# This is an invalid source file
+	.get r0 0
+	`
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	process(gs)
+	dump(gs)
+}
+
+func TestBuiltins5(t *testing.T) {
+	data := `
+	# This is an invalid source file
+	.bitfield foo 32 2?1
+	`
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	process(gs)
+	dump(gs)
+}
+
+func TestBuiltins6(t *testing.T) {
+	data := `
+	.set r0 0
+	.set r1 1
+	.set r2 2
+	.set r3 3
+	.bitfield src1 8 7:6
+	.bitfield src2 8 5:3
+	.bitfield dst  8 2:0
+	.opcode ADD 0x80 3 src1 src2 dst
+	ADD r0, r1, r2
+	`
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	process(gs)
+	dump(gs)
 }

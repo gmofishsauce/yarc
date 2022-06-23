@@ -72,6 +72,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -86,11 +87,23 @@ func Assemble(sourceFile string) {
 	}
 
 	gs := newGlobalState(bufio.NewReader(f), sourceFile)
-	process(gs)
-	log.Println("done")
+	numErrors := process(gs)
+	if numErrors == 0 {
+		dump(gs)
+		fmt.Printf("yasm succeeded")
+	} else {
+		s := "s"
+		if numErrors == 1 {
+			s = ""
+		}
+		fmt.Printf("yasm failed (%d error%s)", numErrors, s)
+	}
 }
 
-func process(gs *globalState) {
+func process(gs *globalState) int {
+	inError := false
+	numErrors := 0
+
 	for {
 		t := getToken(gs)
 		log.Printf("process: token %s\n", t)
@@ -103,28 +116,62 @@ func process(gs *globalState) {
 		// and makes some change(s) to the global state (or reports an error)
 		// before returning here.
 
+		if inError {
+			switch t.tokenKind {
+			case tkEnd:
+				return numErrors + 1
+			case tkNewline:
+				numErrors++
+				inError = false
+			}
+			continue
+		}
+
 		switch t.tokenKind {
 		case tkEnd:
-			return
+			return numErrors
 		case tkNewline:
 			break
 		case tkError:
 			log.Printf("error: %s\n", t.tokenText)
+			inError = true
 		case tkSymbol:
 			keySymbol, ok := gs.symbols[t.text()]
 			if !ok {
 				errMsg(gs, "key symbol expected")
+				inError = true
 				break
 			}
 			if keySymbol.symbolAction == nil {
-				errMsg(gs, "internal error: key symbol has no action")
+				errMsg(gs, "not a key symbol: %s", keySymbol.name())
+				inError = true
 				break
 			}
 			if err := keySymbol.action(gs); err != nil {
 				errMsg(gs, err.Error())
+				inError = true
 			}
 		default:
 			errMsg(gs, "unexpected token %s", t)
+			inError = true
+		}
+	}
+}
+
+func dump(gs *globalState) {
+	dumpSymbols(&gs.symbols)
+}
+
+func dumpSymbols(sym *symbolTable) {
+	names := make([]string, 0, len(*sym))
+	for n := range *sym {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	fmt.Printf("%-16s %s\n", "SYMBOL", "VALUE")
+	for _, n := range names {
+		if !strings.HasPrefix(n, ".") {
+			fmt.Printf("%-16s %v\n", n, (*sym)[n].symbolData)
 		}
 	}
 }

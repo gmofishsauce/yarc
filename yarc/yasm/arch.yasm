@@ -1,0 +1,31 @@
+# Architecture file for YARC
+
+# general registers
+.set r0 0
+.set r1 1
+.set r2 2
+.set r3 3
+
+# data bus drivers
+.set gr 0	# general register drives bus
+.set sp	1	# stack (PSP or RSP) drives bus
+.set ir	2	# instruction register drives bus
+.set f	3	# flags register drives bus
+
+# Microcode words, 32 bits
+# register specifier word 7:0
+.bitfield src1	32  7:6	# contains a gr
+.bitfield src2	32  5:3	# contains a gr (3..0) or a constant reg (7..4)
+.bitfield dst	32  2:0	# contains a gr (3..0) and a write enable bit
+
+# alu and main bus source 15:8
+.bitfield alu	32  11:8 # 1 of 16 alu operations
+.bitfield dbs	32 13:12 # 1 of 4 data bus drivers
+.bitfield m16	32 14:14 # 0 means a 16-bit memory cycle
+.bitfield irclk	32 15:15 # 0 clocks the ir
+
+# TBD 23:16
+
+# TBD 31:24
+
+
