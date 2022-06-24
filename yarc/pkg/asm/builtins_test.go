@@ -80,7 +80,7 @@ func TestBuiltins6(t *testing.T) {
 	.bitfield src2 8 5:3
 	.bitfield dst  8 2:0
 	.opcode ADD 0x80 3 src1 src2 dst
-	ADD r0, r1, r2
+	ADD r0 r1 r2
 	`
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	process(gs)

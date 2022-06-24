@@ -20,6 +20,7 @@ package asm
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -169,8 +170,49 @@ func expand(gs *globalState, symToExpand string) error {
 	return nil
 }
 
+// An opcode has been recognized as a key symbol by the main loop.
+// The next token(s) should be the operands, which serve as actuals
+// for the formals that were defined in the .opcode builtin.
 func doOpcode(gs *globalState, symOpcode string) error {
-	// XXX FIXME
+	op := *gs.symbols[symOpcode].data().(*opcode)
+	var lowbyte byte
+	for i := 0; i < len(op.args); i++ {
+		tk := getToken(gs)
+		if tk.kind() == tkSymbol || tk.kind() == tkString {
+			expand(gs, gs.symbols[tk.text()].name())
+			tk = getToken(gs)
+		}
+		if tk.kind() != tkNumber {
+			return fmt.Errorf("operand must evaluate to number")
+		}
+		n, e := strconv.ParseInt(tk.text(), 0, 0)
+		if e != nil {
+			return e
+		}
+		pack(gs, n, &lowbyte, op.args[i])
+	}
+	return nil
+}
+
+func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
+	sym := gs.symbols[arg.text()]
+	var elements []int64
+	var ok bool
+	if elements, ok = sym.data().([]int64); !ok {
+		return fmt.Errorf("%s: not a bitfield", arg.text())
+	}
+	if len(elements) != 3 {
+		return fmt.Errorf("%s: not a bitfield", arg.text())
+	}
+	if elements[0] != 8 {
+		return fmt.Errorf("%s: not in an 8-bit field", arg.text())
+	}
+	size := elements[1] - elements[2] + 1
+	max := int64(math.Pow(2, float64(size))) - 1
+	if operandValue < 0 || operandValue > max {
+		return fmt.Errorf("%s: invalid value", arg.text())
+	}
+	*target |= byte((operandValue & max) << elements[2])
 	return nil
 }
 
