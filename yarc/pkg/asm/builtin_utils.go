@@ -29,10 +29,21 @@ import (
 func mustGetNewSymbol(gs *globalState) (*token, error) {
 	name := getToken(gs)
 	if name.kind() != tkSymbol {
-		return nil, fmt.Errorf(".set: expected symbol, found \"%s\"", name)
+		return nil, fmt.Errorf("expected symbol, found \"%s\"", name)
 	}
 	if _, ok := gs.symbols[name.text()]; ok {
-		return nil, fmt.Errorf(".set: symbol may not be redefined: \"%s\"", name)
+		return nil, fmt.Errorf("symbol may not be redefined: \"%s\"", name)
+	}
+	return name, nil
+}
+
+func mustGetDefinedSymbol(gs *globalState) (*token, error) {
+	name := getToken(gs)
+	if name.kind() != tkSymbol {
+		return nil, fmt.Errorf("expected symbol, found \"%s\"", name)
+	}
+	if _, ok := gs.symbols[name.text()]; !ok {
+		return nil, fmt.Errorf("symbol must be defined: \"%s\"", name)
 	}
 	return name, nil
 }
@@ -123,5 +134,25 @@ func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
 		return fmt.Errorf("%s: invalid value", arg.text())
 	}
 	*target |= byte((operandValue & max) << elements[2])
+	return nil
+}
+
+// An opcode has been recognized as a key symbol by the main loop.
+// The next token(s) should be the operands, which serve as actuals
+// for the formals that were defined in the .opcode builtin.
+func doOpcode(gs *globalState, symOpcode string) error {
+	op := *gs.symbols[symOpcode].data().(*opcode)
+	var lowbyte byte
+	for i := 0; i < len(op.args); i++ {
+		n, err := mustGetNumber(gs)
+		if err != nil {
+			return err
+		}
+		pack(gs, n, &lowbyte, op.args[i])
+	}
+	gs.mem[gs.memNext] = lowbyte
+	gs.memNext++
+	gs.mem[gs.memNext] = op.code
+	gs.memNext++
 	return nil
 }

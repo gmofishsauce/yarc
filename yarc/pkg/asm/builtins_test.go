@@ -150,4 +150,46 @@ func TestBuiltins8(t *testing.T) {
 	if process(gs) > 0 {
 		t.Fail()
 	}
+	dump(gs)
+}
+
+func TestBuiltins8Fail(t *testing.T) {
+	data := `
+	.set r0 0
+	.set r1 1
+	.set r2 2
+	.set r3 3
+	.bitfield src1 8 7:6
+	.bitfield src2 8 5:3
+	.bitfield dst  8 2:0
+	.opcode ADD 0x80 3 src1 src2 dst
+	ADD "r0 r1 r2"
+	`
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) != 1 {
+		t.Fail()
+	}
+	dump(gs)
+}
+
+func TestBuiltins9(t *testing.T) {
+	data := `
+	.set r0 0
+	.set r1 1
+	.set r2 2
+	.set r3 3
+	.bitfield src1 8 7:6
+	.bitfield src2 8 5:3
+	.bitfield dst  8 2:0
+	.bitfield rsw 32 7:0
+	.opcode ADD 0x80 3 src1 src2 dst
+	.slot rsw = 0x77;
+	.endopcode
+	ADD r0 r1 r2
+	`
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) != 0 {
+		t.Fail()
+	}
+	dump(gs)
 }

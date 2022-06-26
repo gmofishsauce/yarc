@@ -20,8 +20,8 @@ package asm
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
-	"strconv"
 )
 
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
@@ -95,79 +95,109 @@ type opcode struct {
 // .opcode symbol opcode nargs arg0 ... argNargs - 1
 func actionOpcode(gs *globalState) error {
 	name, err := mustGetNewSymbol(gs)
-	if err != nil || name.kind() != tkSymbol {
-		return fmt.Errorf(".opcode: name expected")
+	if err != nil {
+		return fmt.Errorf(".opcode: name expected: %s", err)
 	}
-	code, err := mustGetValue(gs)
-	if err != nil || code.kind() != tkNumber {
-		return fmt.Errorf(".opcode: numeric opcode expected")
+	code, err := mustGetNumber(gs)
+	if err != nil {
+		return fmt.Errorf(".opcode: numeric opcode expected: %s", err)
 	}
-	c, e := strconv.ParseInt(code.text(), 0, 0)
-	if e != nil {
-		return e
-	}
-	if c < 0x80 || c > 0xFF { // YARC specific
+	if code < 0x80 || code > 0xFF { // YARC specific
 		return fmt.Errorf(".opcode: opcodes must be in 0x80..0xFF")
 	}
-	nargs, err := mustGetValue(gs)
-	if err != nil || nargs.kind() != tkNumber {
-		return fmt.Errorf(".opcode: number of arguments expected")
+	nargs, err := mustGetNumber(gs)
+	if err != nil {
+		return fmt.Errorf(".opcode: number of arguments expected; %s", err)
 	}
-	n, e := strconv.ParseInt(nargs.text(), 0, 0)
-	if e != nil {
-		return e
-	}
-	if n < 0 || n > 8 {
+	if nargs < 0 || nargs > 8 {
 		return fmt.Errorf(".opcode: only 0 to 8 arguments allowed")
 	}
 	var i int64
-	args := make([]*token, n, n)
-	for i = 0; i < n; i++ {
-		argN := getToken(gs)
-		if argN.kind() != tkSymbol {
-			return fmt.Errorf("argument symbol expected")
+	args := make([]*token, nargs, nargs)
+	for i = 0; i < nargs; i++ {
+		argN, err := mustGetDefinedSymbol(gs)
+		if err != nil {
+			return fmt.Errorf("symbol expected: %s", err)
 		}
 		args[i] = argN
 	}
-	data := &opcode{byte(c), args}
+	data := &opcode{byte(code), args}
 
 	gs.symbols[name.text()] = newSymbol(name.text(), data,
 		func(gs *globalState) error { return doOpcode(gs, name.text()) })
+	gs.inOpcode = true
+	gs.opcodeValue = byte(code)
 	return nil
 }
 
-// An opcode has been recognized as a key symbol by the main loop.
-// The next token(s) should be the operands, which serve as actuals
-// for the formals that were defined in the .opcode builtin.
-func doOpcode(gs *globalState, symOpcode string) error {
-	op := *gs.symbols[symOpcode].data().(*opcode)
-	var lowbyte byte
-	for i := 0; i < len(op.args); i++ {
-		tk := getToken(gs)
-		if tk.kind() == tkSymbol || tk.kind() == tkString {
-			expand(gs, gs.symbols[tk.text()].name())
-			tk = getToken(gs)
-		}
-		if tk.kind() != tkNumber {
-			return fmt.Errorf("operand must evaluate to number")
-		}
-		n, e := strconv.ParseInt(tk.text(), 0, 0)
-		if e != nil {
-			return e
-		}
-		pack(gs, n, &lowbyte, op.args[i])
+// actionFunc for the .endOpcode builtin.
+func actionEndOpcode(gs *globalState) error {
+	if !gs.inOpcode {
+		return fmt.Errorf(".endopcode: not in opcode")
 	}
+	gs.inOpcode = false
+	gs.opcodeValue = 0
 	return nil
+}
+
+// Action fund for a .slot builtin defining one slot in the writeable
+// control store. There may be any number of bitfield = value clauses.
+// If the same bitfield is mentioned more than once, the last one wins.
+// The bitfield clauses are separate by spaces and terminated by a
+// semicolon or an error (end of line is not relevant). All bitfields
+// must have a width of 32. All strings and symbols are resolved now;
+// forwards are not allowed.
+func actionSlot(gs *globalState) error {
+	if !gs.inOpcode || gs.opcodeValue == 0 {
+		return fmt.Errorf(".slot: not in an opcode declaration")
+	}
+	for {
+		// We need token pushback to handle the semicolon that can end
+		// the .slot builtin at any point. For now, a total hack instead.
+		tk, err := mustGetDefinedSymbol(gs)
+		if err != nil {
+			if err.Error() == `expected symbol, found "{tkOperator ;}"` {
+				gs.wcsNext++
+				return nil // and that is the total hack
+			}
+			return err
+		}
+		field, ok := gs.symbols[tk.text()].symbolData.([]int64)
+		if !ok {
+			return fmt.Errorf("%s: bitfield expected", tk.text())
+		}
+		if field[0] != 32 {
+			return fmt.Errorf("%s: .slot bitfield width must be 32", tk.text())
+		}
+		equals := getToken(gs)
+		if equals.kind() != tkOperator || equals.text() != "=" {
+			return fmt.Errorf(".bitfield: equals expected: found %s", equals.String())
+		}
+		size := field[1] - field[2] + 1
+		max := int64(math.Pow(2, float64(size))) - 1
+		num, err := mustGetNumber(gs)
+		if err != nil {
+			return fmt.Errorf(".bifield: number expected: %s", err.Error())
+		}
+		if num < 0 || num > max {
+			return fmt.Errorf(".bitfield: %d out of range for %s", num, tk)
+		}
+		gs.wcs[gs.wcsNext] |= uint32((num & max) << field[2])
+	}
 }
 
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
 var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
 var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
+var builtinEndOpcode *symbol = newSymbol(".endopcode", nil, actionEndOpcode)
+var builtinSlot *symbol = newSymbol(".slot", nil, actionSlot)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
 	gs.symbols[builtinInclude.name()] = builtinInclude
 	gs.symbols[builtinBitfield.name()] = builtinBitfield
 	gs.symbols[builtinOpcode.name()] = builtinOpcode
+	gs.symbols[builtinEndOpcode.name()] = builtinEndOpcode
+	gs.symbols[builtinSlot.name()] = builtinSlot
 }

@@ -251,20 +251,22 @@ type symbolTable map[string]*symbol
 
 // globalState is the state of the assembler.
 type globalState struct {
-	reader     *stackingNameLineByteReader
-	lexerState lexerStateType
-	symbols    symbolTable
-	mem        []byte // memory, 0x0000 .. 0x7800
-	memNext    int
-	wcs        []byte // writeable control store, 0x0000 .. 0x7FFF
-	wcsNext    int
+	reader      *stackingNameLineByteReader
+	lexerState  lexerStateType
+	inOpcode    bool
+	opcodeValue byte
+	symbols     symbolTable
+	mem         []byte // memory, 0x0000 .. 0x7800
+	memNext     int
+	wcs         []uint32 // writeable control store, 0x0000 .. 0x7FFF
+	wcsNext     int
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs := &globalState{}
-	gs.mem = make([]byte, 0, 0x7800)
+	gs.mem = make([]byte, 0x7800, 0x7800)
 	gs.memNext = 0
-	gs.wcs = make([]byte, 0, 0x8000)
+	gs.wcs = make([]uint32, 0x2000, 0x2000)
 	gs.wcsNext = 0
 	gs.reader = new(stackingNameLineByteReader)
 	gs.symbols = make(symbolTable)

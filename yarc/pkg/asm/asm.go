@@ -159,10 +159,16 @@ func process(gs *globalState) int {
 }
 
 func dump(gs *globalState) {
-	dumpSymbols(&gs.symbols)
+	fmt.Println()
+	dumpSymbols(gs)
+	fmt.Println()
+	dumpMem(gs)
+	fmt.Println()
+	dumpWCS(gs)
 }
 
-func dumpSymbols(sym *symbolTable) {
+func dumpSymbols(gs *globalState) {
+	sym := &gs.symbols
 	names := make([]string, 0, len(*sym))
 	for n := range *sym {
 		names = append(names, n)
@@ -172,6 +178,60 @@ func dumpSymbols(sym *symbolTable) {
 	for _, n := range names {
 		if !strings.HasPrefix(n, ".") {
 			fmt.Printf("%-16s %v\n", n, (*sym)[n].symbolData)
+		}
+	}
+}
+
+const MEM_BYTES = 0x7800
+const BYTES_PER_LINE = 16
+
+func dumpMem(gs *globalState) {
+	fmt.Println("ADDR   DATA")
+	for m := 0; m < MEM_BYTES; m += BYTES_PER_LINE {
+		printThisLine := false
+		for n := 0; n < BYTES_PER_LINE; n++ {
+			if gs.mem[m+n] != 0 {
+				printThisLine = true
+				break
+			}
+		}
+		if printThisLine {
+			fmt.Printf("0x%04X ", m)
+			for n := 0; n < BYTES_PER_LINE; n++ {
+				fmt.Printf("%02X", gs.mem[m+n])
+				if n != 15 {
+					fmt.Printf(" ")
+				}
+			}
+			fmt.Println()
+		}
+	}
+}
+
+const WCS_SLOTS_PER_OPCODE = 64
+const WCS_SIZE = 0x2000                             // in uint32
+const WCS_OPCODES = WCS_SIZE / WCS_SLOTS_PER_OPCODE // 128
+const EMPTY_SLOT = 0x00000000                       // TODO define emptiness (noop content)
+
+func dumpWCS(gs *globalState) {
+	fmt.Println("SLOT DATA")
+	for opcode := 0; opcode < WCS_OPCODES; opcode += WCS_SLOTS_PER_OPCODE {
+		printThisOpcode := false
+		for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
+			if gs.wcs[opcode+slot] != 0 {
+				printThisOpcode = true
+				break
+			}
+		}
+		if printThisOpcode {
+			fmt.Printf("0x%02X ", opcode+0x80) // should disassemble, add is a hack, etc.
+			for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
+				if gs.wcs[opcode+slot] == EMPTY_SLOT {
+					fmt.Println()
+					break // Hmmm, cannot have an empty slot followed by non-empty slots?
+				}
+				fmt.Printf("%08X", gs.wcs[opcode+slot])
+			}
 		}
 	}
 }
