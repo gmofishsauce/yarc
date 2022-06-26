@@ -48,7 +48,7 @@ func TestLexer3(t *testing.T) {
 	assert.Equal(t, ".aSymbol", tk.tokenText)
 	tk = getToken(gs)
 	assert.Equal(t, tkString, tk.tokenKind)
-	assert.Equal(t, "and a string", tk.tokenText)
+	assert.Equal(t, `"and a string"`, tk.tokenText)
 }
 
 func TestLexer4(t *testing.T) {

@@ -20,30 +20,19 @@ package asm
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
-	"strings"
 )
 
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
 func actionSet(gs *globalState) error {
-	name := getToken(gs)
-	if name.kind() != tkSymbol {
-		return fmt.Errorf(".set: expected symbol, found \"%s\"", name)
+	name, err := mustGetNewSymbol(gs)
+	if err != nil {
+		return err
 	}
-	val := getToken(gs)
-	if val.kind() != tkNumber && val.kind() != tkString && val.kind() != tkSymbol {
-		return fmt.Errorf(".set: expected value, found \"%s\"", val)
-	}
-	// The value of a symbol cannot contain a dot. This prevents redefining
-	// the builtin symbols as the values of other symbols. Also, symbols cannot
-	// be redefined.
-	if strings.Contains(val.text(), ".") {
-		return fmt.Errorf(".set: value may not contain a dot")
-	}
-	if _, ok := gs.symbols[name.text()]; ok {
-		return fmt.Errorf(".set: symbol may not be redefined: \"%s\"", name)
+	val, err := mustGetValue(gs)
+	if err != nil {
+		return err
 	}
 	gs.symbols[name.text()] = newSymbol(name.text(), val.tokenText,
 		func(gs *globalState) error { return expand(gs, name.text()) })
@@ -66,46 +55,34 @@ func actionInclude(gs *globalState) error {
 
 // action func for the .bitfield builtin. Define a bitfield.
 func actionBitfield(gs *globalState) error {
-	name := getToken(gs)
-	if name.kind() != tkSymbol {
-		return fmt.Errorf(".bitfield: name expected")
+	name, err := mustGetNewSymbol(gs)
+	if err != nil {
+		return err
 	}
-	if _, ok := gs.symbols[name.text()]; ok {
-		return fmt.Errorf(".bitfield: symbol may not be redefined: \"%s\"", name)
+	// Trying the following for now: we require that symbols used
+	// here not be "forward", i.e. we expand any symbols we find
+	// right now, so symbols must have already been defined.
+	wordsize, err := mustGetNumber(gs)
+	if err != nil {
+		return fmt.Errorf(".bitfield: numeric word size expected: %s", err)
 	}
-	wordsize := getToken(gs)
-	if wordsize.kind() != tkNumber {
-		return fmt.Errorf(".bitfield: numeric word size expected")
-	}
-	upperLimit := getToken(gs)
-	if upperLimit.kind() != tkNumber {
-		return fmt.Errorf(".bitfield: numeric upper bound expected")
+	upperLimit, err := mustGetNumber(gs)
+	if err != nil {
+		return fmt.Errorf(".bitfield: numeric upper bound expected: %s", err)
 	}
 	colon := getToken(gs)
 	if colon.kind() != tkOperator || colon.tokenText != ":" {
 		return fmt.Errorf(".bitfield: colon expected")
 	}
-	lowerLimit := getToken(gs)
-	if lowerLimit.kind() != tkNumber {
-		return fmt.Errorf(".bitfield: numeric lower bound expected")
+	lowerLimit, err := mustGetNumber(gs)
+	if err != nil {
+		return fmt.Errorf(".bitfield: numeric lower bound expected: %s", err)
 	}
 
-	w, e := strconv.ParseInt(wordsize.text(), 0, 0)
-	if e != nil {
-		return e
-	}
-	u, e := strconv.ParseInt(upperLimit.text(), 0, 0)
-	if e != nil {
-		return e
-	}
-	l, e := strconv.ParseInt(lowerLimit.text(), 0, 0)
-	if e != nil {
-		return e
-	}
-	if u < l || u-l+1 > w {
+	if upperLimit < lowerLimit || upperLimit-lowerLimit+1 > wordsize {
 		return fmt.Errorf(".bitfield: illegal bounds")
 	}
-	gs.symbols[name.text()] = newSymbol(name.text(), []int64{w, u, l}, nil)
+	gs.symbols[name.text()] = newSymbol(name.text(), []int64{wordsize, upperLimit, lowerLimit}, nil)
 	return nil
 }
 
@@ -117,12 +94,12 @@ type opcode struct {
 // actionFunc for the .opcode builtin. Define an opcode symbol
 // .opcode symbol opcode nargs arg0 ... argNargs - 1
 func actionOpcode(gs *globalState) error {
-	name := getToken(gs)
-	if name.kind() != tkSymbol {
+	name, err := mustGetNewSymbol(gs)
+	if err != nil || name.kind() != tkSymbol {
 		return fmt.Errorf(".opcode: name expected")
 	}
-	code := getToken(gs)
-	if code.kind() != tkNumber {
+	code, err := mustGetValue(gs)
+	if err != nil || code.kind() != tkNumber {
 		return fmt.Errorf(".opcode: numeric opcode expected")
 	}
 	c, e := strconv.ParseInt(code.text(), 0, 0)
@@ -132,8 +109,8 @@ func actionOpcode(gs *globalState) error {
 	if c < 0x80 || c > 0xFF { // YARC specific
 		return fmt.Errorf(".opcode: opcodes must be in 0x80..0xFF")
 	}
-	nargs := getToken(gs)
-	if nargs.kind() != tkNumber {
+	nargs, err := mustGetValue(gs)
+	if err != nil || nargs.kind() != tkNumber {
 		return fmt.Errorf(".opcode: number of arguments expected")
 	}
 	n, e := strconv.ParseInt(nargs.text(), 0, 0)
@@ -159,17 +136,6 @@ func actionOpcode(gs *globalState) error {
 	return nil
 }
 
-// Push the value of the named symbol on the reader stack
-func expand(gs *globalState, symToExpand string) error {
-	val, ok := gs.symbols[symToExpand]
-	if !ok {
-		return fmt.Errorf("internal error: unable to expand symbol \"%s\"", symToExpand)
-	}
-	s := fmt.Sprintf("%s", val.symbolData)
-	gs.reader.push(newNameLineByteReader(symToExpand, strings.NewReader(s)))
-	return nil
-}
-
 // An opcode has been recognized as a key symbol by the main loop.
 // The next token(s) should be the operands, which serve as actuals
 // for the formals that were defined in the .opcode builtin.
@@ -191,28 +157,6 @@ func doOpcode(gs *globalState, symOpcode string) error {
 		}
 		pack(gs, n, &lowbyte, op.args[i])
 	}
-	return nil
-}
-
-func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
-	sym := gs.symbols[arg.text()]
-	var elements []int64
-	var ok bool
-	if elements, ok = sym.data().([]int64); !ok {
-		return fmt.Errorf("%s: not a bitfield", arg.text())
-	}
-	if len(elements) != 3 {
-		return fmt.Errorf("%s: not a bitfield", arg.text())
-	}
-	if elements[0] != 8 {
-		return fmt.Errorf("%s: not in an 8-bit field", arg.text())
-	}
-	size := elements[1] - elements[2] + 1
-	max := int64(math.Pow(2, float64(size))) - 1
-	if operandValue < 0 || operandValue > max {
-		return fmt.Errorf("%s: invalid value", arg.text())
-	}
-	*target |= byte((operandValue & max) << elements[2])
 	return nil
 }
 

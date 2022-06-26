@@ -243,7 +243,7 @@ func getToken(gs *globalState) *token {
 				// demand that e.g. builtin symbols be preceded by a newline and optional
 				// whitespace, etc., so this may be reported as an error there.
 				gs.lexerState = stBetween
-				result := &token{string(accumulator), tkString}
+				result := &token{`"` + string(accumulator) + `"`, tkString}
 				accumulator = nil
 				return result
 			} else if b == NL {

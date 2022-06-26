@@ -23,18 +23,79 @@ import (
 )
 
 func TestBuiltins1(t *testing.T) {
-	data := ".set foo bar\n"
+	data := ".set bar 7\n.set foo bar\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	process(gs)
+	if process(gs) > 0 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins1Fail(t *testing.T) {
+	data := ".set foo bar\n" // fail because bar doesn't expand
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) != 1 {
+		t.Fail()
+	}
 }
 
 func TestBuiltins2(t *testing.T) {
-	data := ".set foo \"TROUBLE\"\nfoo\n"
+	data := ".set bar \"hello\"\n"
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	process(gs)
+	if process(gs) > 0 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins2Fail(t *testing.T) {
+	data := ".set foo bar\nbar\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) != 2 {
+		// line 1 bar undefined, line 2 key symbol expected
+		t.Fail()
+	}
 }
 
 func TestBuiltins3(t *testing.T) {
+	data := ".set bar \"TROUBLE\"\n.set foo bar\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) > 0 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins3Fail(t *testing.T) {
+	data := ".set foo \"TROUBLE\"\nfoo\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) != 1 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins4(t *testing.T) {
+	data := ".set bar 8\n.set foo bar\n.bitfield fake bar 7:0\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) > 0 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins4Fail(t *testing.T) {
+	data := ".set foo bar\n.set bar 8\n.bitfield fake foo 7:0\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) != 2 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins4Extra(t *testing.T) {
+	data := ".set bar 8\n.set foo bar\n.bitfield fake foo 7:0\n"
+	gs := newGlobalState(strings.NewReader(data), t.Name())
+	if process(gs) > 0 {
+		t.Fail()
+	}
+}
+
+func TestBuiltins5(t *testing.T) {
 	data := `
 	.set r0 0
 	.set r1 1
@@ -46,31 +107,34 @@ func TestBuiltins3(t *testing.T) {
 	.set r0_r1_r2 "src1 = r0, src2 = r1, dst = r2;"
 	`
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	process(gs)
-	dump(gs)
+	if process(gs) > 0 {
+		t.Fail()
+	}
 }
 
-func TestBuiltins4(t *testing.T) {
+func TestBuiltins6Fail(t *testing.T) {
 	data := `
 	# This is an invalid source file
 	.get r0 0
 	`
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	process(gs)
-	dump(gs)
+	if process(gs) != 1 {
+		t.Fail()
+	}
 }
 
-func TestBuiltins5(t *testing.T) {
+func TestBuiltins7Fail(t *testing.T) {
 	data := `
 	# This is an invalid source file
 	.bitfield foo 32 2?1
 	`
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	process(gs)
-	dump(gs)
+	if process(gs) != 1 {
+		t.Fail()
+	}
 }
 
-func TestBuiltins6(t *testing.T) {
+func TestBuiltins8(t *testing.T) {
 	data := `
 	.set r0 0
 	.set r1 1
@@ -83,6 +147,7 @@ func TestBuiltins6(t *testing.T) {
 	ADD r0 r1 r2
 	`
 	gs := newGlobalState(strings.NewReader(data), t.Name())
-	process(gs)
-	dump(gs)
+	if process(gs) > 0 {
+		t.Fail()
+	}
 }

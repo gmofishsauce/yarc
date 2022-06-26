@@ -106,7 +106,7 @@ func process(gs *globalState) int {
 
 	for {
 		t := getToken(gs)
-		log.Printf("process: token %s\n", t)
+		//log.Printf("process: token %s\n", t)
 
 		// The main loop of the assembler serves only to identify a symbol
 		// at the start or a line and turn processing over to that symbol's
