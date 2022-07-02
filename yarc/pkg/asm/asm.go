@@ -90,13 +90,13 @@ func Assemble(sourceFile string) {
 	numErrors := process(gs)
 	if numErrors == 0 {
 		dump(gs)
-		fmt.Printf("yasm succeeded")
+		fmt.Println("yasm: success")
 	} else {
 		s := "s"
 		if numErrors == 1 {
 			s = ""
 		}
-		fmt.Printf("yasm failed (%d error%s)", numErrors, s)
+		fmt.Printf("yasm: failed (%d error%s)\n", numErrors, s)
 	}
 }
 
@@ -230,7 +230,7 @@ func dumpWCS(gs *globalState) {
 					fmt.Println()
 					break // Hmmm, cannot have an empty slot followed by non-empty slots?
 				}
-				fmt.Printf("%08X", gs.wcs[opcode+slot])
+				fmt.Printf("%08X ", gs.wcs[opcode+slot])
 			}
 		}
 	}

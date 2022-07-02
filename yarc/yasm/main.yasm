@@ -1,9 +1,11 @@
 # main file for yarc instruction set and bootstrap
 
 # hardware definitions
-.include arch.yasm
+.include "arch.yasm"
 
 # instruction set definitions
-.include inst.yasm
+.include "inst.yasm"
 
+# bootstrap code
+.include "boot.yasm"
 

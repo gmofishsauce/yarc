@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"path"
 	"strings"
 )
 
@@ -252,7 +253,9 @@ type symbolTable map[string]*symbol
 // globalState is the state of the assembler.
 type globalState struct {
 	reader      *stackingNameLineByteReader
+	includeDir  string
 	lexerState  lexerStateType
+	pbToken     *token
 	inOpcode    bool
 	opcodeValue byte
 	symbols     symbolTable
@@ -264,6 +267,7 @@ type globalState struct {
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs := &globalState{}
+	gs.includeDir = path.Dir(mainSourceFile)
 	gs.mem = make([]byte, 0x7800, 0x7800)
 	gs.memNext = 0
 	gs.wcs = make([]uint32, 0x2000, 0x2000)

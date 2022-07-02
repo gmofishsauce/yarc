@@ -1,10 +1,10 @@
 # definition of instructions
 
-.set NOOP "src1=0 src2=0 d=0 alu=0 dbs=0 m16=1 irclk=1;"
-.set FETCH "src1=1 src2=7 d=1 alu=0 dbs=0 m16=0 irclk=0;"
+.set NOOP "src1=0 src2=0 dst=0 alu=0 dbs=0 m16=1 irclk=1;"
+.set FETCH "src1=1 src2=7 dst=1 alu=0 dbs=0 m16=0 irclk=0;"
 .set DECODE NOOP
 
-.opcode ADD 0x80 src1 src2 dst
+.opcode ADD 0x80 3 src1 src2 dst
 .slot NOOP # first half of add specified by instruction bits
 .slot NOOP # second half of add
 .slot FETCH

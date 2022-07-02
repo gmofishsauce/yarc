@@ -25,7 +25,6 @@ import (
 )
 
 // We must get a token that is a new symbol (not a redefinition).
-// The symbol is not expanded, so forwards are (accidentally?) allowed.
 func mustGetNewSymbol(gs *globalState) (*token, error) {
 	name := getToken(gs)
 	if name.kind() != tkSymbol {
@@ -38,9 +37,14 @@ func mustGetNewSymbol(gs *globalState) (*token, error) {
 }
 
 func mustGetDefinedSymbol(gs *globalState) (*token, error) {
-	name := getToken(gs)
-	if name.kind() != tkSymbol {
-		return nil, fmt.Errorf("expected symbol, found \"%s\"", name)
+	var name *token
+	for name = getToken(gs); name.kind() != tkSymbol; name = getToken(gs) {
+		if name.kind() == tkString {
+			stringValue := name.text()[1 : len(name.text())-1]
+			gs.reader.push(newNameLineByteReader(name.text(), strings.NewReader(stringValue)))
+		} else if name.kind() != tkSymbol {
+			return nil, fmt.Errorf("expected defined symbol, found %s", name.text())
+		}
 	}
 	if _, ok := gs.symbols[name.text()]; !ok {
 		return nil, fmt.Errorf("symbol must be defined: \"%s\"", name)
@@ -48,9 +52,33 @@ func mustGetDefinedSymbol(gs *globalState) (*token, error) {
 	return name, nil
 }
 
-// We must get a "value" token - symbol, number, or string. If
-// the token is a symbol, it is expand now (no forwards) and must
-// evaluate to a number or string.
+func mustGetBitfield(gs *globalState) (*token, error) {
+	var tk *token
+	for tk = getToken(gs); ; tk = getToken(gs) {
+		if tk.kind() == tkSymbol {
+			var sym *symbol
+			var defined bool
+			if sym, defined = gs.symbols[tk.text()]; !defined {
+				return nil, fmt.Errorf("symbol must be defined: %s", tk.text())
+			}
+			if _, ok := sym.symbolData.([]int64); ok {
+				return tk, nil // found a bitfield
+			}
+			// Found some symbol that might evaluate to a bitfield
+			val := fmt.Sprintf("%s", sym.data())
+			gs.reader.push(newNameLineByteReader(tk.text(), strings.NewReader(val)))
+		} else if tk.kind() == tkString {
+			stringValue := tk.text()[1 : len(tk.text())-1]
+			gs.reader.push(newNameLineByteReader(tk.text(), strings.NewReader(stringValue)))
+		} else if tk.kind() != tkSymbol {
+			return nil, fmt.Errorf("expected defined symbol, found %s", tk.text())
+		}
+	}
+}
+
+// We must get a "value" token - a number or string. (If the
+// token is a symbol, it is expand now (no forwards) and must
+// evaluate to a number or string.)
 func mustGetValue(gs *globalState) (*token, error) {
 	val, err := expandToken(gs)
 	if err != nil {
@@ -114,6 +142,26 @@ func expand(gs *globalState, symToExpand string) error {
 	return nil
 }
 
+// An opcode has been recognized as a key symbol by the main loop.
+// The next token(s) should be the operands, which serve as actuals
+// for the formals that were defined in the .opcode builtin.
+func doOpcode(gs *globalState, symOpcode string) error {
+	op := *gs.symbols[symOpcode].data().(*opcode)
+	var lowbyte byte
+	for i := 0; i < len(op.args); i++ {
+		n, err := mustGetNumber(gs)
+		if err != nil {
+			return err
+		}
+		pack(gs, n, &lowbyte, op.args[i])
+	}
+	gs.mem[gs.memNext] = lowbyte
+	gs.memNext++
+	gs.mem[gs.memNext] = op.code
+	gs.memNext++
+	return nil
+}
+
 // Pack the value of an operand into a field
 func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
 	sym := gs.symbols[arg.text()]
@@ -134,25 +182,5 @@ func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
 		return fmt.Errorf("%s: invalid value", arg.text())
 	}
 	*target |= byte((operandValue & max) << elements[2])
-	return nil
-}
-
-// An opcode has been recognized as a key symbol by the main loop.
-// The next token(s) should be the operands, which serve as actuals
-// for the formals that were defined in the .opcode builtin.
-func doOpcode(gs *globalState, symOpcode string) error {
-	op := *gs.symbols[symOpcode].data().(*opcode)
-	var lowbyte byte
-	for i := 0; i < len(op.args); i++ {
-		n, err := mustGetNumber(gs)
-		if err != nil {
-			return err
-		}
-		pack(gs, n, &lowbyte, op.args[i])
-	}
-	gs.mem[gs.memNext] = lowbyte
-	gs.memNext++
-	gs.mem[gs.memNext] = op.code
-	gs.memNext++
 	return nil
 }

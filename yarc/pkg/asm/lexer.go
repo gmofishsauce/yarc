@@ -153,6 +153,15 @@ func getToken(gs *globalState) *token {
 	if gs.lexerState == stEnd {
 		return &eofToken
 	}
+	if gs.pbToken != nil {
+		result := gs.pbToken
+		gs.pbToken = nil
+		if gs.lexerState != stBetween {
+			gs.lexerState = stInError
+			result = &token{"internal error: pbToken but not between tokens", tkError}
+		}
+		return result // leaving the state "between"
+	}
 
 	var accumulator []byte
 
@@ -280,6 +289,20 @@ func getToken(gs *globalState) *token {
 			// That's it - no state called stInOperator since they are all single characters
 		}
 	}
+}
+
+// unget (push back) a token.
+func ungetToken(gs *globalState, tk *token) error {
+	if gs.pbToken != nil {
+		gs.lexerState = stInError
+		return fmt.Errorf("internal error: too many token pushbacks")
+	}
+	if gs.lexerState != stBetween {
+		gs.lexerState = stInError
+		return fmt.Errorf("internal error: invalid token pushback")
+	}
+	gs.pbToken = tk
+	return nil
 }
 
 func validNumber(num []byte) bool {

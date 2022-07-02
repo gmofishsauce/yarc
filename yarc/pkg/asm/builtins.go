@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path"
+	"strings"
 )
 
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
@@ -45,9 +47,10 @@ func actionInclude(gs *globalState) error {
 	if val.kind() != tkString {
 		return fmt.Errorf(".set: expected string, found \"%s\"", val)
 	}
-	f, err := os.Open(val.text())
+	includeFile := strings.ReplaceAll(val.text(), `"`, "")
+	f, err := os.Open(path.Join(gs.includeDir, includeFile))
 	if err != nil {
-		return fmt.Errorf(".include: %s: %s", val.text(), err)
+		return fmt.Errorf(".include: %s: %s", includeFile, err)
 	}
 	gs.reader.push(newNameLineByteReader(val.tokenText, bufio.NewReader(f)))
 	return nil
@@ -107,7 +110,7 @@ func actionOpcode(gs *globalState) error {
 	}
 	nargs, err := mustGetNumber(gs)
 	if err != nil {
-		return fmt.Errorf(".opcode: number of arguments expected; %s", err)
+		return fmt.Errorf(".opcode: number of arguments expected")
 	}
 	if nargs < 0 || nargs > 8 {
 		return fmt.Errorf(".opcode: only 0 to 8 arguments allowed")
@@ -154,9 +157,9 @@ func actionSlot(gs *globalState) error {
 	for {
 		// We need token pushback to handle the semicolon that can end
 		// the .slot builtin at any point. For now, a total hack instead.
-		tk, err := mustGetDefinedSymbol(gs)
+		tk, err := mustGetBitfield(gs)
 		if err != nil {
-			if err.Error() == `expected symbol, found "{tkOperator ;}"` {
+			if err.Error() == `expected defined symbol, found ;` {
 				gs.wcsNext++
 				return nil // and that is the total hack
 			}
