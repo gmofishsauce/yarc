@@ -70,8 +70,10 @@ func mustGetBitfield(gs *globalState) (*token, error) {
 		} else if tk.kind() == tkString {
 			stringValue := tk.text()[1 : len(tk.text())-1]
 			gs.reader.push(newNameLineByteReader(tk.text(), strings.NewReader(stringValue)))
-		} else if tk.kind() != tkSymbol {
-			return nil, fmt.Errorf("expected defined symbol, found %s", tk.text())
+		} else if tk.kind() == tkOperator && tk.text() == ";" {
+			return tk, nil
+		} else {
+			return nil, fmt.Errorf("unexpected: %s", tk.String())
 		}
 	}
 }

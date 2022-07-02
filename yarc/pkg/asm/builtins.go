@@ -23,7 +23,6 @@ import (
 	"math"
 	"os"
 	"path"
-	"strings"
 )
 
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
@@ -43,16 +42,16 @@ func actionSet(gs *globalState) error {
 
 // action func for the .include builtin. Push a reader for the file.
 func actionInclude(gs *globalState) error {
-	val := getToken(gs)
-	if val.kind() != tkString {
-		return fmt.Errorf(".set: expected string, found \"%s\"", val)
+	tk := getToken(gs)
+	if tk.kind() != tkString {
+		return fmt.Errorf(".include: expected string, found \"%s\"", tk)
 	}
-	includeFile := strings.ReplaceAll(val.text(), `"`, "")
+	includeFile := tk.text()[1 : len(tk.text())-1]
 	f, err := os.Open(path.Join(gs.includeDir, includeFile))
 	if err != nil {
 		return fmt.Errorf(".include: %s: %s", includeFile, err)
 	}
-	gs.reader.push(newNameLineByteReader(val.tokenText, bufio.NewReader(f)))
+	gs.reader.push(newNameLineByteReader(tk.tokenText, bufio.NewReader(f)))
 	return nil
 }
 
@@ -155,15 +154,9 @@ func actionSlot(gs *globalState) error {
 		return fmt.Errorf(".slot: not in an opcode declaration")
 	}
 	for {
-		// We need token pushback to handle the semicolon that can end
-		// the .slot builtin at any point. For now, a total hack instead.
 		tk, err := mustGetBitfield(gs)
-		if err != nil {
-			if err.Error() == `expected defined symbol, found ;` {
-				gs.wcsNext++
-				return nil // and that is the total hack
-			}
-			return err
+		if tk.kind() == tkOperator && tk.text() == ";" {
+			return nil
 		}
 		field, ok := gs.symbols[tk.text()].symbolData.([]int64)
 		if !ok {
@@ -176,12 +169,12 @@ func actionSlot(gs *globalState) error {
 		if equals.kind() != tkOperator || equals.text() != "=" {
 			return fmt.Errorf(".bitfield: equals expected: found %s", equals.String())
 		}
-		size := field[1] - field[2] + 1
-		max := int64(math.Pow(2, float64(size))) - 1
 		num, err := mustGetNumber(gs)
 		if err != nil {
 			return fmt.Errorf(".bifield: number expected: %s", err.Error())
 		}
+		size := field[1] - field[2] + 1
+		max := int64(math.Pow(2, float64(size))) - 1
 		if num < 0 || num > max {
 			return fmt.Errorf(".bitfield: %d out of range for %s", num, tk)
 		}

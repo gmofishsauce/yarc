@@ -138,7 +138,7 @@ func process(gs *globalState) int {
 		case tkSymbol:
 			keySymbol, ok := gs.symbols[t.text()]
 			if !ok {
-				errMsg(gs, "key symbol expected")
+				errMsg(gs, "expected symbol, found %s", t)
 				inError = true
 				break
 			}
@@ -152,7 +152,7 @@ func process(gs *globalState) int {
 				inError = true
 			}
 		default:
-			errMsg(gs, "unexpected token %s", t)
+			errMsg(gs, "unexpected: %s", t)
 			inError = true
 		}
 	}

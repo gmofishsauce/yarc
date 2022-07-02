@@ -3,7 +3,7 @@
 ## Overview
 
 YARC assembly language ("yasm", like "chasm") is a combination microassembler
-and assembler. The assembly language mnemonics are not built in but rather
+and assembler. The assembly language mnemonics are not built-in, but rather
 defined using the language. Once defined, they can be used for conventional
 assembly language programming.
 
@@ -30,8 +30,8 @@ may be provided to the serial line monitor (`yarc host`) for download to YARC.
 All builtin symbols begin with dot (`.`), and dot may not be used in symbols
 defined by the programmer. Programmer-defined symbols consist of a letter or
 underscore followed by letter|digit|underscore. Values may be decimal numbers,
-hexadecimal (0x) numbers, or strings delimited by double quotes. Most builtins
-are key symbols; a few non-key builtins are described later.
+hexadecimal (0x) numbers, or strings delimited by double quotes. All currently-
+defined builtins are key symbols.
 
 ### .set
 
@@ -40,13 +40,16 @@ are key symbols; a few non-key builtins are described later.
 ```
 
 Substitue `value` when `symbol` is encountered in the source text. In order
-to avoid some of the complexities of generalized macro processing, severe
+to avoid some of the complexities of generalized macro processing, several
 restrictions are placed on string values:
 
 1. The value may not contain newlines or double quotes.
 1. The value may not contain the dot character, thus no builtin symbols.
 
-The `.set` builtin is intended to address a limited set of situations.
+The `.set` builtin is intended to address a limited set of situations. In
+particular, use of strings is restricted to `.include` and to sequences of
+"bitfield = value" expressions and these are expanded only within the `.slot`
+builtin described below. Examples:
 
 ```
 .set RSP 5
@@ -64,7 +67,7 @@ shorthand for an often-repeated microcode word contained in a slot.
 ### .include
 
 ```
-.include path
+.include "path"
 ```
 
 Include the file identified by the path. Paths are relative to the main
