@@ -4,20 +4,21 @@ SYSCLK	READ/	YARC	UCCLK		WCS#		IRCLK	KSEL	RAMSEL		Notes
 						ctl reg		xcvr		from	3 bits	3 bits		(meaning of signal)
 						clock		enable		ucode	in ctl  in ctl
 
-pulse	either	YARC	forbid		forbid		from	111		111			Normal operation - read RAM per
-						(high)		(high)		ucode						cycle, write access to K and RAM
-																			forbidden, RAMSEL inactived by
-																			the 157s, K "SEL" inactivated by
-																			Nano firmware.
+pulse	RD		YARC	forbid		forbid		from	111		111			Normal operation - read RAM per
+						(high)		(high)		ucode						cycle, RAMSEL inactived by the 157s,
+																			K "SEL" inactivated by Nano firmware.
+
+pulse	WR#		YARC	forbid		forbid		forbid	111		111			Read microcode not allowed to YARC.
+						(high)		(high)		(high)						Reads as 0xFFFF (undriven bus).
 
 pulse	RD		NANO#   forbid		low			forbid	111		0bb			Read slice bb from WCS RAM. No other
-						(high)					(high)						read cases; YARC cannot make WCS#
-																			low. Read address from IR, slot
+						(high)					(high)						read cases. Read address from IR, slot
 																			clock, and slice from RAMSEL LSBs.
 
-none	WR#		NANO#	pulse		low			forbid  inputs	inputs		Clocks the select register
+pulse	WR#		NANO#	forbid		low			forbid	1xx		0bb			Write slice bb in WCS RAM at address
+						(high)					(high)						from 
 
-pulse	WR#		NANO#	high		low			forbid	1xx		0bb			Write slice bb in WCS RAM
+none	WR#		NANO#	pulse		low			forbid  inputs	inputs		Clocks the select register
 
 pulse	WR#		NANO#	high		low			forbid	0bb		1xx			Write K reg bb. Note: the K reg
 																			is not readable on sysbus.
@@ -41,7 +42,8 @@ When the 0x40 bit is low, e.g. a pattern like 0x37, pin 9 is low on the 139, 4Y#
 on the 157 in the control logic, and the next negative-going pulse on SYSCLK is reflected in 4Y
 (pin 11) on the "northernmost" 7432. This clocks pin 11 of the north-western-most K register 574.
 
-Next the Nano writes 0x77 to the UCR. THIS INVOLVES NO SYSCLK PULSE (this is what I keep forgetting!)
+The Nano can do this for all four K register ports. The Nano then writes a value with the 0x40 bit
+set, which disables writes to K.  THIS INVOLVES NO SYSCLK PULSE (this is what I keep forgetting!)
 so it doesn't write to K or RAM. I think this will work.
 
 Slot clock

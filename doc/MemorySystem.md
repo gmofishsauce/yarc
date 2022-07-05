@@ -1,7 +1,5 @@
 # YARC 30k RAM
 
-As this is written the memory system is designed and partially constructed.
-
 ## System Context
 
 The YARC data and address busses have 16 wires. There are 16 data bits and
@@ -19,7 +17,7 @@ fell below 1 micron (1000nm).
 The high-order address bit is ignored, so the address 0x8000 folds back
 to address 0, 0x8001 to 1, ... and 0xFFFF to 0x7FFF.
 
-Control logic is implemented using HC-series MSI like the rest of the YARC
+Control logic is implemented using 74HC-series MSI like the rest of the YARC
 design. 
 
 ## Functionality
@@ -28,7 +26,7 @@ Memory is both byte and word addressable. Three types of memory cycles are
 supported: byte on even address, byte on odd address, and word (16 bits)
 on even address. The behavior of word cycle on odd address is undefined.
 
-Memory responds to the addresses 0x0000 through 0x77FF ("30k"). Addresses
+Memory responds to the addresses 0x0000 through 0x77FF ("30k - 1"). Addresses
 from 0x7800 to 0x7FFF do not select any of the RAM chips nor open the
 memory bus transceivers. If the I/O subsystem doesn't decode the address,
 the data bus will be undriven. The resulting behavior is undefined but in
@@ -38,8 +36,10 @@ practice the implementation returns 0xFFFF for reads and discards writes.
 
 Fundamental control signals are developed by the NAND gate U14A and the
 decoder U22A. These are found at coordinates B1 in the schematic. The NAND
-gate's output is RAM/IO#, low for I/O address and high for memory.  Decoding
-this signal with the READ/WRITE# line SYSBUS:15, the produces the four
+gate's output is RAM/IO#. This is low for I/O address (0x7800 through 0x7FFF) 
+and high for memory.
+
+Decodingthis signal with the READ/WRITE# line (SYSBUS:15) the produces the four
 (unclocked and therefore potentially glitchy) signals MEMRD#, MEMWR#, IORD#,
 and IOWR#.
 

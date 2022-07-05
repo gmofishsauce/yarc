@@ -1,0 +1,15 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid 2f8c467f-c568-40e7-b45f-c00d2d7d7568)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "Microcode Control")
+    (date "2022-07-05")
+  )
+
+  (lib_symbols
+  )
+
+)
