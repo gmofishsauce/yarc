@@ -253,6 +253,18 @@
     )
   )
 
+  (sheet (at 29.21 172.72) (size 44.45 25.4) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid) (color 0 0 0 0))
+    (fill (color 0 0 0 0.0000))
+    (uuid 898bc8c4-26bf-49d8-bb4c-382409bb277a)
+    (property "Sheet name" "Microcode Engine" (id 0) (at 29.21 172.0084 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheet file" "MicrocodeEngine.kicad_sch" (id 1) (at 29.21 198.7046 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+  )
+
   (sheet (at 175.26 175.26) (size 17.78 35.56)
     (stroke (width 0.1524) (type solid) (color 0 0 0 0))
     (fill (color 0 0 0 0.0000))
@@ -270,6 +282,7 @@
     (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47" (page "2"))
     (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf" (page "3"))
     (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b" (page "4"))
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a" (page "5"))
   )
 
   (symbol_instances
@@ -662,6 +675,42 @@
     )
     (path "/32a6a89d-8e27-4c41-a8a1-866f443f001b/98d12bd2-b01e-4753-a486-570613f1cba2"
       (reference "U30") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/0184d394-883e-43ae-8d34-94bab0ae7228"
+      (reference "U?") (unit 1) (value "74LS574") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/1c8135b7-f279-409a-af45-66e5c2a7f1c7"
+      (reference "U?") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/4115d916-02e2-4a18-82cb-a96835d547d0"
+      (reference "U?") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/412bb8a2-b81f-4e41-8749-1ac5a36dfc26"
+      (reference "U?") (unit 1) (value "74LS574") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/7edec757-24b8-481f-a696-582c714a74a1"
+      (reference "U?") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/84bb7c32-34c3-4d85-9b06-8754ebd07667"
+      (reference "U?") (unit 1) (value "74LS574") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/9deb303f-f753-4af2-b446-d25f75f59380"
+      (reference "U?") (unit 1) (value "74LS574") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/9e561e29-8fae-457a-9111-42073e978b8f"
+      (reference "U?") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/a27df806-f11e-47cf-b440-2b742932b664"
+      (reference "U?") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/a533ba79-7f6b-40a9-aa41-fc8bce60aa08"
+      (reference "U?") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/e3989918-0725-47f7-b9e1-48b570b0e233"
+      (reference "U?") (unit 1) (value "AS6C6264") (footprint "")
+    )
+    (path "/898bc8c4-26bf-49d8-bb4c-382409bb277a/edcd72f5-8b8e-4cf4-82f5-4dd3550e28b5"
+      (reference "U?") (unit 1) (value "74HC245") (footprint "")
     )
     (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/f8ebbe10-0751-4bba-bb4f-21bf35b8e2ef"
       (reference "X1") (unit 1) (value "CXO_DIP8") (footprint "Oscillator:Oscillator_DIP-8")
