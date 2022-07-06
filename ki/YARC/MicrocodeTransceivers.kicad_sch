@@ -2,7 +2,12 @@
 
   (uuid 7c8099a1-297d-48d8-b0dc-0dfe6cb7184a)
 
-  (paper "A4")
+  (paper "USLetter")
+
+  (title_block
+    (title "Microcode Tranceivers")
+    (date "2022-07-05")
+  )
 
   (lib_symbols
   )

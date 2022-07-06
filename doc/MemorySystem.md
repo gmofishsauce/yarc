@@ -34,17 +34,17 @@ practice the implementation returns 0xFFFF for reads and discards writes.
 
 ## Implementation
 
-Refer to the KiCad schematic title "YARC Memory" or the equivalent iamge
+Refer to the KiCad schematic title "YARC Memory" or the equivalent image
 in the **img** directory.
 
 Fundamental control signals are developed by the NAND gate U14A and the
 decoder U22A. These are found at coordinates B1 in the schematic. The NAND
-gate's output is R`AM/IO#`. This is low for I/O addresses (0x7800 through
+gate's output is `RAM/IO#`. This is low for I/O addresses (0x7800 through
 0x7FFF) and high for memory addresses (0x0000 through 0x77FF).
 
-Decoding this signal with the `READ/WRITE#` line (`SYSBUS:15`) produces
-the four signals `MEMRD#`, `MEMWR#`, `IORD#`, and `IOWR#`. These are
-unclocked and as a result are potentially glitchy.
+Decoding this signal with the `READ/WRITE#` line (`SYSBUS:15`) (section B1)
+produces the four signals `MEMRD#`, `MEMWR#`, `IORD#`, and `IOWR#`. These
+are unclocked and as a result are potentially glitchy.
 
 The IO read/write signals are not used by the memory subsystem, although
 `RAM/IO#` and a signal called `LOW128#` (derived from the address bus in
