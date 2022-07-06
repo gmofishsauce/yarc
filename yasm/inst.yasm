@@ -19,6 +19,9 @@
 .set FETCH "src1=1 src2=7 dst=1 alu=0 dbs=0 m16=0 irclk=0;"
 .set DECODE NOOP
 
+# Can we make ALU instructions be 3 cycles long by overlapping the
+# second execution cycle with the FETCH cycle?
+
 .opcode ADD 0x80 3 src1 src2 dst
 .slot NOOP # first half of add specified by instruction bits
 .slot NOOP # second half of add

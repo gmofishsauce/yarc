@@ -32,20 +32,48 @@ memory bus transceivers. If the I/O subsystem doesn't decode the address,
 the data bus will be undriven. The resulting behavior is undefined but in
 practice the implementation returns 0xFFFF for reads and discards writes.
 
-## Implementation (refer to KiCad schematic title "YARC Memory")
+## Implementation
+
+Refer to the KiCad schematic title "YARC Memory" or the equivalent iamge
+in the **img** directory.
 
 Fundamental control signals are developed by the NAND gate U14A and the
 decoder U22A. These are found at coordinates B1 in the schematic. The NAND
-gate's output is RAM/IO#. This is low for I/O address (0x7800 through 0x7FFF) 
-and high for memory.
+gate's output is R`AM/IO#`. This is low for I/O addresses (0x7800 through
+0x7FFF) and high for memory addresses (0x0000 through 0x77FF).
 
-Decodingthis signal with the READ/WRITE# line (SYSBUS:15) the produces the four
-(unclocked and therefore potentially glitchy) signals MEMRD#, MEMWR#, IORD#,
-and IOWR#.
+Decoding this signal with the `READ/WRITE#` line (`SYSBUS:15`) produces
+the four signals `MEMRD#`, `MEMWR#`, `IORD#`, and `IOWR#`. These are
+unclocked and as a result are potentially glitchy.
 
-The IO read/write signals are not used by the memory subsystem. The MEMRD#
-signal is used directly as the direction control on the bus transceivers;
-since the transceiver enables are gated by the clock as explained later,
-glitches on the direction line are believed to irrelevant.
+The IO read/write signals are not used by the memory subsystem, although
+`RAM/IO#` and a signal called `LOW128#` (derived from the address bus in
+section C1 of the schematic) are generated on-board and routed to a decoder
+in the Downloader Extension.
 
-MEMRD# is also used directly as the OE# (output enable) for the RAMs.
+MEMRD# and MEMWR# are mixed with the clock to create the signals `MEMRD_CLK#`
+and `MEMWR_CLK#` (section B2). These are not (supposed to be) glitchy, since
+the address shold have settled before the clock goes low in the second half
+of each cycle. (Normally, we don't use an overbar or `#` symbol for clock
+lines; maybe we shouldn't here either.)
+
+The clocked MEMRD and MEMWR signals form the output enable (OE#) and
+write enable (WE#) signals to the RAMs. The RAM/IO# line is used for the
+active-high CE2 line.
+
+The low chip-enable is used to select the correct
+RAM (or RAM pair for 16-bit operations). This the result of somewhat
+complex decoding performed by half a 2-4 decoder (139) U22B and by U26,
+a multiplexer, found in C2 and C3 of the schematic. The results are the
+four signals `SEL_xRxB` where `x` is H for Hi or L for low. The range
+refers to the address (upper or lower 16k) while the byte refers to
+high byte or low byte.
+
+The 157 is switched based on the 16-bit cycle line `MEM16#` so that
+two RAMs are selected when `MEM16#` is low but only one RAM when high.
+The bus transceivers, in turn, are controlled by signals derived in
+D1 through D3 of the schematic. The `CROSS_EN#` signal enables the high
+memory bus to low system bus when a byte cycle is performed to an odd
+address. `STRAIGHT_EN#` enables high-to-high and low-to-low transceivers
+for both even-addressed cycle types, byte and word.
+
