@@ -376,6 +376,8 @@ bool postInit() {
     return false;
   }
 
+  // Wait for POR# to go high here, then test RAM:
+
   // // Write and read the entire 30k space
   for (int i = 0; i < 0x7800; i++) {
     setAH(BYTE(i >> 8)); setAL(BYTE(i & 0xFF));
@@ -390,4 +392,15 @@ bool postInit() {
   }
   
   return true;
+}
+
+// Run the YARC.
+void runYARC() {
+  /*
+  byte mcr = getMCR();
+  mcr |= PortPrivate::MCR_BIT_YARC_NANO_L;
+  mcr &= ~PortPrivate::MCR_BIT_FASTCLKEN_L;
+  setMCR(mcr);
+  */
+  setMCR(0x20);
 }

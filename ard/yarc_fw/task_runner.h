@@ -67,6 +67,8 @@ void InitTasks() {
       ; // POST failed - stuck until power cycle
     }
   }
+
+  runYARC();
 }
 
 void RunTasks() {
