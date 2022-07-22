@@ -73,5 +73,8 @@
         <instance moduleIdRef="74HC20_81ead4e3beef4390acb85bf64a88c149_1" modelIndex="6246" path="/Users/jeff/Documents/Fritzing/parts/user/74HC20_81ead4e3beef4390acb85bf64a88c149_1.fzp">
             <views/>
         </instance>
+        <instance moduleIdRef="74HC670_54f25be1d8c5aedd1d97f6770f68dfa2_1" modelIndex="6275" path="/Users/jeff/Documents/Fritzing/parts/user/74HC670_54f25be1d8c5aedd1d97f6770f68dfa2_1.fzp">
+            <views/>
+        </instance>
     </instances>
 </module>

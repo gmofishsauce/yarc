@@ -20,36 +20,73 @@
 .set r1 1
 .set r2 2
 .set r3 3
+.set PC r1
+.set dst_none 7
 
 # data bus drivers for memory writes
 .set gr 0	# general register drives bus
 .set sp	1	# stack (PSP or RSP) drives bus
 .set ir	2	# instruction register drives bus
 .set f	3	# flags register drives bus
+.set n2 4	# negative 2 constant register
+.set n1 5	# negative 1 constant register
+.set p1 6	# positive 1 constant register
+.set p2 7	# positive 2 constant register
+
+# ALU operations
+
+.set alu_addop	0
+# 15 more to go
 
 # Microcode words, 32 bits
+
+# Short signal names are numbers, possibly decoded to active-low signals
+# Signals ending in _en are active low enables
+# Signals ending in _cl are low to high clocks
+# Signals ending in _dir are transceiver direction controls (ambiguity TBD)
+
 # register specifier word 7:0
-.bitfield src1	32  7:6	# contains a gr
-.bitfield src2	32  5:3	# contains a gr (3..0) or a constant reg (7..4)
-.bitfield dst	32  2:0	# contains a gr (3..0) and a write enable bit
+.bitfield src1			32  7:6	# contains a gr
+.bitfield src2			32  5:3	# contains a gr (3..0) or a constant reg (7..4)
+.bitfield dst			32  2:0	# contains a gr (3..0) and a write enable bit
 
 # alu and main bus source 15:8
-.bitfield alu	32    11:8  # 1 of 16 alu operations
-.bitfield sxt	32    12:12 # sign extend low byte on ALU port 2 low
-.bitfield aluholdclk  13:13 # open/clock the ALU port 2 holding reg low
-.bitfield alu_sysdir  14:14 # ALU sysdata xcvr direction (TBD)
-.bitfield alu_sysdata 15:15 # ALU sysdata xcvr enable
+.bitfield alu_op		32	11:8  # 1 of 16 alu operations
+.bitfield alu_sxt_en	32	12:12 # sign extend low byte on ALU port 2 low
+.bitfield alu_hold_clk	32	13:13 # open/clock the ALU port 2 holding reg low
+.bitfield alu_sys_dir	32	14:14 # ALU sysdata xcvr direction (TBD)
+.bitfield alu_sys_en	32	15:15 # ALU sysdata xcvr enable
 
-# TBD 23:16
-.bitfield sysdatasrc 32 1:0   # 1 of 4 data bus drivers (gr sp ir f)
-.bitfield m16	     32 2:2   # 0 means a 16-bit memory cycle
-.bitfield irclk      32 3:3   # 0 clocks the ir
-.bitfield readwrite  32 4:4
-.bitfield stackup    32 5:5   # when low deselected SP increments
-.bitfield stackdown  32 6:6   # when low deselected SP decrements
-.bitfield psp_rsp	 32 7:7   # select psp when high, rsp when low
+# busses and stack 23:16
+.bitfield sysdata_src	32	1:0   # 1 of 4 data bus drivers (gr sp ir f)
+.bitfield sysaddr_src	32	3:2   # 1 of 4 address bus drivers (gr-src1 ?? ?? NONE)
+.bitfield stack_up_clk	32	4:4   # when low deselected SP increments
+.bitfield stack_dn_clk  32	5:5   # when low deselected SP decrements
+.bitfield psp_rsp		32	6:6   # select psp when high, rsp when low
+.bitfield unassigned_23	32	7:7   # unassigned
 
 # TBD 31:24
-.bitfield rsw_sel    32 0:0   # selects LS byte of microcode or instruction
+.bitfield rw			32	0:0   # read/write# line
+.bitfield rsw_ir_uc		32	1:1   # RSW from LS byte of microcode when low or IR
+.bitfield m16_en	    32	2:2   # enable 16-bit memory cycle
+.bitfield ir_clk		32	3:3   # clock the IR
+.bitfield unassigned_28	32  7:4   # unassigned
 
+# Microcode combinations
+.set IDLE_0	"src1=r0 src2=r0 dst=dst_none"
+.set IDLE_1	"alu_op=alu_addop alu_sxt_en=1 alu_hold_clk=1 alu_sys_en=1"
+.set IDLE_2 "sysdata_src=gr m16_en=1 ir_clk=1 rw=1 stack_up_clk=1 stack_dn_clk=1"
+.set IDLE_3 "rsw_ir_uc=0 sysaddr_src=gr"
+
+# Microcode for an IDLE cycle.
+.set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
+
+# Microcode for a FETCH cycle
+.set FETCH_0 "src1=PC src2=p2 dst=dst_none"
+.set FETCH_1 "alu_op=alu_addop alu_sxt_en=1 alu_hold_clk=0 alu_sys_en=1"
+.set FETCH_2 "sysdata_src=0 sysaddr_src=gr stack_up_clk=1 stack_dn_clk=1 psp_rsp=1"
+.set FETCH_3 "rw=1 rsw_ir_uc=0 m16_en=0 ir_clk=0"
+
+# Microcode for a FETCH (and start PC increment) cycle
+.set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
 

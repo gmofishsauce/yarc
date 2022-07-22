@@ -155,6 +155,9 @@ func actionSlot(gs *globalState) error {
 	}
 	for {
 		tk, err := mustGetBitfield(gs)
+		if err != nil {
+			return err
+		}
 		if tk.kind() == tkOperator && tk.text() == ";" {
 			return nil
 		}

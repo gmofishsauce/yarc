@@ -218,7 +218,7 @@ func dumpWCS(gs *globalState) {
 	for opcode := 0; opcode < WCS_OPCODES; opcode += WCS_SLOTS_PER_OPCODE {
 		printThisOpcode := false
 		for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-			if gs.wcs[opcode+slot] != 0 {
+			if gs.wcs[opcode+slot] != EMPTY_SLOT {
 				printThisOpcode = true
 				break
 			}
