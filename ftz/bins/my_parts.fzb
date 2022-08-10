@@ -76,5 +76,8 @@
         <instance moduleIdRef="74HC670_54f25be1d8c5aedd1d97f6770f68dfa2_1" modelIndex="6275" path="/Users/jeff/Documents/Fritzing/parts/user/74HC670_54f25be1d8c5aedd1d97f6770f68dfa2_1.fzp">
             <views/>
         </instance>
+        <instance moduleIdRef="74HC573_424ad81bc9e4e6e2e2a4b93463ebdbdb_1" modelIndex="6305" path="/Users/jeff/Documents/Fritzing/parts/user/74HC573_424ad81bc9e4e6e2e2a4b93463ebdbdb_1.fzp">
+            <views/>
+        </instance>
     </instances>
 </module>

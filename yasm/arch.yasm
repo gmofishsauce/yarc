@@ -28,10 +28,20 @@
 .set sp	1	# stack (PSP or RSP) drives bus
 .set ir	2	# instruction register drives bus
 .set f	3	# flags register drives bus
-.set n2 4	# negative 2 constant register
-.set n1 5	# negative 1 constant register
-.set p1 6	# positive 1 constant register
-.set p2 7	# positive 2 constant register
+
+# General register src2 constant registers
+.set n2 6	# negative 2 constant register
+.set n1 7	# negative 1 constant register
+.set p1 5	# positive 1 constant register
+.set p2 4	# positive 2 constant register
+
+# General register conditional writes. These
+# are primarily targeted as enabling branches
+# but could be used for conditional moves.
+.set cond_r0	4
+.set cond_r1	5
+.set cond_r2	6
+.set cond_r3	7
 
 # ALU operations
 
@@ -48,45 +58,56 @@
 # register specifier word 7:0
 .bitfield src1			32  7:6	# contains a gr
 .bitfield src2			32  5:3	# contains a gr (3..0) or a constant reg (7..4)
-.bitfield dst			32  2:0	# contains a gr (3..0) and a write enable bit
+.bitfield dst			32  2:0	# contains a gr (3..0) or a conditional gr (7..4)
 
 # alu and main bus source 15:8
-.bitfield alu_op		32	11:8  # 1 of 16 alu operations
-.bitfield alu_sxt_en	32	12:12 # sign extend low byte on ALU port 2 low
-.bitfield alu_hold_clk	32	13:13 # open/clock the ALU port 2 holding reg low
-.bitfield alu_sys_dir	32	14:14 # ALU sysdata xcvr direction (TBD)
-.bitfield alu_sys_en	32	15:15 # ALU sysdata xcvr enable
+#
+# Note about state 3 of the alu_ctl field: if data will never flow through to the
+# ALU from the bus during phi1 of any ALU cycle, we could encode alu_in_xcv_en#
+# as state 11b = 3 of the alu_ctl field. I already know that there isn't time
+# for the ALU do cycle if the data comes from memory, so the only question is
+# whether to try and save a cycle on a branch by having IRL flow across the bus
+# and through ALU port 2 all the way to the ALU outputs in a single cycle. If I
+# decide this not possible, then the ALU port 2 transceiver input enable bit
+# doesn't have to a separate bit; it could just be 11b on the alu_ctl, since it
+# will never occur in the same cycle with either alu_phi1 or alu_phi2.
+#
+.bitfield alu_op		32	3:0 # 1 of 16 alu operations
+.bitfield alu_ctl	    32	5:4 # 0 = alu_phi1, 1 = alu_phi2, 2 = alu_none, 3 TBD
+.bitfield alu_hold_clk	32	6:6 # open/clock the ALU port 2 holding reg low
+.bitfield alu_in_xcv_en	32	7:7 # when 0, enable sysdata inbound to ALU port 2
 
 # busses and stack 23:16
-.bitfield sysdata_src	32	1:0   # 1 of 4 data bus drivers (gr sp ir f)
-.bitfield sysaddr_src	32	3:2   # 1 of 4 address bus drivers (gr-src1 ?? ?? NONE)
-.bitfield stack_up_clk	32	4:4   # when low deselected SP increments
-.bitfield stack_dn_clk  32	5:5   # when low deselected SP decrements
-.bitfield psp_rsp		32	6:6   # select psp when high, rsp when low
-.bitfield unassigned_23	32	7:7   # unassigned
+.bitfield sysdata_src	32	1:0 # 1 of 4 data bus drivers (gr sp ir f)
+.bitfield alu_in_mux	32	2:2 # register input mux, sense TBD
+.bitfield stack_up_clk	32	3:3 # when low deselected SP increments
+.bitfield stack_dn_clk  32	4:4 # when low deselected SP decrements
+.bitfield psp_rsp		32	5:5 # select psp when high, rsp when low
+.bitfield unassigned_76	32	7:6 # unassigned:2
 
-# TBD 31:24
-.bitfield rw			32	0:0   # read/write# line
-.bitfield rsw_ir_uc		32	1:1   # RSW from LS byte of microcode when low or IR
-.bitfield m16_en	    32	2:2   # enable 16-bit memory cycle
-.bitfield ir_clk		32	3:3   # clock the IR
-.bitfield unassigned_28	32  7:4   # unassigned
+# control lines 31:24
+.bitfield rw			32	0:0 # read/write# line
+.bitfield rsw_ir_uc		32	1:1 # RSW from LS byte of microcode when low or IR
+.bitfield m16_en	    32	2:2 # enable 16-bit memory cycle
+.bitfield ir_clk		32	3:3 # clock the IR
+.bitfield unassigned_29	32  7:4 # unassigned:4
 
-# Microcode combinations
-.set IDLE_0	"src1=r0 src2=r0 dst=dst_none"
-.set IDLE_1	"alu_op=alu_addop alu_sxt_en=1 alu_hold_clk=1 alu_sys_en=1"
-.set IDLE_2 "sysdata_src=gr m16_en=1 ir_clk=1 rw=1 stack_up_clk=1 stack_dn_clk=1"
-.set IDLE_3 "rsw_ir_uc=0 sysaddr_src=gr"
+# Microcode combinations FIXME
+# .set IDLE_0	"src1=r0 src2=r0 dst=dst_none"
+# .set IDLE_1	"alu_op=alu_addop alu_in_mux=1 alu_hold_clk=1 alu_sys_en=1"
+# .set IDLE_2 "sysdata_src=gr m16_en=1 ir_clk=1 rw=1 stack_up_clk=1 stack_dn_clk=1"
+# .set IDLE_3 "rw=1 rsw_ir_uc=0 sysaddr_src=gr m16_en=0 ir_clk=1 src2_sxt=1"
 
-# Microcode for an IDLE cycle.
-.set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
+# Microcode for an IDLE cycle FIXME
+# .set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
+.set IDLE rw=1
 
-# Microcode for a FETCH cycle
-.set FETCH_0 "src1=PC src2=p2 dst=dst_none"
-.set FETCH_1 "alu_op=alu_addop alu_sxt_en=1 alu_hold_clk=0 alu_sys_en=1"
-.set FETCH_2 "sysdata_src=0 sysaddr_src=gr stack_up_clk=1 stack_dn_clk=1 psp_rsp=1"
-.set FETCH_3 "rw=1 rsw_ir_uc=0 m16_en=0 ir_clk=0"
+# Microcode for a FETCH cycle FIXME
+# .set FETCH_0 "src1=PC src2=p2 dst=dst_none"
+# .set FETCH_1 "alu_op=alu_addop alu_in_mux=1 alu_hold_clk=0 alu_sys_en=1"
+# .set FETCH_2 "sysdata_src=0 sysaddr_src=gr stack_up_clk=1 stack_dn_clk=1 psp_rsp=1"
+# .set FETCH_3 "rw=1 rsw_ir_uc=0 m16_en=0 ir_clk=0 src2_sxt=1"
 
-# Microcode for a FETCH (and start PC increment) cycle
-.set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
-
+# Microcode for a FETCH (and start PC increment) cycle FIXME
+# .set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
+.set FETCH rw=1

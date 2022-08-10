@@ -348,6 +348,18 @@
     [
       "5c3a56e1-a539-47ae-9041-458228256291",
       "Microcode Transceivers"
+    ],
+    [
+      "ab31a2b6-5416-47ce-a658-779ff6faeebe",
+      "Stacks"
+    ],
+    [
+      "08911a09-4c52-4bc8-9a9a-ff564ff87689",
+      "GeneralRegisters"
+    ],
+    [
+      "2ffac34c-e3cb-492f-a745-89749c95e306",
+      "FlagLogic"
     ]
   ],
   "text_variables": {}

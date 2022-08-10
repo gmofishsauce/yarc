@@ -1,0 +1,14 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid cbe068f8-08a0-4d82-977d-d526d61a0c44)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "YARC General Registers")
+  )
+
+  (lib_symbols
+  )
+
+)
