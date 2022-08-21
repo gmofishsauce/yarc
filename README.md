@@ -6,7 +6,7 @@ computer with a 16-bit multiplexed address/data bus and extensive
 pipelining.
 
 In December 2021, the design changed to a 16-bit computer with separate
-address and data busses, minimal pipelining, an 8-bit/2 cycle ALU, and
+address and data busses, minimal pipelining, an 8-bit/2-cycle ALU, and
 two hardware stacks. In short, a general register machine with specific
 concessions to the efficient implementation of Charles Moore's FORTH
 programming language.
@@ -25,11 +25,14 @@ should be renamed to "System Interface" or something).
 
 ## doc - YARC documentation
 
-Engineering documentation for YARC. No "user documentation" is planned.
+Engineering documentation for YARC. No "user documentation" is planned,
+but some of the documentation is tersely user-oriented, such as the
+document that describes the assembly language.
 
 ## forth - Implementation of the FORTH language for YARC.
 
-Empty, for now.
+Forth implementation for YARC. To be based on Jones Forth which can be
+found in a subdirectory.
 
 ## ftz - Fritz sketches for YARC.
 
