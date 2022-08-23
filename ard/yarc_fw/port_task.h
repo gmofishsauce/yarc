@@ -64,7 +64,7 @@ namespace PortPrivate {
   // the standard Arduino library. These may be removed once I trust the
   // Nano-specific code.
 
-#define OPTIMIZE_FOR_NANO 0
+#define OPTIMIZE_FOR_NANO 1
 
 #if OPTIMIZE_FOR_NANO
 #define singleClock nanoSingleClock
@@ -96,12 +96,12 @@ namespace PortPrivate {
   PinList portSelect = {14, 15, 16, NOT_PIN};
   
   // Write the bits of value to the port pins.
-  void arduinoPutPort(PinList port, int value) {
-    for (int i = 0; port[i] != NOT_PIN; i++) {
-      digitalWrite(port[i], value&1);
-      value = value >> 1;
-    }
-  }
+  //  void arduinoPutPort(PinList port, int value) {
+  //    for (int i = 0; port[i] != NOT_PIN; i++) {
+  //      digitalWrite(port[i], value&1);
+  //      value = value >> 1;
+  //    }
+  //  }
 
   // Set the data port to the byte b. The data port is made from pieces of
   // the Nano's internal PORTB and PORTD.
@@ -136,22 +136,30 @@ namespace PortPrivate {
   
   // Read the port pins and return them. We need to work
   // backwards through the port pins or we'll reverse the bits.
-  int arduinoGetPort(PinList port) {
-    int last;
-    for (last = 0; port[last] != NOT_PIN; ++last) {
-      ; // nothing
-    }
-  
-    int result = 0;
-    for (int i = last - 1; i >= 0; --i) {
-      result = result << 1;
-      result = result | (digitalRead(port[i]));
-    }
-    return result;
-  }
+  //  byte arduinoGetPort(PinList port) {
+  //    int last;
+  //    for (last = 0; port[last] != NOT_PIN; ++last) {
+  //      ; // nothing
+  //    }
+  //  
+  //    int result = 0;
+  //    for (int i = last - 1; i >= 0; --i) {
+  //      result = result << 1;
+  //      result = result | (digitalRead(port[i]));
+  //    }
+  //    return result;
+  //  }
 
-  int nanoGetPort(PinList port) {
-    return arduinoGetPort(port); // for now
+  // We take advantage of the fact that we only ever call get()
+  // on the data port. There will be a lot of simplications to
+  // make after we get all converted to the Nano-specific code.
+  byte nanoGetPort(PinList port) {
+    // The "data port" is made of Nano pins 9 through 16. The three
+    // low order bits are in Nano PORTD. The five higher order, PORTB.
+    // First get PD7:5 and put them in the low order bits of the result.
+    byte portDbits = (PIND & 0xE0) >> 5;
+    byte portBbits = (PINB & 0x1F) << 3;
+    return byte(portDbits | portBbits);
   }
   
   // Set the port pins as outputs. The data port implements
@@ -160,14 +168,34 @@ namespace PortPrivate {
   // triggering a read cycle on the YARC's bus, we change it
   // to input mode, enable the output of the bus result register,
   // and read the port to get the value pulled from YARC memory.
-  void arduinoSetMode(PinList port, int mode) {
-    for (int i = 0; port[i] != NOT_PIN; i++) {
-      pinMode(port[i], mode);
-    }
+  //  void arduinoSetMode(PinList port, int mode) {
+  //    for (int i = 0; port[i] != NOT_PIN; i++) {
+  //      pinMode(port[i], mode);
+  //    }
+  //  }
+
+  // Set the data port to be output or input
+  void nanoSetDataPortMode(int mode) {
+      if (mode == OUTPUT) {
+        DDRD = DDRD | 0xE0;
+        DDRB = DDRB | 0x1F;
+      } else {
+        DDRD = DDRD & ~0xE0;
+        DDRB = DDRB & ~0x1F;
+      }
   }
 
+  // Set the select port to be output (it's always output)
+  void nanoSetSelectPortMode(int mode) {
+    DDRC |= DDRC | 0x07;
+  }
+  
   void nanoSetMode(PinList port, int mode) {
-    arduinoSetMode(port, mode); // for now
+    if (port == portData) {
+      nanoSetDataPortMode(mode);
+    } else {
+      nanoSetSelectPortMode(mode);
+    }
   }
 
   // Outside the Nano there are two 3-to-8 decoder chips, providing a total
@@ -208,15 +236,15 @@ namespace PortPrivate {
     return (reg & DECODER_SELECT_MASK) ? PIN_SELECT_8_15 : PIN_SELECT_0_7;
   }
 
-  void arduinoTogglePulse(REGISTER_ID reg) {
-    byte decoderAddress = getAddressFromRegisterID(reg);
-    putPort(portSelect, decoderAddress);
-    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
-
-    // Again, this causes a LOW-going output pulse on the selected decoder
-    digitalWrite(decoderEnablePin, HIGH);
-    digitalWrite(decoderEnablePin, LOW);  
-  }
+  //  void arduinoTogglePulse(REGISTER_ID reg) {
+  //    byte decoderAddress = getAddressFromRegisterID(reg);
+  //    putPort(portSelect, decoderAddress);
+  //    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
+  //
+  //    // Again, this causes a LOW-going output pulse on the selected decoder
+  //    digitalWrite(decoderEnablePin, HIGH);
+  //    digitalWrite(decoderEnablePin, LOW);  
+  //  }
 
   void nanoTogglePulse(REGISTER_ID reg) {
     byte decoderAddress = getAddressFromRegisterID(reg);
@@ -233,32 +261,51 @@ namespace PortPrivate {
     }
   }
   
-  byte arduinoGetRegister(REGISTER_ID reg) {
+  //  byte arduinoGetRegister(REGISTER_ID reg) {
+  //    PortPrivate::setMode(portData, INPUT);
+  //    
+  //    byte decoderAddress = getAddressFromRegisterID(reg);
+  //    PortPrivate::putPort(portSelect, decoderAddress);
+  //    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
+  //
+  //    digitalWrite(decoderEnablePin, HIGH); // enable input register to bus
+  //    byte result = getPort(portData);
+  //    digitalWrite(decoderEnablePin, LOW);  // disconnect input register from bus
+  //
+  //    return result;
+  //  }
+
+  byte nanoGetRegister(REGISTER_ID reg) {
     PortPrivate::setMode(portData, INPUT);
     
     byte decoderAddress = getAddressFromRegisterID(reg);
     PortPrivate::putPort(portSelect, decoderAddress);
     byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
-
-    digitalWrite(decoderEnablePin, HIGH); // enable input register to bus
-    byte result = getPort(portData);
-    digitalWrite(decoderEnablePin, LOW);  // disconnect input register from bus
-
+    byte result;
+    if (decoderEnablePin == PIN_SELECT_0_7) {
+      // Nano pin 17 is PORTC PORTC3
+      PORTC |= _BV(PORTC3);
+      result = getPort(portData);
+      PORTC &= ~(_BV(PORTC3));
+    } else {
+      // Nano pin 18 is PORTC PORTC4
+      PORTC |= _BV(PORTC4);
+      result = getPort(portData);
+      PORTC &= ~(_BV(PORTC4));
+    }
     return result;
   }
-
-  byte nanoGetRegister(REGISTER_ID reg) {
-    arduinoGetRegister(reg); // for now
-  }
   
-  void arduinoSetRegister(REGISTER_ID reg, byte data) {
+  //  void arduinoSetRegister(REGISTER_ID reg, byte data) {
+  //    PortPrivate::setMode(portData, OUTPUT);
+  //    PortPrivate::putPort(portData, data);    
+  //    togglePulse(reg);
+  //  }
+
+  void nanoSetRegister(REGISTER_ID reg, byte data) {
     PortPrivate::setMode(portData, OUTPUT);
     PortPrivate::putPort(portData, data);    
     togglePulse(reg);
-  }
-
-  void nanoSetRegister(REGISTER_ID reg, byte data) {
-    arduinoSetRegister(reg, data); // fow now
   }
 
   // Addresses on low decoder
@@ -308,12 +355,12 @@ namespace PortPrivate {
 
   // This one was already slightly optimized from the obvious call to
   // toggglePulse(), and that optimization did help a little.
-  void arduinoInternalSingleClock() {
-    putPort(portSelect, RAW_NANO_CLK);
-    digitalWrite(PIN_SELECT_8_15, HIGH);
-    digitalWrite(PIN_SELECT_8_15, LOW);
-  }
-
+  //  void arduinoInternalSingleClock() {
+  //    putPort(portSelect, RAW_NANO_CLK);
+  //    digitalWrite(PIN_SELECT_8_15, HIGH);
+  //    digitalWrite(PIN_SELECT_8_15, LOW);
+  //  }
+  //
   // But for the Nano-specific code, we can just call togglePulse().
   void nanoInternalSingleClock() {
     nanoTogglePulse(RawNanoClock);
@@ -392,9 +439,9 @@ void nanoSetMCR(byte b) {
     PortPrivate::togglePulse(PortPrivate::MachineControlRegister); // nanoTogglePulse(PortPrivate::MachineControlRegister)
 }
 
-void arduinoSingleClock() {
-  PortPrivate::arduinoInternalSingleClock();
-}
+//void arduinoSingleClock() {
+//  PortPrivate::arduinoInternalSingleClock();
+//}
 
 void nanoSingleClock() {
   PortPrivate::nanoInternalSingleClock();
@@ -415,7 +462,7 @@ inline byte BYTE(int n) { return n&0xFF; } // XXX probably not the right way to 
 
 // Power on self test and initialization. Startup will hang if this function returns false.
 bool postInit() {
-  
+
   // The panic below normally displays 0xF7 after power on. It could be 0xB7 if the service request
   // flip-flop came up cleared at power on, but it normally seems to come up set. The hardware doesn't
   // guarantee an initialization value for it, because it doesn't matter - we just clear it, below.
@@ -426,6 +473,10 @@ bool postInit() {
   if (postMcrInitialValue & PortPrivate::MCR_BIT_POR_SENSE) {
     // A soft reset from the host opening the serial port.
     // We only run this code after a hard init (power cycle).
+    setDisplay(0xCF);
+    for (;;) {
+      // stuck
+    }
     return true;
   }
 
@@ -512,7 +563,7 @@ bool postInit() {
     setAH(BYTE(i >> 8)); setAL(BYTE(i & 0xFF));
     setDL(BYTE(i & 0xFF)); singleClock();
   }
-  for (int i = 0; i < 0x7800; i++) {
+  for (int i = 0; i < 0x7801; i++) {
     setAH(BYTE((i >> 8) | 0x80)); setAL(BYTE(i & 0xFF));
     singleClock();
     if (getBIR() != BYTE(i & 0xFF)) {
