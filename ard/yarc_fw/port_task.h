@@ -157,7 +157,7 @@ namespace PortPrivate {
     // The "data port" is made of Nano pins 9 through 16. The three
     // low order bits are in Nano PORTD. The five higher order, PORTB.
     // First get PD7:5 and put them in the low order bits of the result.
-    byte portDbits = (PIND & 0xE0) >> 5;
+    byte portDbits = (PIND >> 5) & 0x07;
     byte portBbits = (PINB & 0x1F) << 3;
     return byte(portDbits | portBbits);
   }
@@ -226,6 +226,51 @@ namespace PortPrivate {
   constexpr byte DECODER_SELECT_MASK  = 8;
 
   typedef byte REGISTER_ID;
+
+  // Addresses on low decoder
+  constexpr byte IR_INPUT = 0;
+  constexpr byte DATAHI = 1;
+  constexpr byte DATALO = 2;
+  constexpr byte ADDRHI = 3;
+  constexpr byte ADDRLO = 4;
+  constexpr byte MCR_INPUT = 5;
+  constexpr byte LOW_UNUSED_6 = 6;
+  constexpr byte LOW_UNUSED_7 = 7;
+
+  // Addresses on high decoder
+  constexpr byte HIGH_UNUSED_0 = 0;
+  constexpr byte HIGH_UNUSED_1 = 1;
+  constexpr byte HIGH_UNUSED_2 = 2;
+  constexpr byte HIGH_UNUSED_OFFBOARD_3 = 3; // Unused;                     PULSE_EXT connector pin 1
+  constexpr byte RESET_SERVICE = 4;          // Reset service request bit;  PULSE_EXT connector pin 2
+  constexpr byte RAW_NANO_CLK = 5;           // Generate one YARC clock;    PULSE_EXT connector pin 3
+  constexpr byte DISP_CLK = 6;               // Clock the display register; PULSE_EXT connector pin 4
+  constexpr byte MCR_OUTPUT = 7;
+
+  // Register IDs on low decoder are just their address
+  constexpr REGISTER_ID BusInputRegister      = IR_INPUT;
+  constexpr REGISTER_ID DataRegisterHigh      = DATAHI;
+  constexpr REGISTER_ID DataRegisterLow       = DATALO;
+  constexpr REGISTER_ID AddrRegisterHigh      = ADDRHI;
+  constexpr REGISTER_ID AddrRegisterLow       = ADDRLO;
+  constexpr REGISTER_ID MachineControlRegisterInput = MCR_INPUT;
+
+  // Register IDs on high decoder need bit 3 set
+  constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_0);
+  constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
+  constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
+  constexpr REGISTER_ID DisplayRegister = (DECODER_SELECT_MASK|DISP_CLK);
+  constexpr REGISTER_ID MachineControlRegister = (DECODER_SELECT_MASK|MCR_OUTPUT);
+
+  // Bits in the MCR
+  constexpr byte MCR_BIT_0_UNUSED        = 0x00;
+  constexpr byte MCR_BIT_1_UNUSED        = 0x01;
+  constexpr byte MCR_BIT_2_UNUSED        = 0x02;
+  constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
+  constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
+  constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
+  constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
+  constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
   
   constexpr byte getAddressFromRegisterID(REGISTER_ID reg) {
     return reg & DECODER_ADDRESS_MASK;
@@ -275,24 +320,32 @@ namespace PortPrivate {
   //    return result;
   //  }
 
-  byte nanoGetRegister(REGISTER_ID reg) {
-    PortPrivate::setMode(portData, INPUT);
-    
+  byte nanoGetRegister(REGISTER_ID reg) {    
     byte decoderAddress = getAddressFromRegisterID(reg);
     PortPrivate::putPort(portSelect, decoderAddress);
     byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
+    
     byte result;
+    PortPrivate::setMode(portData, INPUT);
+    delayMicroseconds(2);
     if (decoderEnablePin == PIN_SELECT_0_7) {
       // Nano pin 17 is PORTC PORTC3
       PORTC |= _BV(PORTC3);
+      delayMicroseconds(2);
       result = getPort(portData);
+      delayMicroseconds(2);
       PORTC &= ~(_BV(PORTC3));
     } else {
       // Nano pin 18 is PORTC PORTC4
       PORTC |= _BV(PORTC4);
+      delayMicroseconds(2);
       result = getPort(portData);
+      delayMicroseconds(2);
       PORTC &= ~(_BV(PORTC4));
     }
+    delayMicroseconds(2);
+    PortPrivate::setMode(portData, OUTPUT);
+    delayMicroseconds(2);
     return result;
   }
   
@@ -307,51 +360,6 @@ namespace PortPrivate {
     PortPrivate::putPort(portData, data);    
     togglePulse(reg);
   }
-
-  // Addresses on low decoder
-  constexpr byte IR_INPUT = 0;
-  constexpr byte DATAHI = 1;
-  constexpr byte DATALO = 2;
-  constexpr byte ADDRHI = 3;
-  constexpr byte ADDRLO = 4;
-  constexpr byte MCR_INPUT = 5;
-  constexpr byte LOW_UNUSED_6 = 6;
-  constexpr byte LOW_UNUSED_7 = 7;
-
-  // Addresses on high decoder
-  constexpr byte HIGH_UNUSED_0 = 0;
-  constexpr byte HIGH_UNUSED_1 = 1;
-  constexpr byte HIGH_UNUSED_2 = 2;
-  constexpr byte HIGH_UNUSED_OFFBOARD_3 = 3; // Unused;                     PULSE_EXT connector pin 1
-  constexpr byte RESET_SERVICE = 4;          // Reset service request bit;  PULSE_EXT connector pin 2
-  constexpr byte RAW_NANO_CLK = 5;           // Generate one YARC clock;    PULSE_EXT connector pin 3
-  constexpr byte DISP_CLK = 6;               // Clock the display register; PULSE_EXT connector pin 4
-  constexpr byte MCR_OUTPUT = 7;
-
-  // Register IDs on low decoder are just their address
-  constexpr REGISTER_ID BusInputRegister      = IR_INPUT;
-  constexpr REGISTER_ID DataRegisterHigh      = DATAHI;
-  constexpr REGISTER_ID DataRegisterLow       = DATALO;
-  constexpr REGISTER_ID AddrRegisterHigh      = ADDRHI;
-  constexpr REGISTER_ID AddrRegisterLow       = ADDRLO;
-  constexpr REGISTER_ID MachineControlRegisterInput = MCR_INPUT;
-
-  // Register IDs on high decoder need bit 3 set
-  constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_0);
-  constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
-  constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
-  constexpr REGISTER_ID DisplayRegister = (DECODER_SELECT_MASK|DISP_CLK);
-  constexpr REGISTER_ID MachineControlRegister = (DECODER_SELECT_MASK|MCR_OUTPUT);
-
-  // Bits in the MCR
-  constexpr byte MCR_BIT_0_UNUSED        = 0x00;
-  constexpr byte MCR_BIT_1_UNUSED        = 0x01;
-  constexpr byte MCR_BIT_2_UNUSED        = 0x02;
-  constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
-  constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
-  constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
-  constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
-  constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
 
   // This one was already slightly optimized from the obvious call to
   // toggglePulse(), and that optimization did help a little.
@@ -468,21 +476,27 @@ bool postInit() {
   // guarantee an initialization value for it, because it doesn't matter - we just clear it, below.
   // panic(getMCR());
   // return false;
-  
+    
   byte postMcrInitialValue = getMCR();
+  
+  //  nanoSetMCR(0xDE);
+  //  for(;;) {
+  //    setDisplay(getMCR());
+  //  }
+  
   if (postMcrInitialValue & PortPrivate::MCR_BIT_POR_SENSE) {
     // A soft reset from the host opening the serial port.
     // We only run this code after a hard init (power cycle).
-    setDisplay(0xCF);
-    for (;;) {
-      // stuck
-    }
+    //panic(0xAA);
+    //for(;;) {}
     return true;
   }
 
   // Looks like an actual power on reset.
 
   setMCR(0xFF & ~PortPrivate::MCR_BIT_YARC_NANO_L);
+  //panic(getMCR());
+  //for (;;) {}
 
   // Set and reset the Service Request flip-flop a few times.
   for(int i = 0; i < 10; ++i) {
@@ -563,11 +577,11 @@ bool postInit() {
     setAH(BYTE(i >> 8)); setAL(BYTE(i & 0xFF));
     setDL(BYTE(i & 0xFF)); singleClock();
   }
-  for (int i = 0; i < 0x7801; i++) {
+  for (int i = 0; i < 0x7800; i++) {
     setAH(BYTE((i >> 8) | 0x80)); setAL(BYTE(i & 0xFF));
     singleClock();
     if (getBIR() != BYTE(i & 0xFF)) {
-      panic(BYTE((i >> 8) | 0x80));
+      postPanic(6);
     }
   }
   
