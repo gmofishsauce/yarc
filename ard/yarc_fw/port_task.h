@@ -64,9 +64,6 @@ namespace PortPrivate {
   // the standard Arduino library. These may be removed once I trust the
   // Nano-specific code.
 
-#define OPTIMIZE_FOR_NANO 1
-
-#if OPTIMIZE_FOR_NANO
 #define singleClock nanoSingleClock
 #define setMCR      nanoSetMCR
 #define putPort     nanoPutPort
@@ -76,127 +73,12 @@ namespace PortPrivate {
 #define getRegister nanoGetRegister
 #define setRegister nanoSetRegister
 #define singleClock nanoSingleClock
-#else
-#define singleClock arduinoSingleClock
-#define setMCR      arduinoSetMCR
-#define putPort     arduinoPutPort
-#define togglePulse arduinoTogglePulse
-#define getPort     arduinoGetPort
-#define setMode     arduinoSetMode
-#define getRegister arduinoGetRegister
-#define setRegister arduinoSetRegister
-#define singleClock arduinoSingleClock
-#endif
 
   const byte NOT_PIN = 0;
-  
   typedef const byte PinList[];
   
   PinList portData   = {5, 6, 7, 8, 9, 10, 11, 12, NOT_PIN};
   PinList portSelect = {14, 15, 16, NOT_PIN};
-  
-  // Write the bits of value to the port pins.
-  //  void arduinoPutPort(PinList port, int value) {
-  //    for (int i = 0; port[i] != NOT_PIN; i++) {
-  //      digitalWrite(port[i], value&1);
-  //      value = value >> 1;
-  //    }
-  //  }
-
-  // Set the data port to the byte b. The data port is made from pieces of
-  // the Nano's internal PORTB and PORTD.
-  void nanoPutDataPort(byte b) {
-    // The "data port" is made of Nano pins 9 through 16. The three
-    // low order bits are in Nano PORTD. The five higher order, PORTB.
-    // First set PD5, PD6, and PD7 to the three low order bits of b.
-    int portDlowOrderBits = PORTD & 0x1F; // note: may sign extend
-    PORTD = byte(portDlowOrderBits | ((b & 0x07) << 5));
-
-    // Now set the low order 5 bits of PORTB to the high 5 bits of b.
-    // These PORTB outputs appear on pins 12 through 16 inclusive.
-    int portBhighOrderBits = PORTB & 0xE0; // note: may sign extend
-    PORTB = byte(portBhighOrderBits | ((b & 0xF8) >> 3));
-  }
-
-  // Set PORTC bits 0, 1, and 2 to the three-bit address of one of eight
-  // outputs on a 74HC138 decoder. Do not change the 5 high order bits of
-  // PORTC. The choice of which decoder is made seprately in nanoTogglePort().
-  void nanoPutSelectPort(byte b) {
-      int portChighOrder5bits = PORTC & 0xF8; // note: may sign extend
-      PORTC = byte(portChighOrder5bits | (b & 0x07));
-  }
-  
-  void nanoPutPort(PinList port, int value) {
-    if (port == portData) {
-      nanoPutDataPort(value);
-    } else {
-      nanoPutSelectPort(value);
-    }
-  }
-  
-  // Read the port pins and return them. We need to work
-  // backwards through the port pins or we'll reverse the bits.
-  //  byte arduinoGetPort(PinList port) {
-  //    int last;
-  //    for (last = 0; port[last] != NOT_PIN; ++last) {
-  //      ; // nothing
-  //    }
-  //  
-  //    int result = 0;
-  //    for (int i = last - 1; i >= 0; --i) {
-  //      result = result << 1;
-  //      result = result | (digitalRead(port[i]));
-  //    }
-  //    return result;
-  //  }
-
-  // We take advantage of the fact that we only ever call get()
-  // on the data port. There will be a lot of simplications to
-  // make after we get all converted to the Nano-specific code.
-  byte nanoGetPort(PinList port) {
-    // The "data port" is made of Nano pins 9 through 16. The three
-    // low order bits are in Nano PORTD. The five higher order, PORTB.
-    // First get PD7:5 and put them in the low order bits of the result.
-    byte portDbits = (PIND >> 5) & 0x07;
-    byte portBbits = (PINB & 0x1F) << 3;
-    return byte(portDbits | portBbits);
-  }
-  
-  // Set the port pins as outputs. The data port implements
-  // a pseudo-3 state bus. In output mode, it can be used to
-  // write to the bus control registers and MCR. But after
-  // triggering a read cycle on the YARC's bus, we change it
-  // to input mode, enable the output of the bus result register,
-  // and read the port to get the value pulled from YARC memory.
-  //  void arduinoSetMode(PinList port, int mode) {
-  //    for (int i = 0; port[i] != NOT_PIN; i++) {
-  //      pinMode(port[i], mode);
-  //    }
-  //  }
-
-  // Set the data port to be output or input
-  void nanoSetDataPortMode(int mode) {
-      if (mode == OUTPUT) {
-        DDRD = DDRD | 0xE0;
-        DDRB = DDRB | 0x1F;
-      } else {
-        DDRD = DDRD & ~0xE0;
-        DDRB = DDRB & ~0x1F;
-      }
-  }
-
-  // Set the select port to be output (it's always output)
-  void nanoSetSelectPortMode(int mode) {
-    DDRC |= DDRC | 0x07;
-  }
-  
-  void nanoSetMode(PinList port, int mode) {
-    if (port == portData) {
-      nanoSetDataPortMode(mode);
-    } else {
-      nanoSetSelectPortMode(mode);
-    }
-  }
 
   // Outside the Nano there are two 3-to-8 decoder chips, providing a total
   // of 16 pulse outputs. The pulse outputs are used to clock output registers,
@@ -281,15 +163,73 @@ namespace PortPrivate {
     return (reg & DECODER_SELECT_MASK) ? PIN_SELECT_8_15 : PIN_SELECT_0_7;
   }
 
-  //  void arduinoTogglePulse(REGISTER_ID reg) {
-  //    byte decoderAddress = getAddressFromRegisterID(reg);
-  //    putPort(portSelect, decoderAddress);
-  //    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
-  //
-  //    // Again, this causes a LOW-going output pulse on the selected decoder
-  //    digitalWrite(decoderEnablePin, HIGH);
-  //    digitalWrite(decoderEnablePin, LOW);  
-  //  }
+  // Set the data port to the byte b. The data port is made from pieces of
+  // the Nano's internal PORTB and PORTD.
+  void nanoPutDataPort(byte b) {
+    // The "data port" is made of Nano pins 9 through 16. The three
+    // low order bits are in Nano PORTD. The five higher order, PORTB.
+    // First set PD5, PD6, and PD7 to the three low order bits of b.
+    int portDlowOrderBits = PORTD & 0x1F; // note: may sign extend
+    PORTD = byte(portDlowOrderBits | ((b & 0x07) << 5));
+
+    // Now set the low order 5 bits of PORTB to the high 5 bits of b.
+    // These PORTB outputs appear on pins 12 through 16 inclusive.
+    int portBhighOrderBits = PORTB & 0xE0; // note: may sign extend
+    PORTB = byte(portBhighOrderBits | ((b & 0xF8) >> 3));
+  }
+
+  // Set PORTC bits 0, 1, and 2 to the three-bit address of one of eight
+  // outputs on a 74HC138 decoder. Do not change the 5 high order bits of
+  // PORTC. The choice of which decoder is made seprately in nanoTogglePort().
+  void nanoPutSelectPort(byte b) {
+      int portChighOrder5bits = PORTC & 0xF8; // note: may sign extend
+      PORTC = byte(portChighOrder5bits | (b & 0x07));
+  }
+  
+  void nanoPutPort(PinList port, int value) {
+    if (port == portData) {
+      nanoPutDataPort(value);
+    } else {
+      nanoPutSelectPort(value);
+    }
+  }
+  
+  // We take advantage of the fact that we only ever call get()
+  // on the data port. There will be a lot of simplications to
+  // make after we get all converted to the Nano-specific code.
+  byte nanoGetPort(PinList port) {
+    // The "data port" is made of Nano pins 9 through 16. The three
+    // low order bits are in Nano PORTD. The five higher order, PORTB.
+    // First get PD7:5 and put them in the low order bits of the result.
+    byte portDbits = (PIND >> 5) & 0x07;
+    byte portBbits = (PINB & 0x1F) << 3;
+    return byte(portDbits | portBbits);
+  }
+
+  // Set the data port to be output or input.
+  void nanoSetDataPortMode(int mode) {
+      if (mode == OUTPUT) {
+        DDRD = DDRD | 0xE0;
+        DDRB = DDRB | 0x1F;
+      } else {
+        DDRD = DDRD & ~0xE0;
+        DDRB = DDRB & ~0x1F;
+      }
+      delayMicroseconds(2);
+  }
+
+  // Set the select port to be output (it's always output)
+  void nanoSetSelectPortMode(int mode) {
+    DDRC |= DDRC | 0x07;
+  }
+  
+  void nanoSetMode(PinList port, int mode) {
+    if (port == portData) {
+      nanoSetDataPortMode(mode);
+    } else {
+      nanoSetSelectPortMode(mode);
+    }
+  }
 
   void nanoTogglePulse(REGISTER_ID reg) {
     byte decoderAddress = getAddressFromRegisterID(reg);
@@ -305,21 +245,12 @@ namespace PortPrivate {
       PORTC &= ~(_BV(PORTC4));
     }
   }
-  
-  //  byte arduinoGetRegister(REGISTER_ID reg) {
-  //    PortPrivate::setMode(portData, INPUT);
-  //    
-  //    byte decoderAddress = getAddressFromRegisterID(reg);
-  //    PortPrivate::putPort(portSelect, decoderAddress);
-  //    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
-  //
-  //    digitalWrite(decoderEnablePin, HIGH); // enable input register to bus
-  //    byte result = getPort(portData);
-  //    digitalWrite(decoderEnablePin, LOW);  // disconnect input register from bus
-  //
-  //    return result;
-  //  }
 
+  // Enable the specified register for input and call getPort()
+  // to read the value. The delay calls are absolutely essential
+  // because the port's I/O clock is not under our direct control;
+  // without the delay, we may latch the bus while it's still
+  // pulled up (0xFF).
   byte nanoGetRegister(REGISTER_ID reg) {    
     byte decoderAddress = getAddressFromRegisterID(reg);
     PortPrivate::putPort(portSelect, decoderAddress);
@@ -327,49 +258,29 @@ namespace PortPrivate {
     
     byte result;
     PortPrivate::setMode(portData, INPUT);
-    delayMicroseconds(2);
     if (decoderEnablePin == PIN_SELECT_0_7) {
       // Nano pin 17 is PORTC PORTC3
       PORTC |= _BV(PORTC3);
       delayMicroseconds(2);
       result = getPort(portData);
-      delayMicroseconds(2);
       PORTC &= ~(_BV(PORTC3));
     } else {
       // Nano pin 18 is PORTC PORTC4
       PORTC |= _BV(PORTC4);
       delayMicroseconds(2);
       result = getPort(portData);
-      delayMicroseconds(2);
       PORTC &= ~(_BV(PORTC4));
     }
-    delayMicroseconds(2);
     PortPrivate::setMode(portData, OUTPUT);
-    delayMicroseconds(2);
     return result;
   }
   
-  //  void arduinoSetRegister(REGISTER_ID reg, byte data) {
-  //    PortPrivate::setMode(portData, OUTPUT);
-  //    PortPrivate::putPort(portData, data);    
-  //    togglePulse(reg);
-  //  }
-
   void nanoSetRegister(REGISTER_ID reg, byte data) {
     PortPrivate::setMode(portData, OUTPUT);
     PortPrivate::putPort(portData, data);    
     togglePulse(reg);
   }
 
-  // This one was already slightly optimized from the obvious call to
-  // toggglePulse(), and that optimization did help a little.
-  //  void arduinoInternalSingleClock() {
-  //    putPort(portSelect, RAW_NANO_CLK);
-  //    digitalWrite(PIN_SELECT_8_15, HIGH);
-  //    digitalWrite(PIN_SELECT_8_15, LOW);
-  //  }
-  //
-  // But for the Nano-specific code, we can just call togglePulse().
   void nanoInternalSingleClock() {
     nanoTogglePulse(RawNanoClock);
   }
@@ -382,11 +293,13 @@ namespace PortPrivate {
 // Port module public interface. Because of the ordering of tasks in
 // the tasks array, this is more or less the very first init code.
 
-void portInit() {  
-  pinMode(PortPrivate::PIN_SELECT_0_7, OUTPUT);
-  digitalWrite(PortPrivate::PIN_SELECT_0_7, LOW);
+void portInit() {
+  // Set the two decoder select pins to outputs. Delay after making
+  // any change to this register, although this exceeds the requirements.
+  DDRC = DDRC | (_BV(DDC3) | _BV(DDC4));
+  delayMicroseconds(2);
   
-  pinMode(PortPrivate::PIN_SELECT_8_15, OUTPUT);
+  digitalWrite(PortPrivate::PIN_SELECT_0_7, LOW);
   digitalWrite(PortPrivate::PIN_SELECT_8_15, LOW);
   
   PortPrivate::setMode(PortPrivate::portData,   OUTPUT);
@@ -437,19 +350,11 @@ byte getMCR() {
   return PortPrivate::getRegister(PortPrivate::MachineControlRegisterInput);
 }
 
-void arduinoSetMCR(byte b) {
-  PortPrivate::setRegister(PortPrivate::MachineControlRegister, b);
-}
-
 void nanoSetMCR(byte b) {
     PortPrivate::setMode(PortPrivate::portData, OUTPUT); // nanoSetDataPort(OUTPUT);
     PortPrivate::putPort(PortPrivate::portData, b);      // nanoPutDataPort(b);
     PortPrivate::togglePulse(PortPrivate::MachineControlRegister); // nanoTogglePulse(PortPrivate::MachineControlRegister)
 }
-
-//void arduinoSingleClock() {
-//  PortPrivate::arduinoInternalSingleClock();
-//}
 
 void nanoSingleClock() {
   PortPrivate::nanoInternalSingleClock();
@@ -478,25 +383,15 @@ bool postInit() {
   // return false;
     
   byte postMcrInitialValue = getMCR();
-  
-  //  nanoSetMCR(0xDE);
-  //  for(;;) {
-  //    setDisplay(getMCR());
-  //  }
-  
   if (postMcrInitialValue & PortPrivate::MCR_BIT_POR_SENSE) {
     // A soft reset from the host opening the serial port.
     // We only run this code after a hard init (power cycle).
-    //panic(0xAA);
-    //for(;;) {}
     return true;
   }
 
   // Looks like an actual power on reset.
 
   setMCR(0xFF & ~PortPrivate::MCR_BIT_YARC_NANO_L);
-  //panic(getMCR());
-  //for (;;) {}
 
   // Set and reset the Service Request flip-flop a few times.
   for(int i = 0; i < 10; ++i) {
