@@ -8,7 +8,7 @@
 // Ths second version saved a couple of thousand bytes of program memory
 // and runs things like a full scan of memory more than 10 times as fast.
 //
-// This change introduces ambiguity into the word "register". Originally,
+// This change introduced ambiguity into the word "register". Originally,
 // the word referred to the registers I've constructed outside the Nano.
 // Now, it may refer to these or to the ATmega328P's internal registers
 // (PORTB, PINB, DDRB, etc.) used to manipulate the Nano's external pins.
@@ -30,10 +30,11 @@
 //
 // I've defined two "ports" for communicating with external registers.
 // The "data port" is physical pins 8..15 on the Nano and the "select
-// port is physical pins 19..21 and 22,23. The data port is used in
-// both read and write mode. It drives an internal bus to all the external
-// registers. The select port is used to clock and/or enable them. The
-// mapping from internal ATmega control registers to "port" bits is:
+// port" is physical pins 19..21 and 22,23. The data port is used in
+// both read and write mode. It drives (or receives from) the internal
+// Nano I/O bus to all the external registers. The select port is used
+// to clock and/or enable these registers and to directly control the
+// YARC. The mapping from internal ATmega control registers to "port" bits:
 //
 // Internal register  Port Name     Physical pin on Nano (1..30)
 // ~~~~~~~~~~~~~~~~~  ~~~~~~~~~     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -70,9 +71,11 @@ namespace PortPrivate {
   const byte NOT_PIN = 0;
   typedef const byte PinList[];
 
-  // Identifiers for the data port (Nano pins 5, 6, ... 12) and the select
-  // port (Nano pins 14, 15, 16, plus 17 and 18 as explained below). In
-  // the original version of this code which used digitalWrite(), the pin
+  // Identifiers for the data port (Arduino logical pins 5, 6, ... 12) and the
+  // select port (Arduino logical pins 14, 15, 16, plus 17 and 18 as explained
+  // below).
+  //
+  // In the original version of this code which used digitalWrite(), the pin
   // values were were essential and were stored in these two arrays:
   //
   // PinList portData   = {5, 6, 7, 8, 9, 10, 11, 12, NOT_PIN};
@@ -94,26 +97,23 @@ namespace PortPrivate {
   //
   // The three bit address on the decoders is bused from the Nano to both
   // decoders. But there are two distinct select pins, one for each decoder,
-  // allowing for a 17th state where none of the 16 pulse outputs are active.
+  // allowing for a 17th state where none of the 16 pulse outputs are active
+  // (and in theory additional states where two outputs are active, etc.)
   //
   // As a result there are two ways of representing the "address" of one of
   // the pulse outputs. In both representations, bits 2:0 go to the address
   // input lines (A-lines) of both decoders. But in the REGISTER_ID, bit 3
   // is 0 for the "low" (0-7) decoder and 1 for the "high" (8-15) decoder.
   // Later, which doing the actual I/O operation, we need to either toggle
-  // Nano pin 17 for the low decoder, or Nano pin 18 for high decoder.
+  // PORTC:3 for the low decoder, or PORTC:4 for the high decoder.
   //
   // Finally, note that the two toggles run to the active HIGH enable inputs
   // of the decoder chips. This was done because the Nano initializes output
   // pins to LOW by default. But the active HIGH enables cause negative-going
   // pulses on the decoder outputs, because that's how 74XX138s work, always.
 
-  // XXX TODO: this 17, 18 stuff is the last vestige of the Arduino logical
-  // pin numbering. It doesn't really hurt anything, but we could optimize
-  // a couple of functions below if we returned _BV(PORTC3) for the first
-  // and _BV(PORTC4) for the second. TODO.
-  constexpr int PIN_SELECT_0_7 = 17;
-  constexpr int PIN_SELECT_8_15 = 18;
+  constexpr int PIN_SELECT_0_7 = _BV(PORTC3);
+  constexpr int PIN_SELECT_8_15 = _BV(PORTC4);
         
   constexpr byte DECODER_ADDRESS_MASK = 7;
   constexpr byte DECODER_SELECT_MASK  = 8;
@@ -210,7 +210,7 @@ namespace PortPrivate {
   // on the data port.
   byte nanoGetPort(PinList port) {
     // The "data port" is made of Nano physical pins 8..15. The three
-    // low order bits are in Nano PORTD. The five higher order, PORTB.
+    // low order bits are in ATmega PORTD. The five higher order, PORTB.
     // First get PD7:5 and put them in the low order bits of the result.
     byte portDbits = (PIND >> 5) & 0x07;
     byte portBbits = (PINB & 0x1F) << 3;
@@ -247,46 +247,39 @@ namespace PortPrivate {
     }
   }
 
+  // This is a critical function that serves to pulse one of the 16
+  // decoder outputs. To do this, it has to put the 3-bit address of
+  // one of 8 data ports on to the 3-bit select port which is bussed
+  // to the address (A) lines of the decoders. Then it has to enable
+  // the correct decoder by togging either PORTC:3 or PORTC:4. One
+  // of these values is returned by getDecoderSelectPinFromRegisterID().
   void nanoTogglePulse(REGISTER_ID reg) {
     byte decoderAddress = getAddressFromRegisterID(reg);
     nanoPutPort(portSelect, decoderAddress);
+    
     byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
-    if (decoderEnablePin == PIN_SELECT_0_7) {
-      // Nano pin 17 is PORTC PORTC3
-      PORTC |= _BV(PORTC3);
-      PORTC &= ~(_BV(PORTC3));
-    } else {
-      // Nano pin 18 is PORTC PORTC4
-      PORTC |= _BV(PORTC4);
-      PORTC &= ~(_BV(PORTC4));
-    }
+    PORTC = PORTC | decoderEnablePin;
+    PORTC = PORTC & ~decoderEnablePin;
   }
 
-  // Enable the specified register for input and call getPort()
-  // to read the value. The delay calls are absolutely essential
-  // because the port's I/O clock is not under our direct control;
-  // without the delay, we may latch the bus while it's still
-  // pulled up (0xFF).
+  // Enable the specified register for input and call getPort() to read
+  // the value. We cannot use nanoTogglePulse() here because we have to
+  // read the value after setting the enable line low and before setting
+  // it high again. As always, the delays are the result of careful
+  // experimentation and are absolutely required.
   byte nanoGetRegister(REGISTER_ID reg) {    
     byte decoderAddress = getAddressFromRegisterID(reg);
     PortPrivate::nanoPutPort(portSelect, decoderAddress);
-    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
+    
+    PortPrivate::nanoSetMode(portData, INPUT);
     
     byte result;
-    PortPrivate::nanoSetMode(portData, INPUT);
-    if (decoderEnablePin == PIN_SELECT_0_7) {
-      // Nano pin 17 is PORTC PORTC3
-      PORTC |= _BV(PORTC3);
-      delayMicroseconds(2);
-      result = nanoGetPort(portData);
-      PORTC &= ~(_BV(PORTC3));
-    } else {
-      // Nano pin 18 is PORTC PORTC4
-      PORTC |= _BV(PORTC4);
-      delayMicroseconds(2);
-      result = nanoGetPort(portData);
-      PORTC &= ~(_BV(PORTC4));
-    }
+    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
+    PORTC |= decoderEnablePin;
+    delayMicroseconds(2);
+    result = nanoGetPort(portData);
+    PORTC &= ~decoderEnablePin;
+    
     PortPrivate::nanoSetMode(portData, OUTPUT);
     return result;
   }
@@ -318,7 +311,7 @@ void portInit() {
 
   // Turn off both of the decoder select lines so no decoder outputs
   // are active.
-  PORTC = PORTC & ~(_BV(PORTC3) | _BV(PORTC4));
+  PORTC &= ~(_BV(PORTC3) | _BV(PORTC4));
   
   PortPrivate::nanoSetMode(PortPrivate::portData,   OUTPUT);
   PortPrivate::nanoSetMode(PortPrivate::portSelect, OUTPUT);
