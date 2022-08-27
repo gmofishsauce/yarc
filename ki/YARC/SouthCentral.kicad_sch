@@ -1,0 +1,14 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid fc4384ac-8315-4d93-b683-de401194c934)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "South Central Control")
+  )
+
+  (lib_symbols
+  )
+
+)
