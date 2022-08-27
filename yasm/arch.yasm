@@ -15,19 +15,28 @@
 
 # Architecture file for YARC
 
+# The "no op" value for all microcode fields is all 1s. We can fill
+# the control store with 0xFF FF FF FF ... and it will be a noop.
+
 # general registers
 .set r0 0
 .set r1 1
 .set r2 2
 .set r3 3
 .set PC r1
-.set dst_none 7
+.set src1_none 3 # arbitrary value to use when alu_op is none
+.set src2_none 7 # arbitrary value to use when alu_op is none
+.set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
 # data bus drivers for memory writes
 .set gr 0	# general register drives bus
 .set sp	1	# stack (PSP or RSP) drives bus
 .set ir	2	# instruction register drives bus
 .set f	3	# flags register drives bus
+.set mem 4	# memory drives bus (memory read)
+.set bus_tbd_5 5
+.set bus_tbd_6 6
+.set bus_none  7 # reserved (?)
 
 # General register src2 constant registers
 # TBD - these assignments may have changed
@@ -44,10 +53,20 @@
 .set cond_r2	6
 .set cond_r3	7
 
+# Register input mux
+.set from_bus	1	# register input from sysdata
+.set from_alu	0	# register input from ALU output
+
 # ALU operations
 
 .set alu_addop	0
-# 15 more to go
+# 15 more to go...
+
+# ALU control
+.set alu_phi1	0	# operate on low 8 bits
+.set alu_phi2	1	# operate on high 8 bits and commit
+.set alu_load	2	# load the src2 alu holding register
+.set alu_none	3	# no operation
 
 # Microcode words, 32 bits
 
@@ -71,7 +90,7 @@
 
 # busses and stack 15:8
 .bitfield sysdata_src	32	15:13	# 1 of 8 data bus drivers (gr sp ir f mem tbd tbd tbd)
-.bitfield reg_in_mux	32	12:12	# register input mux, sense TBD
+.bitfield reg_in_mux	32	12:12	# register input mux, 1 = sysdata, 0 = alu output
 .bitfield stack_up_clk	32	11:11	# when low deselected SP increments
 .bitfield stack_dn_clk  32	10:10	# when low deselected SP decrements
 .bitfield psp_rsp		32	 9:9	# select psp when high, rsp when low
@@ -84,22 +103,20 @@
 .bitfield rsw_ir_uc		32	 4:4	# RSW from LS byte of microcode when low else from IRL
 .bitfield ctl_TBD_30	32	 3:0	# unassigned:4
 
-# Microcode combinations FIXME
-# .set IDLE_0	"src1=r0 src2=r0 dst=dst_none"
-# .set IDLE_1	"alu_op=alu_addop alu_in_mux=1 alu_hold_clk=1 alu_sys_en=1"
-# .set IDLE_2 "sysdata_src=gr m16_en=1 ir_clk=1 rw=1 stack_up_clk=1 stack_dn_clk=1"
-# .set IDLE_3 "rw=1 rsw_ir_uc=0 sysaddr_src=gr m16_en=0 ir_clk=1 src2_sxt=1"
+# Microcode combinations
+.set IDLE_3 "src1=src1_none src2=src2_none dst=dst_none" # 0xFF
+.set IDLE_2 "alu_op=0xF alu_ctl=alu_none alu_hold_clk=1 alu_TBD_16=1" # 0xFF
+.set IDLE_1 "sysdata_src=bus_none reg_in_mux=1 stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1" # 0xFF
+.set IDLE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=1 ctl_TBD_30=0xF" # 0xFF
 
-# Microcode for an IDLE cycle FIXME
-# .set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
-.set IDLE rw=1
+# Microcode for an IDLE cycle
+ .set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
 
 # Microcode for a FETCH cycle FIXME
-# .set FETCH_0 "src1=PC src2=p2 dst=dst_none"
-# .set FETCH_1 "alu_op=alu_addop alu_in_mux=1 alu_hold_clk=0 alu_sys_en=1"
-# .set FETCH_2 "sysdata_src=0 sysaddr_src=gr stack_up_clk=1 stack_dn_clk=1 psp_rsp=1"
-# .set FETCH_3 "rw=1 rsw_ir_uc=0 m16_en=0 ir_clk=0 src2_sxt=1"
+.set FETCH_3 "src1=PC src2=p2 dst=dst_none"
+.set FETCH_2 "alu_op=alu_addop alu_ctl=alu_phi1 alu_hold_clk=1"
+.set FETCH_1 "sysdata_src=mem reg_in_mux=from_bus stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
+.set FETCH_0 "rw=1 rsw_ir_uc=1 m16_en=0 ir_clk=0 rsw_ir_uc=0"
 
-# Microcode for a FETCH (and start PC increment) cycle FIXME
-# .set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
-.set FETCH rw=1
+# Microcode for a FETCH (and start PC increment) cycle
+.set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
