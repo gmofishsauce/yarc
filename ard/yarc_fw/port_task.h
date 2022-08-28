@@ -131,8 +131,8 @@ namespace PortPrivate {
   constexpr byte LOW_UNUSED_7 = 7;
 
   // Addresses on high decoder
-  constexpr byte HIGH_UNUSED_0 = 0;
-  constexpr byte HIGH_UNUSED_1 = 1;
+  constexpr byte WCS_CLK = 0;                 // Clock the microcode control register; bussed as below
+  constexpr byte O1_UNCOMMITTED = 1;          // Bussed north of RAM to 6-pin connector; unused 
   constexpr byte HIGH_UNUSED_2 = 2;
   constexpr byte HIGH_UNUSED_OFFBOARD_3 = 3; // Unused;                     PULSE_EXT connector pin 1
   constexpr byte RESET_SERVICE = 4;          // Reset service request bit;  PULSE_EXT connector pin 2
@@ -149,7 +149,7 @@ namespace PortPrivate {
   constexpr REGISTER_ID MachineControlRegisterInput = MCR_INPUT;
 
   // Register IDs on high decoder need bit 3 set
-  constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_0);
+  constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_2);
   constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
   constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
   constexpr REGISTER_ID DisplayRegister = (DECODER_SELECT_MASK|DISP_CLK);
@@ -165,8 +165,8 @@ namespace PortPrivate {
   }
 
   // Bits in the MCR
-  constexpr byte MCR_BIT_0_UNUSED        = 0x00;
-  constexpr byte MCR_BIT_1_UNUSED        = 0x01;
+  constexpr byte MCR_BIT_0_WCS_EN_L      = 0x00; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
+  constexpr byte MCR_BIT_1_IR_EN_L       = 0x01; // Clock enable for Nano writing to IR when SYSCLK
   constexpr byte MCR_BIT_2_UNUSED        = 0x02;
   constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
   constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
