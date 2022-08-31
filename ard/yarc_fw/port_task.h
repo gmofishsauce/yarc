@@ -421,7 +421,7 @@ inline void mcrForceUnusedBitsHigh() {
   mcrShadow |= (PortPrivate::MCR_BIT_2_UNUSED | PortPrivate::MCR_BIT_7_UNUSED);
 }
 
-void updateMcr() {
+void mcrUpdate() {
   PortPrivate::setMCR(mcrShadow);
 }
 
@@ -431,7 +431,6 @@ void mcrMakeSafe() {
   mcrDisableFastclock();
   mcrDisableYarc();
   mcrForceUnusedBitsHigh();
-  updateMcr();
 }
 
 inline bool yarcIsPowerOnReset() {
@@ -467,6 +466,7 @@ bool postInit() {
   // Looks like an actual power on reset.
 
   mcrMakeSafe();
+  mcrUpdate();
 
   // Set and reset the Service Request flip-flop a few times.
   for(int i = 0; i < 3; ++i) {
@@ -482,7 +482,7 @@ bool postInit() {
     setDL(0xFF);
     singleClock(); // set service
 
-    if ((getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) == 0) {
+    if (!yarcRequestsService()) {
       postPanic(2);
       return false;
     }
@@ -533,16 +533,15 @@ bool postInit() {
   // And now we'd better still in the /POR
   // state, or we're screwed.
 
-   if (getMCR() & PortPrivate::MCR_BIT_POR_SENSE) {
+   if (!yarcIsPowerOnReset()) {
     // Trouble, /POR should be low right now.
-    // We are locked out from the bus, give up.
     postPanic(5);
     return false;
   }
 
   // Wait for POR# to go high here, then test RAM:
   setDisplay(0xFF);
-  while ((getMCR() & PortPrivate::MCR_BIT_POR_SENSE) == 0) {
+  while (!yarcIsPowerOnReset()) {
     // do nothing
   }
   
@@ -568,5 +567,5 @@ void runYARC() {
   mcrMakeSafe();
   mcrEnableYarc();        // lock the Nano off the bus
   mcrEnableFastclock();   // enable the YARC to run at speed
-  updateMcr();
+  mcrUpdate();
 }
