@@ -173,7 +173,7 @@ namespace PortPrivate {
   constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
   constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
   constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
-  
+
   // Set the data port to the byte b. The data port is made from pieces of
   // the Nano's internal PORTB and PORTD.
   void nanoPutDataPort(byte b) {
@@ -294,6 +294,15 @@ namespace PortPrivate {
     nanoTogglePulse(RawNanoClock);
   }
 
+  // This function should only be called with the MCR shadow register
+  // as an argument. See public functions for updating the MCR below
+  // in this file.
+  void setMCR(byte b) {
+    PortPrivate::nanoSetMode(PortPrivate::portData, OUTPUT);
+    PortPrivate::nanoPutPort(PortPrivate::portData, b);
+    PortPrivate::nanoTogglePulse(PortPrivate::MachineControlRegister);
+  }
+  
   // Finally, just for freezePort(), which locks the display register
   // until the Nano is reset. This preserves the critical error code.
   byte displayIsFrozen = 0;
@@ -361,14 +370,76 @@ byte getMCR() {
   return PortPrivate::nanoGetRegister(PortPrivate::MachineControlRegisterInput);
 }
 
-void setMCR(byte b) {
-    PortPrivate::nanoSetMode(PortPrivate::portData, OUTPUT);
-    PortPrivate::nanoPutPort(PortPrivate::portData, b);
-    PortPrivate::nanoTogglePulse(PortPrivate::MachineControlRegister);
-}
-
 void singleClock() {
   PortPrivate::nanoInternalSingleClock();
+}
+
+//  constexpr byte MCR_BIT_0_WCS_EN_L      = 0x00; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
+//  constexpr byte MCR_BIT_1_IR_EN_L       = 0x01; // Clock enable for Nano writing to IR when SYSCLK
+//  constexpr byte MCR_BIT_2_UNUSED        = 0x02;
+//  constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
+//  constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
+//  constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
+//  constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
+//  constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
+
+byte mcrShadow = 0xFF;
+
+inline void mcrEnableWcs() {
+  mcrShadow &= ~PortPrivate::MCR_BIT_0_WCS_EN_L;
+}
+
+inline void mcrDisableWcs() {
+  mcrShadow |= PortPrivate::MCR_BIT_0_WCS_EN_L;
+}
+
+inline void mcrEnableIRwrite() {
+  mcrShadow &= ~PortPrivate::MCR_BIT_1_IR_EN_L;
+}
+
+inline void mcrDisableIRwrite() {
+  mcrShadow |= PortPrivate::MCR_BIT_1_IR_EN_L;
+}
+
+inline void mcrEnableFastclock() {
+  mcrShadow &= ~PortPrivate::MCR_BIT_FASTCLKEN_L;
+}
+
+inline void mcrDisableFastclock() {
+  mcrShadow |= ~PortPrivate::MCR_BIT_FASTCLKEN_L;
+}
+
+inline void mcrEnableYarc() {
+  mcrShadow |= PortPrivate::MCR_BIT_YARC_NANO_L;
+}
+
+inline void mcrDisableYarc() {
+  mcrShadow &= ~PortPrivate::MCR_BIT_YARC_NANO_L;
+}
+
+inline void mcrForceUnusedBitsHigh() {
+  mcrShadow |= (PortPrivate::MCR_BIT_2_UNUSED | PortPrivate::MCR_BIT_7_UNUSED);
+}
+
+void updateMcr() {
+  PortPrivate::setMCR(mcrShadow);
+}
+
+void mcrMakeSafe() {
+  mcrDisableWcs();
+  mcrDisableIRwrite();
+  mcrDisableFastclock();
+  mcrDisableYarc();
+  mcrForceUnusedBitsHigh();
+  updateMcr();
+}
+
+inline bool yarcIsPowerOnReset() {
+  return (getMCR() & PortPrivate::MCR_BIT_POR_SENSE) == 0;
+}
+
+inline bool yarcRequestsService() {
+  return (getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) != 0;
 }
 
 // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
@@ -386,15 +457,8 @@ inline byte BYTE(int n) { return n&0xFF; } // XXX probably not the right way to 
 
 // Power on self test and initialization. Startup will hang if this function returns false.
 bool postInit() {
-
-  // The panic below normally displays 0xF7 after power on. It could be 0xB7 if the service request
-  // flip-flop came up cleared at power on, but it normally seems to come up set. The hardware doesn't
-  // guarantee an initialization value for it, because it doesn't matter - we just clear it, below.
-  // panic(getMCR());
-  // return false;
     
-  byte postMcrInitialValue = getMCR();
-  if (postMcrInitialValue & PortPrivate::MCR_BIT_POR_SENSE) {
+  if (!yarcIsPowerOnReset()) {
     // A soft reset from the host opening the serial port.
     // We only run this code after a hard init (power cycle).
     return true;
@@ -402,12 +466,12 @@ bool postInit() {
 
   // Looks like an actual power on reset.
 
-  setMCR(0xFF & ~PortPrivate::MCR_BIT_YARC_NANO_L);
+  mcrMakeSafe();
 
   // Set and reset the Service Request flip-flop a few times.
-  for(int i = 0; i < 10; ++i) {
+  for(int i = 0; i < 3; ++i) {
     PortPrivate::nanoTogglePulse(PortPrivate::ResetService);
-    if ((getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) != 0) {
+    if (yarcRequestsService()) {
       postPanic(1);
       return false;
     }
@@ -501,11 +565,8 @@ bool postInit() {
 
 // Run the YARC.
 void runYARC() {
-  /*
-  byte mcr = getMCR();
-  mcr |= PortPrivate::MCR_BIT_YARC_NANO_L;
-  mcr &= ~PortPrivate::MCR_BIT_FASTCLKEN_L;
-  setMCR(mcr);
-  */
-  setMCR(0x20);
+  mcrMakeSafe();
+  mcrEnableYarc();        // lock the Nano off the bus
+  mcrEnableFastclock();   // enable the YARC to run at speed
+  updateMcr();
 }

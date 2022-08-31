@@ -4,7 +4,7 @@ package host
 
 // Nonblocking handler for standard input, with specific concessions
 // for interactive terminal use.
-// About sleeps in this code: the standard input reader imposes a
+// About sleeps in this code: the standard input reader imposes a 50-
 // millisecond delay if there is nothing to read. As of March 2022,
 // this is the only millisecond day in the program. The delay prevents
 // hammering the Nano with poll commands (10 or 20 per second is fine).
