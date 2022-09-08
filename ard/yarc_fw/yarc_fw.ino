@@ -29,7 +29,7 @@
 //
 // There is a tiny "task executor" for the "tasks". But don't be fooled;
 // the task abstraction is just a way of structuring the main loop.
-// There are bo trixie preemption schemes, no interrupt code, nothing
+// There are no trixie preemption schemes, no interrupt code, nothing
 // like that. Just a main loop that runs through all the task bodies
 // as quickly as possible. In fact, "tasks" don't need to have bodies
 // or even init functions; the logging "task" is just a couple of public

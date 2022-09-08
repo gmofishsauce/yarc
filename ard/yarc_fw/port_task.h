@@ -68,6 +68,9 @@
 
 namespace PortPrivate {
 
+  // Lock the display to preserve the critical error code on panic()
+  byte displayIsFrozen = 0;
+
   const byte NOT_PIN = 0;
   typedef const byte PinList[];
 
@@ -174,6 +177,10 @@ namespace PortPrivate {
   constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
   constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
 
+  // MCR shadow register. Can do multiple update to this, then call
+  // syncMCR() to update the hardware.
+  byte mcrShadow = ~MCR_BIT_YARC_NANO_L;
+  
   // Set the data port to the byte b. The data port is made from pieces of
   // the Nano's internal PORTB and PORTD.
   void nanoPutDataPort(byte b) {
@@ -269,9 +276,9 @@ namespace PortPrivate {
   // experimentation and are absolutely required.
   byte nanoGetRegister(REGISTER_ID reg) {    
     byte decoderAddress = getAddressFromRegisterID(reg);
-    PortPrivate::nanoPutPort(portSelect, decoderAddress);
+    nanoPutPort(portSelect, decoderAddress);
     
-    PortPrivate::nanoSetMode(portData, INPUT);
+    nanoSetMode(portData, INPUT);
     
     byte result;
     byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
@@ -280,13 +287,13 @@ namespace PortPrivate {
     result = nanoGetPort(portData);
     PORTC &= ~decoderEnablePin;
     
-    PortPrivate::nanoSetMode(portData, OUTPUT);
+    nanoSetMode(portData, OUTPUT);
     return result;
   }
   
   void nanoSetRegister(REGISTER_ID reg, byte data) {
-    PortPrivate::nanoSetMode(portData, OUTPUT);
-    PortPrivate::nanoPutPort(portData, data);    
+    nanoSetMode(portData, OUTPUT);
+    nanoPutPort(portData, data);    
     nanoTogglePulse(reg);
   }
 
@@ -294,36 +301,266 @@ namespace PortPrivate {
     nanoTogglePulse(RawNanoClock);
   }
 
-  // This function should only be called with the MCR shadow register
-  // as an argument. See public functions for updating the MCR below
-  // in this file.
-  void setMCR(byte b) {
-    PortPrivate::nanoSetMode(PortPrivate::portData, OUTPUT);
-    PortPrivate::nanoPutPort(PortPrivate::portData, b);
-    PortPrivate::nanoTogglePulse(PortPrivate::MachineControlRegister);
+  void syncMCR() {
+    nanoSetMode(portData, OUTPUT);
+    nanoPutPort(portData, mcrShadow);
+    nanoTogglePulse(MachineControlRegister);
+  }
+
+  // Interface to the 4 write-only bus registers: setAH
+  // (address high), AL, DH (data high), DL.
+  
+  inline void setAH(byte b) {
+    nanoSetRegister(AddrRegisterHigh, b);
   }
   
-  // Finally, just for freezePort(), which locks the display register
-  // until the Nano is reset. This preserves the critical error code.
-  byte displayIsFrozen = 0;
-}
+  inline void setAL(byte b) {
+    nanoSetRegister(AddrRegisterLow, b);  
+  }
+  
+  inline void setDH(byte b) {
+    nanoSetRegister(DataRegisterHigh, b);
+  }
+  
+  inline void setDL(byte b) {
+    nanoSetRegister(DataRegisterLow, b);
+  }
+  
+  // Public interface to the read registers: Bus Input Register
+  // and the readback value of the MCR.
+  
+  inline byte getBIR() {
+    return nanoGetRegister(BusInputRegister);
+  }
+  
+  inline byte getMCR() {
+    return nanoGetRegister(MachineControlRegisterInput);
+  }
+  
+  inline void singleClock() {
+    nanoInternalSingleClock();
+  }
 
-// Port module public interface. Because of the ordering of tasks in
-// the tasks array, this is more or less the very first init code.
-// Public functions (from here down) do not have the "nano.." prefix.
+  // MCR shadow register support. Something must call
+  // syncMCR() after invoking any of these to update
+  // the actual register.
+
+  inline void mcrEnableWcs() {
+    mcrShadow &= ~MCR_BIT_0_WCS_EN_L;
+  }
+  
+  inline void mcrDisableWcs() {
+    mcrShadow |= MCR_BIT_0_WCS_EN_L;
+  }
+  
+  inline void mcrEnableIRwrite() {
+    mcrShadow &= ~MCR_BIT_1_IR_EN_L;
+  }
+  
+  inline void mcrDisableIRwrite() {
+    mcrShadow |= MCR_BIT_1_IR_EN_L;
+  }
+  
+  inline void mcrEnableFastclock() {
+    mcrShadow &= ~MCR_BIT_FASTCLKEN_L;
+  }
+  
+  inline void mcrDisableFastclock() {
+    mcrShadow |= ~MCR_BIT_FASTCLKEN_L;
+  }
+  
+  inline void mcrEnableYarc() {
+    mcrShadow |= MCR_BIT_YARC_NANO_L;
+  }
+  
+  inline void mcrDisableYarc() {
+    mcrShadow &= ~MCR_BIT_YARC_NANO_L;
+  }
+  
+  inline void mcrForceUnusedBitsHigh() {
+    mcrShadow |= (MCR_BIT_2_UNUSED | MCR_BIT_7_UNUSED);
+  }
+  
+  inline bool yarcIsPowerOnReset() {
+    return (getMCR() & MCR_BIT_POR_SENSE) == 0;
+  }
+  
+  inline bool yarcRequestsService() {
+    return (getMCR() & MCR_BIT_SERVICE_STATUS) != 0;
+  }
+
+  // Make the MCR "safe" (from bus conflicts) and put
+  // the Nano in control of the system D and A busses.
+  void mcrMakeSafe() {
+    mcrDisableWcs();
+    mcrDisableIRwrite();
+    mcrDisableFastclock();
+    mcrDisableYarc();
+    mcrForceUnusedBitsHigh();
+    syncMCR();
+  }
+  
+  // Because of the order of initialization, this is basically
+  // the very first code executed on either a hard or soft reset.
+  void internalPortInit() {
+    // Set the two decoder select pins to outputs. Delay after making
+    // any change to this register.
+    DDRC = DDRC | (_BV(DDC3) | _BV(DDC4));
+    delayMicroseconds(2);
+  
+    // Turn off both of the decoder select lines so no decoder outputs
+    // are active.
+    PORTC &= ~(_BV(PORTC3) | _BV(PORTC4));
+    
+    nanoSetMode(portData,   OUTPUT);
+    nanoSetMode(portSelect, OUTPUT);
+
+    mcrMakeSafe();
+  }
+
+  // Run the YARC.
+  void internalRunYARC() {
+    mcrMakeSafe();
+    mcrEnableYarc();        // lock the Nano off the bus
+    mcrEnableFastclock();   // enable the YARC to run at speed
+    syncMCR();
+  }
+  
+  // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
+  // The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
+  // it's a misleading pun, because postInit() runs on both power-on resets and "soft" resets (of the
+  // Nano only) that occur when the host opens the serial port.
+  //
+  // The hardware allows the Nano to detect power-on reset by reading bit 0x08 of the MCR. A 0 value
+  // means the YARC is in the reset state. This state lasts at least two seconds after power-on, much
+  // longer than it takes the Nano to initialize. The Nano detects this and performs initialization
+  // steps both before and after the YARC comes out of the POR state as can be seen in the code below.
+  
+  inline void postPanic(byte n) { panic(PANIC_POST|n); }
+  inline byte BYTE(int n) { return n&0xFF; } // XXX probably not the right way to solve this problem?
+  
+  // Power on self test and initialization. Startup will hang if this function returns false.
+  bool internalPostInit() {
+    // Do unconditionally on any reset
+    mcrMakeSafe();
+  
+    if (!yarcIsPowerOnReset()) {
+      // A soft reset from the host opening the serial port.
+      // We only run this code after a hard init (power cycle).
+      internalRunYARC();
+      return true;
+    }
+  
+    // Looks like an actual power-on reset.
+  
+    // Set and reset the Service Request flip-flop a few times.
+    for(int i = 0; i < 3; ++i) {
+      nanoTogglePulse(ResetService);
+      if (yarcRequestsService()) {
+        postPanic(1);
+        return false;
+      }
+      
+      setAH(0x7F); // 0xFF would be a read
+      setAL(0xF0); // 7FF0 or 7FF1 sets the flip-flop
+      setDH(0x00); // The data doesn't matter
+      setDL(0xFF);
+      singleClock(); // set service
+  
+      if (!yarcRequestsService()) {
+        postPanic(2);
+        return false;
+      }
+    }
+    
+    // Now reset the "request service" flip-flop from the YARC so we
+    // don't later see a false service request.
+    nanoTogglePulse(ResetService);
+  
+    if (getMCR() != BYTE(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
+      postPanic(3);
+      return false;
+    }
+  
+    // Write and read the first 4 bytes
+    setAH(0x00);
+    setAL(0x00); setDL('j' & 0x7F); singleClock();
+    setAL(0x01); setDL('e' & 0x7F); singleClock();
+    setAL(0x02); setDL('f' & 0x7F); singleClock();
+    setAL(0x03); setDL('f' & 0x7F); singleClock();
+  
+    setAH(0x80); setAL(0x00); singleClock();
+    if (getBIR() != ('j')) { postPanic(0x0A); }
+    
+    setAL(0x01); singleClock();
+    if (getBIR() != ('e')) { postPanic(0x0B); }
+    
+    setAL(0x02); singleClock();
+    if (getBIR() != ('f')) { postPanic(0x0C); }
+    
+    setAL(0x03); singleClock();
+    if (getBIR() != ('f')) { postPanic(0x0D); }
+  
+    // Write and read the first 256 bytes
+    setAH(0x00);
+    for (int j = 0; j < 256; ++j) {
+      setAL(j); setDL(256 - j); singleClock();
+    }
+    
+    setAH(0x80);
+    for (int j = 0; j < 256; ++j) {
+      setAL(j); singleClock();
+      if (getBIR() != byte(256 - j)) {
+        postPanic(0x0E);
+      }
+    }
+  
+    // And now we'd better still in the /POR
+    // state, or we're screwed.
+  
+     if (!yarcIsPowerOnReset()) {
+      // Trouble, /POR should be low right now.
+      postPanic(5);
+      return false;
+    }
+  
+    // Wait for POR# to go high here, then test RAM:
+    setDisplay(0xFF);
+    while (!yarcIsPowerOnReset()) {
+      // do nothing
+    }
+    
+    // Write and read the entire 30k space
+    for (int i = 0; i < 0x7800; i++) {
+      setAH(i >> 8); setAL(i & 0xFF);
+      setDL(i & 0xFF); singleClock();
+    }
+    for (int i = 0; i < 0x7800; i++) {
+      setAH((i >> 8) | 0x80); setAL(i & 0xFF);
+      singleClock();
+      if (getBIR() != byte(i & 0xFF)) {
+        postPanic(6);
+      }
+    }
+  
+    setDisplay(0xC0);
+    return true;
+  }
+
+} // End of PortPrivate section
+
+// Public interface to ports
 
 void portInit() {
-  // Set the two decoder select pins to outputs. Delay after making
-  // any change to this register.
-  DDRC = DDRC | (_BV(DDC3) | _BV(DDC4));
-  delayMicroseconds(2);
+  PortPrivate::internalPortInit();
+}
 
-  // Turn off both of the decoder select lines so no decoder outputs
-  // are active.
-  PORTC &= ~(_BV(PORTC3) | _BV(PORTC4));
-  
-  PortPrivate::nanoSetMode(PortPrivate::portData,   OUTPUT);
-  PortPrivate::nanoSetMode(PortPrivate::portSelect, OUTPUT);
+bool postInit() {
+  PortPrivate::internalPostInit();
+}
+
+void runYARC() {
+  PortPrivate::internalRunYARC();
 }
 
 // Public interface to the write-only 8-bit Display Register (DR)
@@ -338,234 +575,4 @@ void setDisplay(byte b) {
 void freezeDisplay(byte b) {
   setDisplay(b);
   PortPrivate::displayIsFrozen = 1;
-}
-
-// Public interface to the 4 write-only bus registers: setAH
-// (address high), AL, DH (data high), DL.
-
-void setAH(byte b) {
-  PortPrivate::nanoSetRegister(PortPrivate::AddrRegisterHigh, b);
-}
-
-void setAL(byte b) {
-  PortPrivate::nanoSetRegister(PortPrivate::AddrRegisterLow, b);  
-}
-
-void setDH(byte b) {
-  PortPrivate::nanoSetRegister(PortPrivate::DataRegisterHigh, b);
-}
-
-void setDL(byte b) {
-  PortPrivate::nanoSetRegister(PortPrivate::DataRegisterLow, b);
-}
-
-// Public interface to the read registers: Bus Input Register
-// and the readback value of the MCR.
-
-byte getBIR() {
-  return PortPrivate::nanoGetRegister(PortPrivate::BusInputRegister);
-}
-
-byte getMCR() {
-  return PortPrivate::nanoGetRegister(PortPrivate::MachineControlRegisterInput);
-}
-
-void singleClock() {
-  PortPrivate::nanoInternalSingleClock();
-}
-
-//  constexpr byte MCR_BIT_0_WCS_EN_L      = 0x00; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
-//  constexpr byte MCR_BIT_1_IR_EN_L       = 0x01; // Clock enable for Nano writing to IR when SYSCLK
-//  constexpr byte MCR_BIT_2_UNUSED        = 0x02;
-//  constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
-//  constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
-//  constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
-//  constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
-//  constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
-
-byte mcrShadow = 0xFF;
-
-inline void mcrEnableWcs() {
-  mcrShadow &= ~PortPrivate::MCR_BIT_0_WCS_EN_L;
-}
-
-inline void mcrDisableWcs() {
-  mcrShadow |= PortPrivate::MCR_BIT_0_WCS_EN_L;
-}
-
-inline void mcrEnableIRwrite() {
-  mcrShadow &= ~PortPrivate::MCR_BIT_1_IR_EN_L;
-}
-
-inline void mcrDisableIRwrite() {
-  mcrShadow |= PortPrivate::MCR_BIT_1_IR_EN_L;
-}
-
-inline void mcrEnableFastclock() {
-  mcrShadow &= ~PortPrivate::MCR_BIT_FASTCLKEN_L;
-}
-
-inline void mcrDisableFastclock() {
-  mcrShadow |= ~PortPrivate::MCR_BIT_FASTCLKEN_L;
-}
-
-inline void mcrEnableYarc() {
-  mcrShadow |= PortPrivate::MCR_BIT_YARC_NANO_L;
-}
-
-inline void mcrDisableYarc() {
-  mcrShadow &= ~PortPrivate::MCR_BIT_YARC_NANO_L;
-}
-
-inline void mcrForceUnusedBitsHigh() {
-  mcrShadow |= (PortPrivate::MCR_BIT_2_UNUSED | PortPrivate::MCR_BIT_7_UNUSED);
-}
-
-void mcrUpdate() {
-  PortPrivate::setMCR(mcrShadow);
-}
-
-void mcrMakeSafe() {
-  mcrDisableWcs();
-  mcrDisableIRwrite();
-  mcrDisableFastclock();
-  mcrDisableYarc();
-  mcrForceUnusedBitsHigh();
-}
-
-inline bool yarcIsPowerOnReset() {
-  return (getMCR() & PortPrivate::MCR_BIT_POR_SENSE) == 0;
-}
-
-inline bool yarcRequestsService() {
-  return (getMCR() & PortPrivate::MCR_BIT_SERVICE_STATUS) != 0;
-}
-
-// PostInit() is called from setup after the init() functions are called for all the firmware tasks.
-// The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
-// it's a misleading pun, because postInit() runs on both power-on resets and "soft" resets (of the
-// Nano only) that occur when the host opens the serial port.
-//
-// The hardware allows the Nano to detect power-on reset by reading bit 0x08 of the MCR. A 0 value
-// means the YARC is in the reset state. This state lasts at least two seconds after power-on, much
-// longer than it takes the Nano to initialize. The Nano detects this and performs initialization
-// steps both before and after the YARC comes out of the POR state as can be seen in the code below.
-
-inline void postPanic(byte n) { panic(PANIC_POST|n); }
-inline byte BYTE(int n) { return n&0xFF; } // XXX probably not the right way to solve this problem?
-
-// Power on self test and initialization. Startup will hang if this function returns false.
-bool postInit() {
-    
-  if (!yarcIsPowerOnReset()) {
-    // A soft reset from the host opening the serial port.
-    // We only run this code after a hard init (power cycle).
-    return true;
-  }
-
-  // Looks like an actual power on reset.
-
-  mcrMakeSafe();
-  mcrUpdate();
-
-  // Set and reset the Service Request flip-flop a few times.
-  for(int i = 0; i < 3; ++i) {
-    PortPrivate::nanoTogglePulse(PortPrivate::ResetService);
-    if (yarcRequestsService()) {
-      postPanic(1);
-      return false;
-    }
-    
-    setAH(0x7F); // 0xFF would be a read
-    setAL(0xF0); // 7FF0 or 7FF1 sets the flip-flop
-    setDH(0x00); // The data doesn't matter
-    setDL(0xFF);
-    singleClock(); // set service
-
-    if (!yarcRequestsService()) {
-      postPanic(2);
-      return false;
-    }
-  }
-  
-  // Now reset the "request service" flip-flop from the YARC so we
-  // don't later see a false service request.
-  PortPrivate::nanoTogglePulse(PortPrivate::ResetService);
-
-  // The RHS expression amounts to 0x97
-  if (getMCR() != BYTE(~(PortPrivate::MCR_BIT_POR_SENSE | PortPrivate::MCR_BIT_SERVICE_STATUS | PortPrivate::MCR_BIT_YARC_NANO_L))) {
-    postPanic(3);
-    return false;
-  }
-
-  // Write and read the first 4 bytes
-  setAH(0x00);
-  setAL(0x00); setDL('j' & 0x7F); singleClock();
-  setAL(0x01); setDL('e' & 0x7F); singleClock();
-  setAL(0x02); setDL('f' & 0x7F); singleClock();
-  setAL(0x03); setDL('f' & 0x7F); singleClock();
-
-  setAH(0x80);
-  setAL(0x00); singleClock();
-  if (getBIR() != ('j' & 0x7F)) { postPanic(0x0A); }
-  
-  setAL(0x01); singleClock();
-  if (getBIR() != ('e' & 0x7F)) { postPanic(0x0B); }
-  
-  setAL(0x02); singleClock();
-  if (getBIR() != ('f' & 0x7F)) { postPanic(0x0C); }
-  
-  setAL(0x03); singleClock();
-  if (getBIR() != ('f' & 0x7F)) { postPanic(0x0D); }
-
-  // Write and read the first 256 bytes
-  setAH(0x00);
-  for (int j = 0; j < 256; ++j) {
-    setAL(BYTE(j)); setDL(BYTE(256 - j)); singleClock();
-  }
-  
-  setAH(0x80);
-  for (int j = 0; j < 256; ++j) {
-    setAL(BYTE(j)); singleClock();
-    if (getBIR() != BYTE(256 - j)) { postPanic(0x0E); }
-  }
-
-  // And now we'd better still in the /POR
-  // state, or we're screwed.
-
-   if (!yarcIsPowerOnReset()) {
-    // Trouble, /POR should be low right now.
-    postPanic(5);
-    return false;
-  }
-
-  // Wait for POR# to go high here, then test RAM:
-  setDisplay(0xFF);
-  while (!yarcIsPowerOnReset()) {
-    // do nothing
-  }
-  
-  // // Write and read the entire 30k space
-  for (int i = 0; i < 0x7800; i++) {
-    setAH(BYTE(i >> 8)); setAL(BYTE(i & 0xFF));
-    setDL(BYTE(i & 0xFF)); singleClock();
-  }
-  for (int i = 0; i < 0x7800; i++) {
-    setAH(BYTE((i >> 8) | 0x80)); setAL(BYTE(i & 0xFF));
-    singleClock();
-    if (getBIR() != BYTE(i & 0xFF)) {
-      postPanic(6);
-    }
-  }
-
-  setDisplay(0xC0);
-  return true;
-}
-
-// Run the YARC.
-void runYARC() {
-  mcrMakeSafe();
-  mcrEnableYarc();        // lock the Nano off the bus
-  mcrEnableFastclock();   // enable the YARC to run at speed
-  mcrUpdate();
 }
