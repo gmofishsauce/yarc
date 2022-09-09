@@ -556,7 +556,7 @@ void portInit() {
 }
 
 bool postInit() {
-  PortPrivate::internalPostInit();
+  return PortPrivate::internalPostInit();
 }
 
 void runYARC() {
