@@ -29,44 +29,44 @@
 .set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
 # data bus drivers for memory writes
-.set gr 0	# general register drives bus
-.set sp	1	# stack (PSP or RSP) drives bus
-.set ir	2	# instruction register drives bus
-.set f	3	# flags register drives bus
-.set mem 4	# memory drives bus (memory read)
+.set gr 0   # general register drives bus
+.set sp 1   # stack (PSP or RSP) drives bus
+.set ir 2   # instruction register drives bus
+.set f  3   # flags register drives bus
+.set mem 4   # memory drives bus (memory read)
 .set bus_tbd_5 5
 .set bus_tbd_6 6
 .set bus_none  7 # reserved (?)
 
 # General register src2 constant registers
 # TBD - these assignments may have changed
-.set n2 6	# negative 2 constant register
-.set n1 7	# negative 1 constant register
-.set p1 5	# positive 1 constant register
-.set p2 4	# positive 2 constant register
+.set n2 6   # negative 2 constant register
+.set n1 7   # negative 1 constant register
+.set p1 5   # positive 1 constant register
+.set p2 4   # positive 2 constant register
 
 # General register conditional writes. These
 # are primarily targeted as enabling branches
 # but could be used for conditional moves.
-.set cond_r0	4
-.set cond_r1	5
-.set cond_r2	6
-.set cond_r3	7
+.set cond_r0   4
+.set cond_r1   5
+.set cond_r2   6
+.set cond_r3   7
 
 # Register input mux
-.set from_bus	1	# register input from sysdata
-.set from_alu	0	# register input from ALU output
+.set from_bus  1   # register input from sysdata
+.set from_alu  0   # register input from ALU output
 
 # ALU operations
 
-.set alu_addop	0
+.set alu_addop 0
 # 15 more to go...
 
 # ALU control
-.set alu_phi1	0	# operate on low 8 bits
-.set alu_phi2	1	# operate on high 8 bits and commit
-.set alu_load	2	# load the src2 alu holding register
-.set alu_none	3	# no operation
+.set alu_phi1   0   # operate on low 8 bits
+.set alu_phi2   1   # operate on high 8 bits and commit
+.set alu_load   2   # load the src2 alu holding register
+.set alu_none   3   # no operation
 
 # Microcode words, 32 bits
 
@@ -76,32 +76,32 @@
 # Signals ending in _dir are transceiver direction controls (ambiguity TBD)
 
 # register specifier word 31:24
-.bitfield src1			32  31:30	# contains a gr
-.bitfield src2			32  29:27	# contains a gr (3..0) or a constant reg (7..4)
-.bitfield dst			32  26:24	# contains a gr (3..0) or a conditional gr (7..4)
+.bitfield src1          32  31:30   # contains a gr
+.bitfield src2          32  29:27   # contains a gr (3..0) or a constant reg (7..4)
+.bitfield dst           32  26:24   # contains a gr (3..0) or a conditional gr (7..4)
 
 # alu 23:16
 # alu_ctl = 2 is called alu_in_xcv_en# in https://circuitverse.org/simulator/edit/alu-controls-second-try
 # alu_hold_clk might be the same as alu_phi1 OR enable sysdata inbound (states 0 or 2 of alu_ctl)
-.bitfield alu_op		32	23:20	# 1 of 16 alu operations
-.bitfield alu_ctl	    32	19:18	# 0 = alu_phi1, 1 = alu_phi2, 2 = enable sysdata inbound, 3 = none
-.bitfield alu_hold_clk	32	17:17	# open/clock the ALU port 2 holding reg
-.bitfield alu_TBD_16	32	16:16	# unassigned:1
+.bitfield alu_op        32  23:20   # 1 of 16 alu operations
+.bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = enable sysdata inbound, 3 = none
+.bitfield alu_hold_clk  32  17:17   # open/clock the ALU port 2 holding reg
+.bitfield alu_TBD_16    32  16:16   # unassigned:1
 
 # busses and stack 15:8
-.bitfield sysdata_src	32	15:13	# 1 of 8 data bus drivers (gr sp ir f mem tbd tbd tbd)
-.bitfield reg_in_mux	32	12:12	# register input mux, 1 = sysdata, 0 = alu output
-.bitfield stack_up_clk	32	11:11	# when low deselected SP increments
-.bitfield stack_dn_clk  32	10:10	# when low deselected SP decrements
-.bitfield psp_rsp		32	 9:9	# select psp when high, rsp when low
-.bitfield dst_wr_en		32	 8:8	# enable (conditional) write to GRs
+.bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd tbd)
+.bitfield reg_in_mux    32   12:12  # register input mux, 1 = sysdata, 0 = alu output
+.bitfield stack_up_clk  32   11:11  # when low deselected SP increments
+.bitfield stack_dn_clk  32   10:10  # when low deselected SP decrements
+.bitfield psp_rsp       32    9:9   # select psp when high, rsp when low
+.bitfield dst_wr_en     32    8:8   # enable (conditional) write to GRs
 
 # control lines 7:0
-.bitfield rw			32	 7:7	# read/write# line
-.bitfield m16_en	    32	 6:6	# enable 16-bit memory cycle
-.bitfield ir_clk		32	 5:5	# clock the IR
-.bitfield rsw_ir_uc		32	 4:4	# RSW from LS byte of microcode when low else from IRL
-.bitfield ctl_TBD_30	32	 3:0	# unassigned:4
+.bitfield rw            32    7:7   # read/write# line
+.bitfield m16_en        32    6:6   # enable 16-bit memory cycle
+.bitfield ir_clk        32    5:5   # clock the IR
+.bitfield rsw_ir_uc     32    4:4   # RSW from LS byte of microcode when low else from IRL
+.bitfield ctl_TBD_30    32    3:0   # unassigned:4
 
 # Microcode combinations
 .set IDLE_3 "src1=src1_none src2=src2_none dst=dst_none" # 0xFF
@@ -110,7 +110,7 @@
 .set IDLE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=1 ctl_TBD_30=0xF" # 0xFF
 
 # Microcode for an IDLE cycle
- .set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
+.set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
 
 # Microcode for a FETCH cycle FIXME
 .set FETCH_3 "src1=PC src2=p2 dst=dst_none"

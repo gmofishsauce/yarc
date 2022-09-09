@@ -152,6 +152,7 @@ namespace PortPrivate {
   constexpr REGISTER_ID MachineControlRegisterInput = MCR_INPUT;
 
   // Register IDs on high decoder need bit 3 set
+  constexpr REGISTER_ID WcsControlClock = (DECODER_SELECT_MASK|WCS_CLK);
   constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_2);
   constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
   constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
@@ -168,9 +169,9 @@ namespace PortPrivate {
   }
 
   // Bits in the MCR
-  constexpr byte MCR_BIT_0_WCS_EN_L      = 0x00; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
-  constexpr byte MCR_BIT_1_IR_EN_L       = 0x01; // Clock enable for Nano writing to IR when SYSCLK
-  constexpr byte MCR_BIT_2_UNUSED        = 0x02;
+  constexpr byte MCR_BIT_0_WCS_EN_L      = 0x01; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
+  constexpr byte MCR_BIT_1_IR_EN_L       = 0x02; // Clock enable for Nano writing to IR when SYSCLK
+  constexpr byte MCR_BIT_2_UNUSED        = 0x04;
   constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
   constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
   constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
@@ -437,7 +438,6 @@ namespace PortPrivate {
   // steps both before and after the YARC comes out of the POR state as can be seen in the code below.
   
   inline void postPanic(byte n) { panic(PANIC_POST|n); }
-  inline byte BYTE(int n) { return n&0xFF; } // XXX probably not the right way to solve this problem?
   
   // Power on self test and initialization. Startup will hang if this function returns false.
   bool internalPostInit() {
@@ -452,7 +452,23 @@ namespace PortPrivate {
     }
   
     // Looks like an actual power-on reset.
-  
+
+    // Test the microcode control register (the other MCR, sigh).
+    // This code to move later in the startup sequence once it's
+    // complete.
+
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00);
+    mcrEnableWcs();
+    syncMCR();
+    
+    for (;;) {
+      setDL(0xFF);
+      nanoTogglePulse(WcsControlClock);
+      setDL(0x00);
+      nanoTogglePulse(WcsControlClock);      
+    }
+    
     // Set and reset the Service Request flip-flop a few times.
     for(int i = 0; i < 3; ++i) {
       nanoTogglePulse(ResetService);
@@ -477,7 +493,7 @@ namespace PortPrivate {
     // don't later see a false service request.
     nanoTogglePulse(ResetService);
   
-    if (getMCR() != BYTE(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
+    if (getMCR() != byte(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
       postPanic(3);
       return false;
     }
@@ -542,7 +558,7 @@ namespace PortPrivate {
         postPanic(6);
       }
     }
-  
+
     setDisplay(0xC0);
     return true;
   }
