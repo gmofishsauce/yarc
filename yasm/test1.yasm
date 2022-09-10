@@ -1,0 +1,22 @@
+    .set r0 0
+    .set r1 1
+    .set r2 2
+    .set r3 3
+    .bitfield src1 8 7:5
+    .bitfield src2 8 4:2
+    .bitfield dst  8 1:0
+
+    .bitfield alu_op 32 26:23
+    .bitfield reg_specifier_from 32 22:22
+    .set alu_add 0
+    .set reg_specifier_irl  1
+    .set reg_specifier_ucode 0
+
+    .set DO_ADD "alu_op=alu_add reg_specifier_from=reg_specifier_irl"
+
+    .opcode ADD 0x80 3 src1 src2 dst
+    .slot DO_ADD;
+    .endopcode
+
+    ADD r0 r1 r2
+

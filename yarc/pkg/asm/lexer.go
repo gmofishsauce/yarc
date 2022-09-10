@@ -133,7 +133,7 @@ var nlToken = token{"\n", tkNewline} // const
 // serve as single-character tokens for purposes of terminating a symbol, so a
 // sequence like foo"bar" isn't legal. But an action function can choose to make
 // a sequence like foo="bar" legal given that "=" is a valid single-character token.
-// Newlines are never allowed in strings. Maybe add a multiline string deliminter in
+// Newlines are never allowed in strings. Maybe add a multiline string delimiter in
 // the future if needed.
 //
 // 4. Numbers. These can be decimal numbers or hex numbers starting with 0x or 0X and

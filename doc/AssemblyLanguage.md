@@ -4,8 +4,8 @@
 
 YARC assembly language ("yasm", like "chasm") is a combination microassembler
 and assembler. The assembly language mnemonics are not built-in, but rather
-defined using the language. Once defined, they can be used for conventional
-assembly language programming.
+defined, along with the microcode that implements them, using the language.
+Once defined, they can be used for conventional assembly language programming.
 
 The syntax is simple and rigid, requiring only a lexer. It is largely but
 not strictly line-oriented. Each line (really "construct") begins with a
@@ -40,16 +40,12 @@ defined builtins are key symbols.
 ```
 
 Substitue `value` when `symbol` is encountered in the source text. In order
-to avoid some of the complexities of generalized macro processing, several
-restrictions are placed on string values:
+to avoid some of the complexities of generalized macro processing, the value
+may not contain a dot ("."). This prevents builtins in the expansion text.
 
-1. The value may not contain newlines or double quotes.
-1. The value may not contain the dot character, thus no builtin symbols.
-
-The `.set` builtin is intended to address a limited set of situations. In
-particular, use of strings is restricted to `.include` and to sequences of
-"bitfield = value" expressions and these are expanded only within the `.slot`
-builtin described below. Examples:
+The values may be numbers or strings. Initially, string values are intended
+for one purpose only: sequences of "bitfield = value" expressions that will
+be expanded within the `.slot` builtin described later. Examples:
 
 ```
 .set RSP 5
@@ -58,11 +54,11 @@ builtin described below. Examples:
 Allows "RSP" to appear as value in a bitfield, while
 
 ```
-.set FETCH "F1=V1, F2=V2, F3=V3, F4=V4;"
+.set FETCH "F1=1 F2=7 F3=0 F4=RSP"
 ```
 
-allows "FETCH" to appear as the value of a `.slot` builtin, providing a
-shorthand for an often-repeated microcode word contained in a slot.
+allows "FETCH" to appear as the value or partial value of a `.slot` builtin,
+providing a shorthand for often-repeated microcode field settings in the slot.
 
 ### .include
 
@@ -113,34 +109,40 @@ a `.endopcode` builtin.
 ### .slot
 
 ```
-.slot Field1=Value1, Field2=Value2, ..., FieldN=ValueN;
+.slot Field1=Value1 Field2=Value2 ...
+      FieldN=ValueN ... ;
 ```
 
 The `.slot` builtin is used to define a single 32-bit microcode word that
 occupies one "slot" in the 8k x 32 microcode RAM. The field names must
 previously have been defined by `.bitfield` directives with a wordsize of 32.
-Values must be compatible ith field sizes.
+Values must be compatible with field sizes. The `field=value` expressions
+may span lines. The slot must be terminated with a semicolon.
 
 Example combining the features documented so far:
 
 ```
-	.set r0 0
-	.set r1 1
-	.set r2 2
-	.set r3 3
-	.bitfield src1, 8, 7:5
-	.bitfield src2, 8, 4:2
-	.bitfield dst,  8, 1:0
+    .set r0 0
+    .set r1 1
+    .set r2 2
+    .set r3 3
 
-	.bitfield alu_op, 32, 26:23
-	.bitfield reg_specifier_from, 32, 22:22
-	.set alu_add 0
-	.set reg_specifier_irl  1
-	.set reg_specifier_ucode 0
+    .bitfield src1 8 7:5
+    .bitfield src2 8 4:2
+    .bitfield dst  8 1:0
 
-	.opcode ADD, 0x80, src1, src2, dst
-	.slot alu_op=alu_add, reg_specifier_from=reg_specifier_irl
-	.endopcode
+    .bitfield alu_op 32 26:23
+    .bitfield reg_specifier_from 32 22:22
+    .set alu_add 0
+    .set reg_specifier_irl  1
+    .set reg_specifier_ucode 0
 
-	ADD r0, r1, r2
+    .set DO_ADD "alu_op=alu_add reg_specifier_from=reg_specifier_irl"
+
+    .opcode ADD 0x80 3 src1 src2 dst
+    .slot DO_ADD;
+    .endopcode
+
+    ADD r0 r1 r2
 ```
+

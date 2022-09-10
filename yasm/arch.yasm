@@ -29,13 +29,13 @@
 .set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
 # data bus drivers for memory writes
-.set gr 0   # general register drives bus
-.set sp 1   # stack (PSP or RSP) drives bus
-.set ir 2   # instruction register drives bus
-.set f  3   # flags register drives bus
-.set mem 4   # memory drives bus (memory read)
-.set bus_tbd_5 5
-.set bus_tbd_6 6
+.set gr 0        # general register drives bus
+.set sp 1        # stack (PSP or RSP) drives bus
+.set ir 2        # instruction register drives bus
+.set f  3        # flags register drives bus
+.set mem 4       # memory drives bus (memory read)
+.set bus_tbd_5 5 # unused
+.set bus_tbd_6 6 # unused
 .set bus_none  7 # reserved (?)
 
 # General register src2 constant registers

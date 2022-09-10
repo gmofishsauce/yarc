@@ -129,7 +129,7 @@ branch offset in 16-bit instruction words from -128 through 127.
 | :----- | :------: | :-------     | :---- |
 | 0xB000 | PUSHF    |              | Push flags to RSP|
 | 0xB100 | POPF     |              | Pop flags from RSP |
-| 0xB200 | RET      |              | Return (PC from RSP |
+| 0xB200 | RET      |              | Return (PC from RSP) |
 | 0xB300 | RTI      |              | Return from interrupt |
 | 0xB400 | EI       |              | Enable interrupts |
 | 0xB500 | DI       |              | Disable interrupts |
