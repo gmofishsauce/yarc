@@ -8,12 +8,21 @@ of main memory. The top 2k of the address space is reserved for I/O registers.
 In addition to main memory, YARC has two hardware stacks called the parameter
 stack and the return stack. These are located in physically separate memory.
 Certain instructions make reference to these stacks while other instructions
-allow programmer-specified access.
+allow programmer-specified access. The stacks only be used as stacks, not as
+data or program memory.
 
 YARC has four general registers r0 through r3 and a few special registers.
 RSP and PSP are the stack pointers for the hardware stacks. IR holds the
 currently-executing opcode. There is a flags register F containing the
 traditional Z, N, C, and V (Zero, Negative, Carry, Overflow) flags.
+
+The hardware dictates a number of restrictions. ALU operations take 2 cycles
+called "phase 1" and "phase 2".  ALU operands may be registers, not memory.
+The ALU has a transparent holding register that can be loaded from memory in
+a single cycle, but that cycle may not be either an ALU phase 1 or 2 cycle. 
+Also, as currently envisioned, the PSP and RSP may be referenced only on
+alternating cycles, allowing a separate cycle for decrement or increment;
+this may change.
 
 ## Instruction set overview
 
@@ -29,13 +38,13 @@ CALL instructions. They are their own target address: the opcode 0x0020 is
 a call to address 0x0020, etc. Since code addresses must be 16-bit aligned
 (even), odd values from 0x0000 through 0x7FFF would not valid if used in
 this way. Instead, these values are defined as jumps to the next lower even
-address. Opcode 0x0021 is a jump to address 0x0020, etc. CALL instructions
+address: opcode 0x0021 is a jump to address 0x0020, etc. CALL instructions
 push the return address on the return stack, while JUMP instructions simply
 load the PC with the target address.
 
 (The astute reader may have deduced that the machine is designed to support
-the classic programming language FORTH. The two stacks and their names come
-directly from the FORTH language, and dedicating half the opcode space to
+the classic programming language Forth. The two stacks and their names come
+directly from the Forth language, and dedicating half the opcode space to
 minimum-sized jump and call instructions is intended to allow the efficient
 implementation of threaded code.)
 
@@ -45,12 +54,12 @@ and only bits 14:8 (7 bits) are used to address a block of 64 microcode words
 in the microcode RAM. Thus there are 127 distinct opcodes 0x80 - 0xFF, each
 of which may execute for up to 64 clocks (one microcode word per clock).
 
-The lower half of each of these 127 opcodes is available for use by the
+The lower byte of each of these 127 opcodes is available for use by the
 microcode (it is held in the lower half of the instruction register, IRL,
 while the instructions executes, and microcoded controls may move or apply
 its value in a number of ways). It is variously used to identify registers,
-hold the address offset for branch instructions, act as a short immediate
-data value, etc.
+hold the address offset for branch instructions, or to act as a short
+immediate data value.
 
 ## Instruction set details
 
@@ -89,15 +98,16 @@ The low byte (LB) of the instruction is interpreted from most significant
 to least significant as a 2-bit _source1_ field in the two MS bits, a 3-bit
 _source2_ field, and a 3-bit _destination_ field in the 3 LS bits.
 
-The source1 field selects one of 4 general registers to the first of the two ALU
-inputs. The source2 field selects either one of 4 general registers (0..3)
-or one of four small constant registers (-2, -1, 1, or 2 encoded by the values
-4..7) to the second ALU input. Finally, the 3-bit destination field selects
-either a write to one of the four general register (0..3) or no write (4..7).
+Together, these three fields are called the Register Specifier Word (RSW).
+The RSW may come either from the low byte of the instruction register or from
+the high byte of the microcode as selected by a microcode bit.
 
-So for now, bit 2 (0x04) functions as a write enable. This "no write" case may
-be replaced in the future by a write of a left shift by one bit that occurs
-in the same cycle as the ALU operation (multiply step).
+The source1 field of the RSW selects one of 4 general registers to the first
+of the two ALU inputs. The source2 field selects either one of 4 general
+registers (0..3) or one of four small constant registers (-2, -1, 1, or 2 as
+encoded by the values 4..7) to the second ALU input. Finally, the 3-bit
+destination field selects either a write to one of the four general register
+(0..3) or a conditional write (4..7). Conditional writes are explained next.
 
 ### Conditional branches
 
@@ -105,8 +115,10 @@ in the same cycle as the ALU operation (multiply step).
 | :----- | :------: | :------- | :---- |
 | 0x9FLB | BR       | flags, offset | Branch on flags matching F to offset LB  |
 
-The value of F matches on any combination of the four ALU flags set and LB is the
-branch offset in 16-bit instruction words from -128 through 127.
+The hardware performs a conditional write to the PC enabled by one of 16
+conditions selected by "F", the low-order 4 bits of the upper half of IR.
+The lower byte LB contains the branch offset in 16-bit instruction words
+from -64 through 63. This may change to -128..127 in the future.
 
 ### Move and push instructions
 

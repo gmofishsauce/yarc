@@ -54,13 +54,26 @@
 .set cond_r3   7
 
 # Register input mux
-.set from_bus  1   # register input from sysdata
-.set from_alu  0   # register input from ALU output
+.set from_bus  1    # register input from sysdata
+.set from_alu  0    # register input from ALU output
 
 # ALU operations
-
-.set alu_addop 0
-# 15 more to go...
+.set alu_add   0x00
+.set alu_sub   0x01 # src2 - src1
+.set alu_rsub  0x02 # reverse subtract src1 - src2
+.set alu_adc   0x03 # add with carry
+.set alu_sbb   0x04 # subtract with borrow
+.set alu_rsbb  0x05 # reverse subtract with borrow
+.set alu_nand  0x06 # bit clear
+.set alu_or    0x07 # bit set
+.set alu_not   0x08
+.set alu_xor   0x09
+.set alu_0x0A  0x0A # unassigned
+.set alu_0x0B  0x0B # unassigned
+.set alu_0x0C  0x0C # unassigned
+.set alu_0x0D  0x0D # unassigned
+.set alu_0x0E  0x0E # unassigned
+.set alu_0x0F  0x0F # unassigned
 
 # ALU control
 .set alu_phi1   0   # operate on low 8 bits
@@ -82,7 +95,6 @@
 
 # alu 23:16
 # alu_ctl = 2 is called alu_in_xcv_en# in https://circuitverse.org/simulator/edit/alu-controls-second-try
-# alu_hold_clk might be the same as alu_phi1 OR enable sysdata inbound (states 0 or 2 of alu_ctl)
 .bitfield alu_op        32  23:20   # 1 of 16 alu operations
 .bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = enable sysdata inbound, 3 = none
 .bitfield alu_hold_clk  32  17:17   # open/clock the ALU port 2 holding reg

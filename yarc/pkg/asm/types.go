@@ -259,9 +259,9 @@ type globalState struct {
 	inOpcode    bool
 	opcodeValue byte
 	symbols     symbolTable
-	mem         []byte // memory, 0x0000 .. 0x7800
+	mem         []byte // memory, 0x0000 .. 0x77FF
 	memNext     int
-	wcs         []uint32 // writeable control store, 0x0000 .. 0x7FFF
+	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
 	wcsNext     int
 }
 

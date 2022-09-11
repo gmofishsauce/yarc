@@ -457,17 +457,37 @@ namespace PortPrivate {
     // This code to move later in the startup sequence once it's
     // complete.
 
-    setAH(0x7F); setAL(0xFF);
-    setDH(0x00);
-    mcrEnableWcs();
-    syncMCR();
-    
-    for (;;) {
-      setDL(0xFF);
-      nanoTogglePulse(WcsControlClock);
-      setDL(0x00);
-      nanoTogglePulse(WcsControlClock);      
-    }
+    //    setAH(0x7F); setAL(0xFF);
+    //    setDH(0x00);
+    //    mcrEnableWcs();
+    //    syncMCR();
+    //
+    //    byte kRegValue = 0x00;
+    //    setDisplay(0xFE);
+    //    for (;;) {
+    //      setDL(0x00); // WCS control: write K register 0 (and RAM)
+    //      nanoTogglePulse(WcsControlClock);
+    //      setDL(kRegValue);
+    //      nanoInternalSingleClock();
+    //      
+    //      setDL(0x11); // WCS control: write K register 1 (and RAM)
+    //      nanoTogglePulse(WcsControlClock);
+    //      setDL(kRegValue);
+    //      nanoInternalSingleClock();
+    //      
+    //      setDL(0x22); // WCS control: write K register 2 (and RAM)
+    //      nanoTogglePulse(WcsControlClock);
+    //      setDL(kRegValue);
+    //      nanoInternalSingleClock();
+    //      
+    //      setDL(0x33); // WCS control: write K register 3 (and RAM)
+    //      nanoTogglePulse(WcsControlClock);    
+    //      setDL(kRegValue);
+    //      nanoInternalSingleClock();
+    //
+    //      kRegValue = (kRegValue == 0x00) ? 0xFF : 0x00;
+    //    }
+    //    setDisplay(0xFC);
     
     // Set and reset the Service Request flip-flop a few times.
     for(int i = 0; i < 3; ++i) {
