@@ -168,7 +168,17 @@ namespace PortPrivate {
     return (reg & DECODER_SELECT_MASK) ? PIN_SELECT_8_15 : PIN_SELECT_0_7;
   }
 
-  // Bits in the MCR
+  // Bits in the UCR (the U is an omicron; microcode control register)
+  constexpr byte UCR_SLICE_ADDR_MASK     = (0x01|0x02);
+  constexpr byte UCR_SLICE_EN_L          = 0x04;
+  constexpr byte UCR_RAM_WR_EN_L         = 0x08;
+  constexpr unsigned int UCR_K_ADDR_SHFT = 4;
+  constexpr byte UCR_KREG_ADDR_MASK      = (0x010|0x020);
+  constexpr byte UCR_KREG_WR_EN_L        = 0x40;
+  constexpr byte UCR_UNUSED              = 0x80;
+  constexpr byte UCR_SAFE                = 0xFF;
+
+    // Bits in the MCR
   constexpr byte MCR_BIT_0_WCS_EN_L      = 0x01; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
   constexpr byte MCR_BIT_1_IR_EN_L       = 0x02; // Clock enable for Nano writing to IR when SYSCLK
   constexpr byte MCR_BIT_2_UNUSED        = 0x04;
@@ -389,7 +399,7 @@ namespace PortPrivate {
   inline bool yarcRequestsService() {
     return (getMCR() & MCR_BIT_SERVICE_STATUS) != 0;
   }
-
+  
   // Make the MCR "safe" (from bus conflicts) and put
   // the Nano in control of the system D and A busses.
   void mcrMakeSafe() {
@@ -400,7 +410,35 @@ namespace PortPrivate {
     mcrForceUnusedBitsHigh();
     syncMCR();
   }
-  
+
+  void ucrMakeSafe() {
+    setAH(0x7F);
+    setAL(0xFF);
+    setDH(0x00);
+    setDL(UCR_SAFE);
+    mcrEnableWcs(); syncMCR();
+    nanoTogglePulse(WcsControlClock);
+    mcrDisableWcs(); syncMCR();
+  }
+
+  void kRegMakeSafe() {
+    setAH(0x7F);
+    setAL(0xFF);
+    setDH(0x00);
+
+    for (int kReg = 0; kReg < 4; ++kReg) {
+      byte ucrValue = UCR_SAFE & ~(UCR_KREG_ADDR_MASK|UCR_KREG_WR_EN_L);
+      ucrValue |= (kReg << UCR_K_ADDR_SHFT);
+      setDL(ucrValue);
+      mcrEnableWcs(); syncMCR();
+      nanoTogglePulse(WcsControlClock);
+      mcrDisableWcs(); syncMCR();
+      nanoInternalSingleClock();
+    }
+    
+    ucrMakeSafe();
+  }
+
   // Because of the order of initialization, this is basically
   // the very first code executed on either a hard or soft reset.
   void internalPortInit() {
@@ -417,6 +455,8 @@ namespace PortPrivate {
     nanoSetMode(portSelect, OUTPUT);
 
     mcrMakeSafe();
+    ucrMakeSafe();
+    kRegMakeSafe();
   }
 
   // Run the YARC.
@@ -426,7 +466,7 @@ namespace PortPrivate {
     mcrEnableFastclock();   // enable the YARC to run at speed
     syncMCR();
   }
-  
+
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
   // The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
   // it's a misleading pun, because postInit() runs on both power-on resets and "soft" resets (of the
@@ -452,42 +492,6 @@ namespace PortPrivate {
     }
   
     // Looks like an actual power-on reset.
-
-    // Test the microcode control register (the other MCR, sigh).
-    // This code to move later in the startup sequence once it's
-    // complete.
-
-    //    setAH(0x7F); setAL(0xFF);
-    //    setDH(0x00);
-    //    mcrEnableWcs();
-    //    syncMCR();
-    //
-    //    byte kRegValue = 0x00;
-    //    setDisplay(0xFE);
-    //    for (;;) {
-    //      setDL(0x00); // WCS control: write K register 0 (and RAM)
-    //      nanoTogglePulse(WcsControlClock);
-    //      setDL(kRegValue);
-    //      nanoInternalSingleClock();
-    //      
-    //      setDL(0x11); // WCS control: write K register 1 (and RAM)
-    //      nanoTogglePulse(WcsControlClock);
-    //      setDL(kRegValue);
-    //      nanoInternalSingleClock();
-    //      
-    //      setDL(0x22); // WCS control: write K register 2 (and RAM)
-    //      nanoTogglePulse(WcsControlClock);
-    //      setDL(kRegValue);
-    //      nanoInternalSingleClock();
-    //      
-    //      setDL(0x33); // WCS control: write K register 3 (and RAM)
-    //      nanoTogglePulse(WcsControlClock);    
-    //      setDL(kRegValue);
-    //      nanoInternalSingleClock();
-    //
-    //      kRegValue = (kRegValue == 0x00) ? 0xFF : 0x00;
-    //    }
-    //    setDisplay(0xFC);
     
     // Set and reset the Service Request flip-flop a few times.
     for(int i = 0; i < 3; ++i) {
@@ -559,7 +563,7 @@ namespace PortPrivate {
       postPanic(5);
       return false;
     }
-  
+    
     // Wait for POR# to go high here, then test RAM:
     setDisplay(0xFF);
     while (!yarcIsPowerOnReset()) {
