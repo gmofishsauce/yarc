@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-var debug = true
+var debug = false
 
 const responseDelay = 20 * time.Millisecond
 const commandDelay = 50 * time.Millisecond

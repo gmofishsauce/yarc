@@ -411,14 +411,44 @@ namespace PortPrivate {
     syncMCR();
   }
 
+  int bpState = -1;
+
   void ucrMakeSafe() {
-    setAH(0x7F);
-    setAL(0xFF);
-    setDH(0x00);
-    setDL(UCR_SAFE);
-    mcrEnableWcs(); syncMCR();
-    nanoTogglePulse(WcsControlClock);
-    mcrDisableWcs(); syncMCR();
+    // If we're in an even-number state, we're waiting for
+    // a continue after a breakpoint, so just return.
+    if ((bpState & 1) == 0) return;
+
+    // We're in an odd-number state. Increment to the next
+    // even number state and take one action before requesting
+    // a breakpoint.
+    bpState++;
+    
+    switch (bpState) {
+      case 0:
+        setAH(0x7F);
+        break;
+      case 2:
+        setAL(0xFF);
+        break;
+      case 4:
+        setDH(0x00);
+        break;
+      case 6:
+        setDL(UCR_SAFE);
+        break;
+      case 8:
+        mcrEnableWcs(); syncMCR();
+        break;
+      case 10:
+        nanoTogglePulse(WcsControlClock);
+        break;
+      case 12:
+        mcrDisableWcs(); syncMCR();
+        break;
+      default:
+        return; // states all done - no bp request
+    }
+    breakpointRequest(&bpState);
   }
 
   void kRegMakeSafe() {
@@ -435,7 +465,6 @@ namespace PortPrivate {
       mcrDisableWcs(); syncMCR();
       nanoInternalSingleClock();
     }
-    
     ucrMakeSafe();
   }
 
@@ -593,6 +622,11 @@ namespace PortPrivate {
 
 void portInit() {
   PortPrivate::internalPortInit();
+}
+
+int portTask() {
+  PortPrivate::ucrMakeSafe();
+  return 3;
 }
 
 bool postInit() {

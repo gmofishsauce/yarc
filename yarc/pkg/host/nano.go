@@ -198,3 +198,24 @@ func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
     }
 	return b, nil
 }
+
+func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
+	if len(body) == 0 || len(body) > 255 {
+		return fmt.Errorf("doCommandWithString(): invalid body length %d", len(body))
+	}
+	msg := make([]byte, 2 + len(body))
+	msg[0] = cmd
+	msg[1] = byte(len(msg))
+	for i := range(body) {
+		msg[2 + i] = body[i]
+	}
+	for i := range(msg) {
+		if err := nano.WriteTo(msg[i], commandDelay); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+
+

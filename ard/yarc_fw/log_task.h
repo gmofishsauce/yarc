@@ -2,6 +2,18 @@
 
 // 
 // The logger should not be used for chit-chat.
+//
+// Lack of foresight: this is the infrastructure for making general
+// requests to the Mac. The default request is to log a message; this
+// is indicated because the request starts with a letter or number,
+// specifically any character except these: '!', '#', or '$'.
+//
+// When the first byte of the messages is one of the characters in
+// that set, it indicates some non-logging request to the Mac. Currently
+// only '$' is used for requests and '!' for responses.
+//
+// The prefix on this identifiers in this file will eventually be
+// generalized from "log" to "req" for request...lack of foresight.
 
 namespace LogPrivate {
 

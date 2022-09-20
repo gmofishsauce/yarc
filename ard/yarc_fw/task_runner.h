@@ -24,7 +24,7 @@ namespace TaskPrivate {
   // Note: PROGMEM - requires pgm_ functions to read.
   
   const PROGMEM TaskInfo Tasks[] = {
-    {portInit,       0             },
+    {portInit,       portTask      },
     {ledInit,        ledTask       },
     {0,              heartbeatTask },
     {0,              displayTask   },
@@ -64,7 +64,7 @@ void InitTasks() {
   
   if (!postInit()) { // power on self test and initialization
     for(;;) {
-      ; // POST failed - stuck until power cycle
+      ; // POST failed - stuck until reset
     }
   }
 

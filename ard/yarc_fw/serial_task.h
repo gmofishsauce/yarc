@@ -100,7 +100,8 @@ namespace SerialPrivate {
   }
   
   // Sending a message uses potentially the entire buffer: the ack at byte 0,
-  // the count at byte 1, and up to 255 following bytes.
+  // the count at byte 1, and up to 255 following bytes. TODO: rename this to
+  // stSendRequest (or something like that).
   void stSendMsg(byte b) {
     byte *next = stBeginResponse(ACK(b));
     byte stringLength = logGetPending(1 + next, ST_MAX_RESPONSE_DATA_BYTES);
@@ -113,24 +114,179 @@ namespace SerialPrivate {
     *next = PROTOCOL_VERSION;
     stResponseCount++;
   }
+
+  // Communication from the Nano up to the Mac.
+  //
+  // There are multiple logical "channels" from the Nano up to the Mac.
+  // The log task implements a single "fire and forget" channel for log
+  // messages. Here we implement one (and in the future, possibly more)
+  // request/response channels. Each channel can be used for only one
+  // request at a time, but the two or more channels can be used
+  // concurrently. The first request/response channel is used to
+  // implement a state-based breakpointing mechanism. I expect a second
+  // request/response channel for YARC system calls to the Nano,
+  // particularly "read line".
+  //
+  // The fire-and-forget (log) channel allows the caller to queue a
+  // callback that is invoked when it's time to send the message. This
+  // allows formatting string to be stored in "ROM" (program memory)
+  // and only formatted into the (one) buffer just before transmission.
+  //
+  // We build on this mechanism for the request/response channels by
+  // establishing a formatting convention for messages. Messages that
+  // start with '!', '#', or '$' are treated as requests by the Mac.
+  // The only requested implemented for now is $B for breakpoint. The
+  // $B request has no arguments. The request is ack'd at the protocol
+  // level and later matched by !C (continue) response which is sent
+  // after the operator types something at the Mac.
+  //
+  // The response is carried by a separate protocol message type, Service
+  // Response (0xEA). This implementation saves a function (pointer) when
+  // the $B request is sent and invokes it from the handler for Service
+  // Response.
+  //
+  // The meaning of continue is defined by the Nano. Initially, breakpoints
+  // are just points in the code where the Nano "waits" (clumsily, because
+  // there is no task switching mechanism or "blocking") for the !C response
+  // from the host. This "fussing" simply reduces the number of times we
+  // need to flash new firmware when debugging complex sequences of writes
+  // to the hardware with an oscilloscope or logic analyzer. But it also
+  // provides a motivation for implementing this request/response model that
+  // will be required for more significant purposes later.
+  
+  typedef bool (*responseCallback)(void *response);
+  responseCallback serviceResponseCallback = 0;
+  void *responseCallbackArg = 0;
+  
+  // This is the callback specified by the LogTask - the message is being
+  // sent to the Mac, right now, so format it into the buffer and return
+  // the count. There should be room.
+  byte requestCallback(byte *bp, byte bMax) {
+    if (bMax < 3) {
+      panic(PANIC_SERIAL_BUFFER_OVERRUN);
+    }
+    *bp++ = '$';
+    *bp++ = 'B';
+    return 2;
+  }
+  
+  // This is now part of the implementation of breakpointing and not part of
+  // the request/response protocol. The caller defines a variable where even-
+  // number values are states entered when it's time to wait and odd numbers
+  // mean "continue". When the !C (continue from breakpoint) message is received
+  // from the host, the upper callback sets the LS bit of the int at this pointer,
+  // changing from the current wait state to the matching continue state.
+  
+  // This is the higher-level callback that implements continue after breakpoint
+  // The response is supposed to be "!C" (continue), not null terminated.
+  bool srCallback(void *response) {    
+    serviceResponseCallback = 0;
+
+    int *bpState = (int *)responseCallbackArg;
+    if (bpState == 0) {
+      return false;
+    }
+    *bpState |= 1;
+    responseCallbackArg = 0;
+    return true;
+  }
+
+  // This is the method called in the "foreground" (of course actually it's
+  // really all foreground...)  to issue a breakpoint request before blocking.
+  void internalBreakpointRequest(int *statePointer) {
+    if (serviceResponseCallback != 0) {
+      panic(PANIC_CHAN_BUSY);
+    }
+    serviceResponseCallback = srCallback;
+    responseCallbackArg = (void *) statePointer;
+    logQueueCallback(requestCallback);
+  }
+
+  // A byte is expected; try to read it, granting a few milliseconds
+  // for it to arrive. If timeouts become an issue, the only solution
+  // is to make reading from the serial port into a Task, which would
+  // significantly complicate the implementation. Returns -1 if none
+  // available or the byte in 0..255 if received.
+
+  #define WAIT_MILLIS 10
+
+  byte serialReadByte() {
+    for (int i = 0; i < WAIT_MILLIS; ++i) {
+      if (Serial.available() == 0) {
+        delay(1);
+        continue;
+      }
+    }
+    if (Serial.available() == 0) {
+      panic(PANIC_SERIAL_TIMEOUT);
+      return 0;
+    }
+    int result = Serial.read();
+    if (result == -1) {
+      panic(PANIC_SERIAL_READ_ERROR);
+      return 0;
+    }
+    return result;
+  }
+  
+  // The next byte should be the byte count in 0..255. It should be followed
+  // by that number of bytes. We allow some time for the bytes to arrive. The
+  // allowed time should be a function of the bit rate, but it isn't.
+  int readResponseCmd(byte *resp, int bMax) {
+    byte n = serialReadByte();
+    if (n == 0) {
+      return 0;
+    }
+    if (n >= bMax) {
+      return 0;
+    }
+
+    for (int i = 0; i < n; ++i) {
+      resp[i] = serialReadByte();
+    }
+
+    return n;
+  }
+
+  // Handle an upper protocol response. N.B. - this implementation knows too
+  // much about the surrounding implementation details.
+  void stRespCmd(byte b) {
+    if (serviceResponseCallback == 0) {
+      panic(PANIC_UPPER_PROTOCOL);
+      return;
+    }
+    byte resp[16];
+    int n = readResponseCmd(resp, sizeof(resp));
+    if (n != 2 || resp[0] != '!' || resp[1] != 'C') {
+      panic(PANIC_UPPER_PROTOCOL);
+      return;
+    }
+    if (!(*serviceResponseCallback)(responseCallbackArg)) {
+      panic(PANIC_UPPER_PROTOCOL);
+      return;
+    }
+    stSendAck(b);
+  }
   
   // Handlers for commands received in state READY.
   typedef void (*CommandHandler)(byte b);
   
   const PROGMEM CommandHandler handlers[] = {
-    stBadCmd, stBadCmd,  stBadCmd, stBadCmd,               // 0xE0 ...
-    stBadCmd, stBadCmd,  stBadCmd, stBadCmd,               // 0xE4 ...
-    stBadCmd, stSendMsg, stBadCmd, stBadCmd,               // 0xE8 ...
-    stBadCmd, stBadCmd,  stGetVer, stSendAck,              // 0xEC ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xE0 ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xE4 ...
+    stBadCmd,   stSendMsg, stRespCmd,  stBadCmd,     // 0xE8 ...
+    stBadCmd,   stBadCmd,  stGetVer,   stSendAck,    // 0xEC ...
   
-    stBadCmd, stBadCmd,  stBadCmd, stBadCmd,               // 0xF0 ...
-    stBadCmd, stBadCmd,  stBadCmd, stBadCmd,               // 0xF4 ...
-    stBadCmd, stBadCmd,  stBadCmd, stBadCmd,               // 0xF8 ...
-    stBadCmd, stBadCmd,  stBadCmd, stBadCmd,               // 0xFC ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF0 ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF4 ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF8 ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
   };
   
   #define N_HANDLERS (sizeof(handlers) / sizeof(CommandHandler))
-  
+
+  // Serial task implementation - returns the number of milliseconds
+  // before it should run again (always 0, "soonest").
   int serialTask() {
     
     if (stResponseCount > 0) {
@@ -150,7 +306,11 @@ namespace SerialPrivate {
         return 0;
       }
     }
-  
+
+    // We don't want to use the serialReadByte() function
+    // here because it waits a few milliseconds for data
+    // to arrive; it's intended for situations where the
+    // data is expected as fast as the Mac can send it.
     if (Serial.available() == 0) {
       return 0;
     }
@@ -189,9 +349,23 @@ namespace SerialPrivate {
     }
     return 0;
   }
+  
+  int loggingHack = -2;
+  
+  byte serialTaskBPReq(byte *bp, byte bmax) {
+      int result = snprintf_P((char *)bp, bmax, PSTR("Breakpoint %d"), loggingHack);
+      if (result > bmax) result = bmax;
+      return result;
+  }
 }
 
 // Public interface
+
+void breakpointRequest(int *statePointer) {
+  SerialPrivate::loggingHack = *statePointer;
+  logQueueCallback(SerialPrivate::serialTaskBPReq);
+  return SerialPrivate::internalBreakpointRequest(statePointer);
+}
 
 void serialShutdown() {
   SerialPrivate::stProtoUnsync();

@@ -28,6 +28,9 @@ enum : byte { // including panic codes
   PANIC_SERIAL_BUFFER_FREE    = 0xEE,
   PANIC_SERIAL_INVALID_STATE  = 0xED,
   PANIC_SERIAL_READ_ERROR     = 0xEC,
+  PANIC_CHAN_BUSY             = 0xEB,
+  PANIC_UPPER_PROTOCOL        = 0xEA,
+  PANIC_SERIAL_TIMEOUT        = 0xE9,
 
   // 0xD0 through 0xDF are power-on self test (POST)
   // failures. Low order bits are defined in the POST

@@ -115,8 +115,12 @@ func pollNano(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
 */
 
 func svcResp(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
-	//FIXME
-    return nostr, nil
+	// For now, just send "!C" to the Nano telling it to continue
+	// from a breakpoint.
+	if err := doCommandWithString(nano, byte(cmd.cmdVal), "!C"); err != nil {
+		return nostr, err
+	}
+	return nostr, nil
 }
 
 func help(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
