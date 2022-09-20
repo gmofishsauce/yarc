@@ -1,0 +1,35 @@
+08:48:09.864735 * Breakpoint 
+08:48:09.930307 $B
+08:48:10.008065 Breakpoint 13
+08:48:10.074669 $B
+08:48:10.152999 Breakpoint 13
+08:48:10.218607 $B
+08:48:10.296329 Breakpoint 13
+08:48:13.551705 Running 00:00:00:08.056, about 55 task loops/ms
+09:53:42.555976 * Breakpoint 
+09:53:42.624507 $B
+09:53:42.702390 Breakpoint 13
+09:53:42.767465 $B
+09:53:42.846200 Breakpoint 13
+09:53:42.912283 $B
+09:53:42.990826 Breakpoint 13
+09:53:46.246045 Running 00:00:00:08.055, about 55 task loops/ms
+09:53:54.237443 Running 00:00:00:16.045, about 55 task loops/ms
+09:54:02.229769 Running 00:00:00:24.040, about 55 task loops/ms
+09:54:10.220625 Running 00:00:00:32.033, about 55 task loops/ms
+10:24:49.771775 * Breakpoint 
+10:24:49.917175 Breakpoint 13
+10:24:50.060570 Breakpoint 13
+10:24:50.204991 Breakpoint 13
+10:27:34.878333 * Breakpoint 
+10:27:35.023129 Breakpoint 13
+10:27:35.166512 Breakpoint 13
+10:27:35.310842 Breakpoint 13
+10:27:53.862743 * Breakpoint 
+10:27:54.007173 Breakpoint 13
+10:27:54.150441 Breakpoint 13
+10:27:54.294345 Breakpoint 13
+10:38:31.236297 * Breakpoint 
+10:38:31.381727 Breakpoint 13
+10:38:31.525132 Breakpoint 13
+10:38:31.668949 Breakpoint 13

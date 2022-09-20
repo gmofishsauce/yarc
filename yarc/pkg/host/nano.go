@@ -73,7 +73,7 @@ func getSyncResponse(nano *arduino.Arduino) error {
 }
 
 func checkProtocolVersion(nano *arduino.Arduino) error {
-	b, err := doCommandWithByte(nano, sp.CmdGetVer)
+	b, err := doCommandReturningByte(nano, sp.CmdGetVer)
 	if err != nil {
 		return err
 	}
@@ -84,28 +84,42 @@ func checkProtocolVersion(nano *arduino.Arduino) error {
 	return nil // ok
 }
 
-// TODO - this has to become pollNano, which can return either logs
-// or a service request from YARC.
-
-func getNanoLogs(nano *arduino.Arduino, nanoLog *log.Logger) error {
-	b, err := doCommandWithByte(nano, sp.CmdPoll)
+func getNanoRequest(nano *arduino.Arduino) (string, error) {
+	b, err := doCommandReturningByte(nano, sp.CmdPoll)
 	if err != nil {
-		return err
+		return nostr, err
+	}
+	if b == 0 {
+		return nostr, nil
 	}
 	if debug {
-		log.Printf("reading %d byte log message\n", b)
+		log.Printf("reading %d byte request from Nano\n", b)
 	}
+
 	var msg string
 	msg, err = getCountedStringFromNano(nano, b);
 	if err != nil {
-		return fmt.Errorf("reading string after GET_MSG: %v", err)
+		return nostr, fmt.Errorf("getNanoRequest(): reading %d byte request string: %v", b, err)
 	}
 	if len(msg) == 0 {
-		return nil
+		return nostr, fmt.Errorf("getNanoRequest(): read 0 of %d bytes", b)
 	}
+	return msg, nil
+}
 
-	nanoLog.Printf(msg)
-	return nil
+// There are two general kinds of requests from the Nano: "log a message" and
+// "everything else". Everything else is system call requests, etc. Requests
+// other than log messages have a punctuation mark in the first column, while
+// log requests never do. This is all somewhat historical; originally, the Nano
+// was going to return log messages only, and the system call mechanism was
+// added only later.
+func isLogRequest(req string) bool {
+	if req[0] >= '#' && req[0] <= '&' {
+		// syscall request of some type: '#', '$', '%', and '&' reserved
+		return false
+	}
+	// anything else we just log
+	return true
 }
 
 // Get a counted number of bytes from the Nano and return them as a string.
@@ -174,7 +188,7 @@ func doCommand(nano *arduino.Arduino, cmd byte) error {
 	return nil
 }
 
-func doCommandWithByte(nano *arduino.Arduino, cmd byte) (byte, error) {
+func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
     if err := doCommand(nano, cmd); err != nil {
         return 0, err
     }
