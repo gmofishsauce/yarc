@@ -349,11 +349,13 @@ namespace SerialPrivate {
     }
     return 0;
   }
+
+  // This is a quick hack to save the value of an integer until the log
+  // callback is called so that a message can be loggd with the "right" value.
+  int savedValueOfState = -2;
   
-  int loggingHack = -2;
-  
-  byte serialTaskBPReq(byte *bp, byte bmax) {
-      int result = snprintf_P((char *)bp, bmax, PSTR("Breakpoint %d"), loggingHack);
+  byte logBPRequestWithValueOfState(byte *bp, byte bmax) {
+      int result = snprintf_P((char *)bp, bmax, PSTR("Breakpoint %d"), savedValueOfState);
       if (result > bmax) result = bmax;
       return result;
   }
@@ -362,8 +364,8 @@ namespace SerialPrivate {
 // Public interface
 
 void breakpointRequest(int *statePointer) {
-  SerialPrivate::loggingHack = *statePointer;
-  logQueueCallback(SerialPrivate::serialTaskBPReq);
+  SerialPrivate::savedValueOfState = *statePointer;
+  logQueueCallback(SerialPrivate::logBPRequestWithValueOfState);
   return SerialPrivate::internalBreakpointRequest(statePointer);
 }
 
