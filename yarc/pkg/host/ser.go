@@ -103,6 +103,7 @@ func session (nanoLog *log.Logger) error {
 	input := NewInput()
 
 	for {
+		// Poll the Nano
 		msg, err := getNanoRequest(nano)
 		if err != nil {
 			// should session end on -any- error? Yes for now.
@@ -118,6 +119,7 @@ func session (nanoLog *log.Logger) error {
 			}
 		}
 
+		// Check for user input
 		line := input.get()
 		if len(line) > 0 {
 			if line == "EOF" {

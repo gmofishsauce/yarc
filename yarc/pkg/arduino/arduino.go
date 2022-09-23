@@ -27,10 +27,8 @@ import (
 // a bit of an overreach to assert that this is for "Arduino". But in the end
 // it's the answer that provides the most clarity.
 
-// TODO make all errors conform to a type
 // TODO generate shared code for Arduino specifics e.g. baud rate
 
-const pollingSleep = 1 * time.Millisecond
 const resetDelay = 3 * time.Second
 
 var debug bool = false
@@ -39,12 +37,26 @@ func setDebug(setting bool) {
 	debug = setting
 }
 
+// Types
+
 type Arduino struct {
 	port serial.Port
 	mode *serial.Mode
 	fromNano chan byte
 	toNano chan byte
 	linkFailed bool
+}
+
+type NoResponseError time.Duration
+
+func (nre NoResponseError) Error() string {
+	return fmt.Sprintf("read from Arduino: no response after %v", time.Duration(nre))
+}
+
+type WriteWouldBlockError byte
+
+func (wwb WriteWouldBlockError) Error() string {
+	return fmt.Sprintf("write to Arduino: write 0x%02X would block", byte(wwb))
 }
 
 // Public interface
@@ -69,63 +81,43 @@ func New(deviceName string, baudRate int) (*Arduino, error) {
 	return &arduino, nil
 }
 
-type NoResponseError time.Duration
-
-func (nre NoResponseError) Error() string {
-	return fmt.Sprintf("read from Arduino: no response after %v", time.Duration(nre))
-}
-
 // Read the Nano until a byte is received or a timeout occurs
 func (arduino *Arduino) ReadFor(timeout time.Duration) (byte, error) {
-	if err := arduino.valid(); err != nil {
+	if err := arduino.hasError(); err != nil {
 		return 0, err
 	}
 
-	end := time.Now().Add(timeout)
-	for now := time.Now(); now.Before(end); now = time.Now() {
-		select {
-			case b := <-arduino.fromNano:
-				if debug {
-					log.Printf("readFor: got 0x%X", b)
-				}
-				return b, nil
+	select {
+		case b := <-arduino.fromNano:
+			if debug {
+				log.Printf("readFor: got 0x%X", b)
+			}
+			return b, nil
 
-			default:
-				time.Sleep(pollingSleep)
-		}
+		case <-time.After(timeout):
+			return 0, NoResponseError(timeout)
 	}
-	return 0, NoResponseError(timeout)
-}
-
-type WriteWouldBlockError byte
-
-func (wwb WriteWouldBlockError) Error() string {
-	return fmt.Sprintf("write to Arduino: write 0x%02X would block", byte(wwb))
+	panic("ReadFrom: not reachable")
 }
 
 // Write a byte to the Arduino. Return error if the write would block.
 func (arduino *Arduino) WriteTo(b byte, timeout time.Duration) error {
-	if err := arduino.valid(); err != nil {
+	if err := arduino.hasError(); err != nil {
 		return err
 	}
-	end := time.Now().Add(timeout)
-	for now := time.Now(); now.Before(end); now = time.Now() {
-		select {
-			case arduino.toNano <- b:
-				if debug {
-					log.Printf("WriteTo: sent 0x%02X", b)
-				}
-				return nil
-
-			default:
-				time.Sleep(pollingSleep)
-		}
+	select {
+		case arduino.toNano <- b:
+			if debug {
+				log.Printf("WriteTo: sent 0x%02X", b)
+			}
+			return nil
+		case <-time.After(timeout):
+			return WriteWouldBlockError(b)
 	}
-	return WriteWouldBlockError(b)
+	panic("WriteTo: not reachable")
 }
 
-// Close the connection to the Nano. Attempted writes or reads
-// after this call will return errors.
+// Close the connection to the Nano.
 func (arduino *Arduino) Close() error {
 	close(arduino.fromNano)
 	close(arduino.toNano)
@@ -134,7 +126,7 @@ func (arduino *Arduino) Close() error {
 
 // Implementation
 
-func (arduino *Arduino) valid() error {
+func (arduino *Arduino) hasError() error {
 	if arduino.linkFailed || arduino.port == nil {
 		return fmt.Errorf("arduino: link failed or use after close")
 	}
@@ -191,6 +183,8 @@ func (arduino *Arduino) blockingReadByte() (byte, error) {
 	// as a result of Golang's Goroutine-level context switching mechanism.
 	for {
 		n, err = arduino.port.Read(b)
+		// Break loop on success or error,
+		// but not on EINTR.
 		if !isRetryableSyscallError(err) {
 			break
 		}
@@ -224,6 +218,8 @@ func (arduino *Arduino) blockingWriteByte(toWrite byte) error {
 	// as a result of Golang's Goroutine-level context switching mechanism.
 	for {
 		n, err = arduino.port.Write(b)
+		// Drop out of the loop on success
+		// or error, but not on EINTR.
 		if !isRetryableSyscallError(err) {
 			break
 		}

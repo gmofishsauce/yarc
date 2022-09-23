@@ -205,7 +205,7 @@ func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
 	}
 	msg := make([]byte, 2 + len(body))
 	msg[0] = cmd
-	msg[1] = byte(len(msg))
+	msg[1] = byte(len(body))
 	for i := range(body) {
 		msg[2 + i] = body[i]
 	}
@@ -213,6 +213,7 @@ func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
 		if err := nano.WriteTo(msg[i], commandDelay); err != nil {
 			return err
 		}
+		fmt.Printf("wrote byte 0x%02x\n", msg[i])
 	}
 	return nil
 }
