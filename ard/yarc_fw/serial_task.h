@@ -164,6 +164,7 @@ namespace SerialPrivate {
   byte requestCallback(byte *bp, byte bMax) {
     if (bMax < 3) {
       panic(PANIC_SERIAL_BUFFER_OVERRUN);
+      return 0;
     }
     *bp++ = '$';
     *bp++ = 'B';
