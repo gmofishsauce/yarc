@@ -44,7 +44,6 @@ type Arduino struct {
 	mode *serial.Mode
 	fromNano chan byte
 	toNano chan byte
-	linkFailed bool
 }
 
 type NoResponseError time.Duration
@@ -83,10 +82,6 @@ func New(deviceName string, baudRate int) (*Arduino, error) {
 
 // Read the Nano until a byte is received or a timeout occurs
 func (arduino *Arduino) ReadFor(timeout time.Duration) (byte, error) {
-	if err := arduino.hasError(); err != nil {
-		return 0, err
-	}
-
 	select {
 		case b := <-arduino.fromNano:
 			if debug {
@@ -102,9 +97,6 @@ func (arduino *Arduino) ReadFor(timeout time.Duration) (byte, error) {
 
 // Write a byte to the Arduino. Return error if the write would block.
 func (arduino *Arduino) WriteTo(b byte, timeout time.Duration) error {
-	if err := arduino.hasError(); err != nil {
-		return err
-	}
 	select {
 		case arduino.toNano <- b:
 			if debug {
@@ -119,19 +111,10 @@ func (arduino *Arduino) WriteTo(b byte, timeout time.Duration) error {
 
 // Close the connection to the Nano.
 func (arduino *Arduino) Close() error {
-	close(arduino.fromNano)
-	close(arduino.toNano)
 	return arduino.closeSerialPort()
 }
 
 // Implementation
-
-func (arduino *Arduino) hasError() error {
-	if arduino.linkFailed || arduino.port == nil {
-		return fmt.Errorf("arduino: link failed or use after close")
-	}
-	return nil
-}
 
 // Loop reading forever or until an error occurs
 func (arduino *Arduino) reader() {
@@ -139,7 +122,6 @@ func (arduino *Arduino) reader() {
 		b, err := arduino.blockingReadByte()
 		if err != nil {
 			log.Printf("Nano reader: aborting: %s (%d): %s\n", reflect.TypeOf(err), err, err.Error())
-			arduino.linkFailed = true
 			return
 		}
 		arduino.fromNano <- b
@@ -151,7 +133,6 @@ func (arduino *Arduino) writer() {
 	for {
 		if err := arduino.blockingWriteByte(<-arduino.toNano); err != nil {
 			log.Printf("Nano writer: aborting: %s (%d): %s\n", reflect.TypeOf(err), err, err.Error())
-			arduino.linkFailed = true
 			return
 		}
 	}
