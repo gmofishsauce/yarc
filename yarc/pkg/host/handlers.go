@@ -6,8 +6,8 @@ package host
 // Interface" interactions.
 
 import (
-	"yarc/arduino"
-	sp "yarc/proto"
+	"github.com/gmofishsauce/yarc/pkg/arduino"
+	sp "github.com/gmofishsauce/yarc/pkg/proto"
 
 	"fmt"
 	"strings"

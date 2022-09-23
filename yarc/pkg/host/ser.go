@@ -14,7 +14,7 @@ package host
 // the Golang-level select statement to multiplex input and output.
 
 import (
-	"yarc/arduino"
+	"github.com/gmofishsauce/yarc/pkg/arduino"
 
 	"fmt"
 	"io"

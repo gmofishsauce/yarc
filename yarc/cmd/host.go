@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"yarc/host"
+	"github.com/gmofishsauce/yarc/pkg/host"
 )
 
 // hostCmd represents the host command

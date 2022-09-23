@@ -17,5 +17,5 @@
 
 .opcode ADD 0x80 3 src1 src2 dst
 .slot IDLE ;    # not really - this is just for debugging the assembler
-.slot FETCH ;   # fetch the next instruction
+# .slot FETCH ;   # fetch the next instruction
 .endopcode

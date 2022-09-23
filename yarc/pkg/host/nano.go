@@ -9,8 +9,8 @@ package host
 // no millisecond delays imposed by code in this file.
 
 import (
-    "yarc/arduino"
-    sp "yarc/proto"
+    "github.com/gmofishsauce/yarc/pkg/arduino"
+    sp "github.com/gmofishsauce/yarc/pkg/proto"
 
     "fmt"
     "log"

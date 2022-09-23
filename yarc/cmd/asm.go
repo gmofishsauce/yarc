@@ -7,7 +7,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"yarc/asm"
+	"github.com/gmofishsauce/yarc/pkg/asm"
 )
 
 // asmCmd represents the asm command
