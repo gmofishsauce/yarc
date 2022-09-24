@@ -173,7 +173,7 @@ func doCommand(nano *arduino.Arduino, cmd byte) error {
 	if debug {
 		log.Printf("doCommand: write 0x%X\n", cmd)
 	}
-	if err := nano.WriteTo(cmd, commandDelay); err != nil {
+	if err := nano.Write(cmd); err != nil {
 		// typical error here: "write would block"
 		return err
 	}
@@ -210,7 +210,7 @@ func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
 		msg[2 + i] = body[i]
 	}
 	for i := range(msg) {
-		if err := nano.WriteTo(msg[i], commandDelay); err != nil {
+		if err := nano.Write(msg[i]); err != nil {
 			return err
 		}
 		fmt.Printf("wrote byte 0x%02x\n", msg[i])

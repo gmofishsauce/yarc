@@ -1,6 +1,6 @@
 // Copyright (c) Jeff Berkowitz 2021. All rights reserved.
 
-// Package arduino provides an aynchronous byte I/O interface to an Arduino.
+// Package arduino provides a synchronous byte I/O interface to an Arduino.
 // The initial implementation uses the default USB serial port provided by
 // an Arduino Nano. Opening a standard USB serial port activates the DTR signal
 // which resets the Arduino, necessitating a full reconnect. The code in this
@@ -10,13 +10,31 @@
 // a reset. The code in this package will need to change when and if that
 // hardware is implemented.
 
+// Originally, the code in this file provided an _asynchronous_ interface
+// to the Nano by using channels and select statements for read and write.
+// When I ran Golang's data race detector, however, it fired, and the race(s)
+// were in the serial port object itself - between port.Read() and port.Close(),
+// for example. The Read() was by design a blocking read, meaning the Goroutine
+// that issued the Read() spent all its time blocked there waiting for bytes to
+// arrive from the Nano, putting them on the read channel, and then blocking
+// again. So I couldn't just throw a mutex around the call; it would have been
+// held all the time except for a moment each time a byte arrived. This would
+// have deadlocked with the need to write on the port (since the Nano only
+// responds to requests from the Mac). Bottom line, the serial port object
+// isn't threadsafe and it's hard to work around it.
+//
+// Fortunately, when I discovered this, v1.4 of the of go.bug.st/serial.v1
+// had appeared. It offers a read timeout. So it's no longer the case that
+// all reads must block indefinitely. I ripped out the Goroutines and changed
+// this code to do everything from the main thread (Goroutine). The struct
+// arduino remains, holding just a single field (it used to have more).
+
 package arduino
 
 import (
     "fmt"
     "log"
-    "go.bug.st/serial.v1"
-	"reflect"
+    "go.bug.st/serial"
 	"syscall"
 	"time"
 )
@@ -41,8 +59,6 @@ func setDebug(setting bool) {
 
 type Arduino struct {
 	port serial.Port
-	fromNano chan byte
-	toNano chan byte
 }
 
 type NoResponseError time.Duration
@@ -64,47 +80,27 @@ func New(deviceName string, baudRate int) (*Arduino, error) {
 	var err error
 
 	mode := &serial.Mode{BaudRate: baudRate, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit}
-	arduino.port, err = openStandardPort(deviceName, mode)
+	arduino.port, err = serial.Open(deviceName, mode)
 	if err != nil {
 		return nil, err
 	}
 
-	arduino.fromNano = make(chan byte)
-	arduino.toNano = make(chan byte)
-
-	go arduino.reader()
-	go arduino.writer()
-
+	// Here, the time delay is important because otherwise the Nano
+	// will consume the first few bytes in an attempt to see if this
+	// reset is a programming device trying to flash new firmware.
+    log.Println("serial port is open - delaying for Nano reset")
+    time.Sleep(resetDelay)
 	return &arduino, nil
 }
 
 // Read the Nano until a byte is received or a timeout occurs
 func (arduino *Arduino) ReadFor(timeout time.Duration) (byte, error) {
-	select {
-		case b := <-arduino.fromNano:
-			if debug {
-				log.Printf("readFor: got 0x%X", b)
-			}
-			return b, nil
-
-		case <-time.After(timeout):
-			return 0, NoResponseError(timeout)
-	}
-	panic("ReadFrom: not reachable")
+	return arduino.readByte(timeout)
 }
 
 // Write a byte to the Arduino. Return error if the write would block.
-func (arduino *Arduino) WriteTo(b byte, timeout time.Duration) error {
-	select {
-		case arduino.toNano <- b:
-			if debug {
-				log.Printf("WriteTo: sent 0x%02X", b)
-			}
-			return nil
-		case <-time.After(timeout):
-			return WriteWouldBlockError(b)
-	}
-	panic("WriteTo: not reachable")
+func (arduino *Arduino) Write(b byte) error {
+	return arduino.writeByte(b)
 }
 
 // Close the connection to the Nano.
@@ -114,56 +110,19 @@ func (arduino *Arduino) Close() error {
 
 // Implementation
 
-// Loop reading forever or until an error occurs
-func (arduino *Arduino) reader() {
-	for {
-		b, err := arduino.blockingReadByte()
-		if err != nil {
-			log.Printf("Nano reader: aborting: %s (%d): %s\n", reflect.TypeOf(err), err, err.Error())
-			return
-		}
-		arduino.fromNano <- b
-	}
-}
-
-// Loop writing forever or until an error occurs
-func (arduino *Arduino) writer() {
-	for {
-		if err := arduino.blockingWriteByte(<-arduino.toNano); err != nil {
-			log.Printf("Nano writer: aborting: %s (%d): %s\n", reflect.TypeOf(err), err, err.Error())
-			return
-		}
-	}
-}
-
-// Open the "standard" port, which resets the Arduino device
-func openStandardPort(arduinoNanoDevice string, mode *serial.Mode) (serial.Port, error) {
-    port, err := serial.Open(arduinoNanoDevice, mode)
-    if err != nil {
-        return nil, err
-    }
-
-	// Here, the time delay is important because otherwise the Nano
-	// will consume the first few bytes in an attempt to see if this
-	// reset is a programming device trying to flash new firmware.
-    log.Println("serial port is open - delaying for Nano reset")
-    time.Sleep(resetDelay)
-	return port, nil
-}
-
 // Read a byte. Errors are this level are serious and mean the
 // the protocol has broken down or is about to.
-func (arduino *Arduino) blockingReadByte() (byte, error) {
+func (arduino *Arduino) readByte(readTimeout time.Duration) (byte, error) {
 	b := make([]byte, 1, 1)
 	var n int
 	var err error
 
 	// The for-loop is -solely- to handle EINTR, which occurs constantly
 	// as a result of Golang's Goroutine-level context switching mechanism.
+	arduino.port.SetReadTimeout(readTimeout)
 	for {
 		n, err = arduino.port.Read(b)
-		// Break loop on success or error,
-		// but not on EINTR.
+		// Break loop unless EINTR.
 		if !isRetryableSyscallError(err) {
 			break
 		}
@@ -174,8 +133,8 @@ func (arduino *Arduino) blockingReadByte() (byte, error) {
 	if err != nil {
 		return 0, err
 	}
-	if n != 1 {
-		return 0, fmt.Errorf("blocking read return 0 bytes")
+	if n == 0 {
+		return 0, NoResponseError(readTimeout)
 	}
 	if debug {
 		log.Printf("blockingReadByte: return 0x%X\n", b[0])
@@ -185,9 +144,9 @@ func (arduino *Arduino) blockingReadByte() (byte, error) {
 
 // Write a byte. Errors are this level are serious and mean the
 // the protocol has broken down or is about to.
-func (arduino *Arduino) blockingWriteByte(toWrite byte) error {
+func (arduino *Arduino) writeByte(toWrite byte) error {
 	if debug {
-		log.Printf("blockingWriteByte: write 0x%X\n", toWrite)
+		log.Printf("writeByte: write 0x%X\n", toWrite)
 	}
 	b := []byte { toWrite }
 	var n int
@@ -210,7 +169,7 @@ func (arduino *Arduino) blockingWriteByte(toWrite byte) error {
 		return err
 	}
 	if n != 1 {
-		return fmt.Errorf("blocking write consumed 0 bytes")
+		return fmt.Errorf("write consumed 0 bytes")
 	}
 	return nil
 }
