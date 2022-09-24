@@ -177,15 +177,18 @@ func doCommand(nano *arduino.Arduino, cmd byte) error {
 		// typical error here: "write would block"
 		return err
 	}
+	return getAck(nano, cmd)
+}
 
-	b, err := nano.ReadFor(responseDelay)
-	if err != nil {
-		return err
-	}
-	if b != sp.Ack(cmd) {
-		return &UnexpectedResponseError {cmd, b}
-	}
-	return nil
+func getAck(nano *arduino.Arduino, cmd byte) error {
+    b, err := nano.ReadFor(responseDelay)
+    if err != nil {
+        return err
+    }
+    if b != sp.Ack(cmd) {
+        return &UnexpectedResponseError {cmd, b}
+    }
+    return nil
 }
 
 func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
@@ -215,8 +218,5 @@ func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
 		}
 		fmt.Printf("wrote byte 0x%02x\n", msg[i])
 	}
-	return nil
+	return getAck(nano, cmd)
 }
-
-
-

@@ -67,12 +67,6 @@ func (nre NoResponseError) Error() string {
 	return fmt.Sprintf("read from Arduino: no response after %v", time.Duration(nre))
 }
 
-type WriteWouldBlockError byte
-
-func (wwb WriteWouldBlockError) Error() string {
-	return fmt.Sprintf("write to Arduino: write 0x%02X would block", byte(wwb))
-}
-
 // Public interface
 
 func New(deviceName string, baudRate int) (*Arduino, error) {
@@ -144,6 +138,17 @@ func (arduino *Arduino) readByte(readTimeout time.Duration) (byte, error) {
 
 // Write a byte. Errors are this level are serious and mean the
 // the protocol has broken down or is about to.
+//
+// If the Nano stops responding to writes, we could attempt write
+// as many as 255 bytes without looking for any kind of response.
+// If the Nano stops receiving during this time, the serial link
+// will absorb writes until its buffer is full. The buffer size
+// is a fact about the driver that is difficult to establish. If
+// the buffer fills, the next write will hang indefinitely. It's
+// possible to do something like this, such as schedule a timer
+// event for a long-enough timeout, like a second, and then cancel
+// the write call (I think the serial module supports this) and
+// return an error. So far I haven't bothered.
 func (arduino *Arduino) writeByte(toWrite byte) error {
 	if debug {
 		log.Printf("writeByte: write 0x%X\n", toWrite)
