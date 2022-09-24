@@ -58,12 +58,18 @@ func Main() {
 
 	for {
 		log.Println("starting a session")
-		err := session(nanoLog)
-		if err == io.EOF {
-			break
+		nano, err := arduino.New(arduinoNanoDevice, baudRate)
+		if (err == nil) {
+			err = session(nano, nanoLog)
+			if err == io.EOF {
+				break
+			}
 		}
-		// Report interesting errors
+
 		log.Printf("session aborted: %v\n", err)
+		if nano != nil {
+			nano.Close()
+		}
 		time.Sleep(interSessionDelay)
 	}
 }
@@ -77,14 +83,8 @@ func Main() {
 //
 // Connection not established: device open, but protocol broke down
 //
-func session (nanoLog *log.Logger) error {
-	nano, err := arduino.New(arduinoNanoDevice, baudRate)
-	if err != nil {
-		return err
-	}
-	defer nano.Close()
-
-	// Session creation
+func session (nano *arduino.Arduino, nanoLog *log.Logger) error {
+	var err error
 	tries := 3
 	for i := 0; i < tries; i++ {
 		log.Println("creating connection")

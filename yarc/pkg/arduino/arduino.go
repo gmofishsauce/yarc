@@ -41,7 +41,6 @@ func setDebug(setting bool) {
 
 type Arduino struct {
 	port serial.Port
-	mode *serial.Mode
 	fromNano chan byte
 	toNano chan byte
 }
@@ -70,7 +69,6 @@ func New(deviceName string, baudRate int) (*Arduino, error) {
 		return nil, err
 	}
 
-	arduino.mode = mode
 	arduino.fromNano = make(chan byte)
 	arduino.toNano = make(chan byte)
 
