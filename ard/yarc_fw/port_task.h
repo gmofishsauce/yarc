@@ -117,6 +117,7 @@ namespace PortPrivate {
 
   constexpr int PIN_SELECT_0_7 = _BV(PORTC3);
   constexpr int PIN_SELECT_8_15 = _BV(PORTC4);
+  constexpr int BOTH_DECODERS = (PIN_SELECT_0_7 | PIN_SELECT_8_15);
         
   constexpr byte DECODER_ADDRESS_MASK = 7;
   constexpr byte DECODER_SELECT_MASK  = 8;
@@ -308,6 +309,11 @@ namespace PortPrivate {
   // This is equivalent to nanoSetPulseLow()/nanoSetPulseHigh(), but
   // is slightly faster.
   void nanoTogglePulse(REGISTER_ID reg) {
+    // Bug fix (although no symptoms were ever seen): to prevent glitches
+    // and overlap on busses, we must disable both decoders before enabling
+    // either one.
+    PORTC &= ~BOTH_DECODERS;
+    
     byte decoderAddress = getAddressFromRegisterID(reg);
     nanoPutPort(portSelect, decoderAddress);
     
@@ -478,11 +484,7 @@ namespace PortPrivate {
   byte ucrShadow = UCR_SAFE;
 
   // Sync the microcode control register to its shadow.
-  //
-  // This function doesn't alter the system clock; this
-  // is important, because the microcode RAM address
-  // necessarily changes on every low to high transition
-  // of the system clock.
+  // This function updates the hardware.
   void syncUCR() {
     setAH(0x7F);
     setAL(0xFF);
@@ -506,57 +508,42 @@ namespace PortPrivate {
     ucrShadow |= (slice << UCR_K_ADDR_SHFT) | slice;
   }
 
-  // Clock the K register. Weirdly, it can make sense to
-  // clock this register with the bus floating, because 0xFF
-  // is the "safe" state of the K register. If the bus has
-  // changed state recently, leave at least 6 bus cycles for
-  // the bus to float to a safe high state (10k ohm pullups).
-  //
-  // This function DOES issue a system clock pulse so it DOES
-  // alter the state of the state counter that provies the low
-  // order 6 bits of the RAM address. Does update hardware.
-  void ucrClockSelectedKRegister() {
-    ucrShadow &= ~UCR_KREG_WR_EN_L; syncUCR();
-    nanoInternalSingleClock();
-    ucrShadow |=  UCR_KREG_WR_EN_L; syncUCR();
-  }
-
-  // Set the selected slice transceiver into the unsafe
-  // write state. The RAM must already be in a read state
-  // or a 10ns bus conflict will occur.
+  // Set the selected slice transceiver to the unsafe
+  // write (inbound) direction.
   //
   // Does not update the hardware.
   void ucrSetDirectionWrite() {
     ucrShadow &= ~UCR_DIR_WR_L;
   }
 
-  // Set the slice transceiver into the safe (read) state.
+  // Set the slice transceiver into the safe (outbound) direction.
   // Does not update the hardware.
   void ucrSetDirectionRead() {
     ucrShadow |= UCR_DIR_WR_L;
   }
 
+  void ucrSetKRegWrite() {
+    ucrShadow &= ~UCR_KREG_WR_EN_L;
+  }
+
+  void ucrUnsetKRegWrite() {
+    ucrShadow |= UCR_KREG_WR_EN_L;
+  }
+  
   // Enable writes to the RAM. Writes occur on system clock.
-  // This function is often part of a complex pattern that
-  // includes carefully manipulating the transceiver direction
-  // to avoid bus conflicts when setting up to write the RAM.
-  //
   // Does not update the hardware.
   void ucrSetRAMWrite() {
     ucrShadow &= ~UCR_RAM_WR_EN_L;
   }
 
-  // Set the RAM back to its default READ state.
+  // Disable writes to the WCS RAM.
   // Does not update the hardware.
   void ucrSetRAMRead() {
     ucrShadow |= UCR_RAM_WR_EN_L;
   }
 
   // Enable the per-slice bus transceiver for the slice
-  // selected by bits 5:4 and 1:0. This function is often
-  // part of a complex pattern that involves carefully 
-  // manipulating the transceiver direction to avoid bus
-  // conflicts when setting up to write the RAM.
+  // selected by bits 5:4 and 1:0.
   //
   // Does not update the hardware.
   void ucrEnableSliceTransceiver() {
@@ -582,60 +569,80 @@ namespace PortPrivate {
   // doesn't involve additional logic and wiring).
   //
   // This function updates the hardware and alters the WCS
-  // RAM address.
-  void writeK(byte kRegister, byte value) {
+  // RAM address. Starting conditions: Clock is high, UCR
+  // is 0xFF (everything disabled), WCS/sysdata transceiver
+  // disabled (MCR bit), and sysaddr:15 is high (read).
+  void writeByteToK(byte kRegister, byte value) {
+    
+    // Set up the UCR for writes.
     ucrSetSlice(kRegister);
-    ucrClockSelectedKRegister();
+    ucrSetDirectionWrite();
+    ucrEnableSliceTransceiver();
+    ucrSetKRegWrite();
+    syncUCR();
+
+    // Enable the sysdata to microcode transceiver
+    // and clock the data.
+    mcrEnableWcs();
+    syncMCR();
+    
+    // Set the data and address. The write line matters to
+    // the WCS transceiver which we enable later, but doesn't
+    // affect the inner, per-slice transceiver.
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00); setDL(value);
+    nanoTogglePulse(RawNanoClock);
+
+    mcrMakeSafe();
+    ucrMakeSafe();
+    setAH(0xFF); 
   }
   
   int bpState = -1;
 
   void stateBasedDebug() {
-    // If we're in an even-number state, we're waiting for
-    // a continue after a breakpoint, so just return.
-    if ((bpState & 1) == 0) return;
-
-    // We're in an odd-number state. Increment to the next
-    // even number state and take one action before requesting
-    // a breakpoint.
-    bpState++;
-    
-    switch (bpState) {
-      case 0:
-        // do nothing - make scope ready
-        break;
-      case 2:
-        ucrMakeSafe();
-        mcrMakeSafe();
-        setAH(0xFF);
-        setAL(0xFF);
-        setDH(0xFF);
-        setDL(0xFF);
-        break;
-      case 4:
-        ucrSetSlice(0);
-        break;
-      case 6:
-        nanoSetPulseLow(RawNanoClock);
-        break;
-      case 8:
-        setAH(0x7F);
-        setDL(0xAA); // data
-        break;
-      case 10:
-        mcrEnableWcs();
-        break;
-      case 12:
-        nanoSetPulseHigh(RawNanoClock);
-        break;
-      case 14:
-        mcrDisableWcs();
-        setAH(0xFF);
-        break;
-      default:
-        return; // states all done - no bp request
-    }
-    breakpointRequest(&bpState);
+    //    // If we're in an even-number state, we're waiting for
+    //    // a continue after a breakpoint, so just return.
+    //    if ((bpState & 1) == 0) return;
+    //
+    //    // We're in an odd-number state. Increment to the next
+    //    // even number state and take one action before requesting
+    //    // a breakpoint.
+    //    bpState++;
+    //    
+    //    switch (bpState) {
+    //      case 0:
+    //        // do nothing - make scope ready
+    //        break;
+    //      case 2:
+    //        ucrSetSlice(0);
+    //        ucrSetDirectionWrite();
+    //        ucrEnableSliceTransceiver();
+    //        syncUCR();
+    //        break;
+    //      case 4:
+    //        break;
+    //      case 6:
+    //        setAH(0x7F); setAL(0xFF);
+    //        setDH(0x00); setDL(0xAA);
+    //        mcrEnableWcs();
+    //        syncMCR();
+    //        break;
+    //      case 8:
+    //        nanoSetPulseLow(RawNanoClock);
+    //        break;
+    //      case 10:
+    //        nanoSetPulseHigh(RawNanoClock);
+    //        break;
+    //      case 12:
+    //        mcrDisableWcs();
+    //        ucrMakeSafe();
+    //        setAH(0xFF); 
+    //        break;
+    //      default:
+    //        return; // states all done - no bp request
+    //    }
+    //    breakpointRequest(&bpState);
   }
 
   // Set the four K (microcode) registers to their "safe" value.
@@ -711,6 +718,12 @@ namespace PortPrivate {
     kRegMakeSafe();
     ucrMakeSafe();
     mcrMakeSafe();
+
+    byte b = 0;
+    for (;;) {
+      writeByteToK(0, b);
+      b++;
+    }
   
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
