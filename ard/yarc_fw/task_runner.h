@@ -67,8 +67,6 @@ void InitTasks() {
       ; // POST failed - stuck until reset
     }
   }
-
-  runYARC();
 }
 
 void RunTasks() {
