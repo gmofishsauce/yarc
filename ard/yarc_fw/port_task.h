@@ -367,7 +367,7 @@ namespace PortPrivate {
     nanoTogglePulse(reg);
   }
 
-  void nanoInternalSingleClock() {
+  void singleClock() {
     nanoTogglePulse(RawNanoClock);
   }
 
@@ -407,10 +407,6 @@ namespace PortPrivate {
     return nanoGetRegister(MachineControlRegisterInput);
   }
   
-  inline void singleClock() {
-    nanoInternalSingleClock();
-  }
-
   // MCR shadow register support. Something must call
   // syncMCR() after invoking any of these to update
   // the actual register.
@@ -512,33 +508,33 @@ namespace PortPrivate {
   // write (inbound) direction.
   //
   // Does not update the hardware.
-  void ucrSetDirectionWrite() {
+  inline void ucrSetDirectionWrite() {
     ucrShadow &= ~UCR_DIR_WR_L;
   }
 
   // Set the slice transceiver into the safe (outbound) direction.
   // Does not update the hardware.
-  void ucrSetDirectionRead() {
+  inline void ucrSetDirectionRead() {
     ucrShadow |= UCR_DIR_WR_L;
   }
 
-  void ucrSetKRegWrite() {
+  inline void ucrSetKRegWrite() {
     ucrShadow &= ~UCR_KREG_WR_EN_L;
   }
 
-  void ucrUnsetKRegWrite() {
+  inline  void ucrUnsetKRegWrite() {
     ucrShadow |= UCR_KREG_WR_EN_L;
   }
   
   // Enable writes to the RAM. Writes occur on system clock.
   // Does not update the hardware.
-  void ucrSetRAMWrite() {
+  inline void ucrSetRAMWrite() {
     ucrShadow &= ~UCR_RAM_WR_EN_L;
   }
 
   // Disable writes to the WCS RAM.
   // Does not update the hardware.
-  void ucrSetRAMRead() {
+  inline void ucrSetRAMRead() {
     ucrShadow |= UCR_RAM_WR_EN_L;
   }
 
@@ -546,13 +542,13 @@ namespace PortPrivate {
   // selected by bits 5:4 and 1:0.
   //
   // Does not update the hardware.
-  void ucrEnableSliceTransceiver() {
+  inline void ucrEnableSliceTransceiver() {
     ucrShadow &= ~UCR_SLICE_EN_L;
   }
 
   // Disable the per-slice bus transceiver.
   // Does not update the hardware.
-  void ucrDisableSliceTransceiver() {
+  inline void ucrDisableSliceTransceiver() {
     ucrShadow |= UCR_SLICE_EN_L;
   }
 
@@ -591,11 +587,39 @@ namespace PortPrivate {
     // affect the inner, per-slice transceiver.
     setAH(0x7F); setAL(0xFF);
     setDH(0x00); setDL(value);
-    nanoTogglePulse(RawNanoClock);
+    singleClock();
 
     mcrMakeSafe();
     ucrMakeSafe();
     setAH(0xFF); 
+  }
+
+  // Write up to 64 bytes to the slice for the given opcode, which must be
+  // in the range 128 ... 255.
+  void writeBytesToSlice(byte slice, byte opcode, byte *data, byte n) {
+    // Write the opcode to the IR. This sets the upper address bits to the
+    // opcode and resets the state counter (setting lower address bits to 0)
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00); setDL(opcode);
+    mcrEnableIRwrite(); syncMCR();
+    singleClock();
+    mcrDisableIRwrite(); syncMCR();
+    
+    // Set up the UCR for writes.
+    ucrSetSlice(slice);
+    ucrSetDirectionWrite();
+    ucrEnableSliceTransceiver();
+    ucrSetRAMWrite();
+    syncUCR();
+
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00);
+    for (int i = 0; i < n; ++i, ++data) {
+      setDL(*data);
+      singleClock();
+    }
+
+    ucrMakeSafe();
   }
   
   int bpState = -1;
@@ -660,7 +684,7 @@ namespace PortPrivate {
 
       syncUCR();
       
-      nanoInternalSingleClock();
+      singleClock();
     }
     
     ucrMakeSafe();
@@ -719,11 +743,16 @@ namespace PortPrivate {
     ucrMakeSafe();
     mcrMakeSafe();
 
-    byte b = 0;
-    for (;;) {
-      writeByteToK(0, b);
-      b++;
-    }
+    //    byte b = 0;
+    //    for (;;) {
+    //      writeByteToK(0, b);
+    //      b++;
+    //    }
+
+    //    byte data[] = {0xAA};
+    //    for (;;) {
+    //      writeBytesToSlice(0, 0x80, data, 1);
+    //    }
   
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
