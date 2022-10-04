@@ -596,11 +596,11 @@ namespace PortPrivate {
 
   // Write up to 64 bytes to the slice for the given opcode, which must be
   // in the range 128 ... 255.
-  void writeBytesToSlice(byte slice, byte opcode, byte *data, byte n) {
+  void writeBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
     // Write the opcode to the IR. This sets the upper address bits to the
     // opcode and resets the state counter (setting lower address bits to 0)
     setAH(0x7F); setAL(0xFF);
-    setDH(0x00); setDL(opcode);
+    setDH(opcode); setDL(0x00);
     mcrEnableIRwrite(); syncMCR();
     singleClock();
     mcrDisableIRwrite(); syncMCR();
@@ -616,12 +616,43 @@ namespace PortPrivate {
     setDH(0x00);
     for (int i = 0; i < n; ++i, ++data) {
       setDL(*data);
+      mcrEnableWcs(); syncMCR();
       singleClock();
+      mcrDisableWcs(); syncMCR();
     }
 
     ucrMakeSafe();
   }
-  
+
+  // Read up to 64 bytes from the slice for the given opcode, which must be
+  // in the range 128 ... 255.
+  void readBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
+    // Write the opcode to the IR. This sets the upper address bits to the
+    // opcode and resets the state counter (setting lower address bits to 0)
+    setAH(0x7F); setAL(0xFF);
+    setDH(opcode); setDL(0x00);
+    mcrEnableIRwrite(); syncMCR();
+    singleClock();
+    mcrDisableIRwrite(); syncMCR();
+    
+    // Set up the UCR for reads.
+    ucrSetSlice(slice);
+    ucrSetDirectionRead();
+    ucrSetRAMRead();
+    ucrEnableSliceTransceiver();
+    syncUCR();
+
+    setAH(0xFF); setAL(0xFF);
+    for (int i = 0; i < n; ++i, ++data) {
+      mcrEnableWcs(); syncMCR();
+      singleClock();
+      *data = getBIR();
+      mcrDisableWcs(); syncMCR();
+    }
+
+    ucrMakeSafe();
+  }
+
   int bpState = -1;
 
   void stateBasedDebug() {
@@ -751,9 +782,25 @@ namespace PortPrivate {
 
     //    byte data[] = {0xAA};
     //    for (;;) {
-    //      writeBytesToSlice(0, 0x80, data, 1);
+    //      writeBytesToSlice(0x80, 0, data, 1);
     //    }
-  
+
+    //    static byte data[64];
+    //    for (int i = 0; i < sizeof(data); ++i) {
+    //      data[i] = (i << 1) + 1;
+    //    }
+    //    
+    //    for (;;) {
+    //      setDisplay(0xAA);
+    //      for (byte opcode = 0x80; opcode != 0; ++opcode) {
+    //        writeBytesToSlice(opcode, 0, data, sizeof(data));
+    //      }
+    //      setDisplay(0xAB);
+    //      for (byte opcode = 0x80; opcode != 0; ++opcode) {
+    //        readBytesFromSlice(opcode, 0, data, sizeof(data));
+    //      }
+    //    }
+    
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
       // We only run the code below after a power cycle.
@@ -865,8 +912,36 @@ void portInit() {
 }
 
 int portTask() {
-  PortPrivate::stateBasedDebug();
-  return 3;
+  //PortPrivate::stateBasedDebug();
+
+  static byte failed = false;
+  static byte opcode = 0;
+  static byte data[64];
+  static byte result[64];
+
+  if (failed) {
+    return 100;
+  }
+  
+  for (int i = 0; i < sizeof(data); ++i) {
+    data[i] = opcode + i;
+  }
+  
+  PortPrivate::writeBytesToSlice(opcode | 0x80, 0, data, sizeof(data));
+  PortPrivate::readBytesFromSlice(opcode | 0x80, 0, result, sizeof(result));
+  
+  for (int i = 0; i < sizeof(data); ++i) {
+    if (data[i] != result[i]) {
+      failed = true;
+      setDisplay(0xAA);
+      return 100;
+    }
+  }
+  
+  setDisplay(opcode);
+  opcode++;
+  
+  return 100;
 }
 
 bool postInit() {
