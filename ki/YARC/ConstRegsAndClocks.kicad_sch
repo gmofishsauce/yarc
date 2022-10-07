@@ -1,0 +1,15 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid 5fa2f636-e9d4-45bb-a481-a0a6772e8e38)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "Constant Registers and Clocks")
+    (comment 1 "All ICs are HC family regardless of P/N shown")
+  )
+
+  (lib_symbols
+  )
+
+)

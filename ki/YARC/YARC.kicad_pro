@@ -364,6 +364,18 @@
     [
       "89d830c1-f0d9-4d89-9863-428a1b54ae3d",
       "South Central"
+    ],
+    [
+      "d7c77b2b-faf6-440e-8344-5bd78dc46161",
+      "ConstRegsAndClocks"
+    ],
+    [
+      "51c42971-ddd1-444d-b989-88f84ae04d0f",
+      "North Central"
+    ],
+    [
+      "feebb92e-360c-455c-a141-048b807a0420",
+      "ALU"
     ]
   ],
   "text_variables": {}

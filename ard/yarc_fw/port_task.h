@@ -911,29 +911,43 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
+// Write the entire 64-byte slice of data for the given opcode with
+// values derived from the opcode. Read the data back from the slice
+// and check it. This function uses 128 bytes of static storage.
+bool validateOpcodeForSlice(byte opcode, byte slice) {
+  static byte data[64];
+  static byte result[64];
+
+  for (int i = 0; i < sizeof(data); ++i) {
+    data[i] = opcode + i;
+  }
+  
+  PortPrivate::writeBytesToSlice(opcode | 0x80, slice, data, sizeof(data));
+  PortPrivate::readBytesFromSlice(opcode | 0x80, slice, result, sizeof(result));
+  
+  for (int i = 0; i < sizeof(data); ++i) {
+    if (data[i] != result[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 int portTask() {
   //PortPrivate::stateBasedDebug();
 
   static byte failed = false;
   static byte opcode = 0;
-  static byte data[64];
-  static byte result[64];
 
   if (failed) {
     return 100;
   }
-  
-  for (int i = 0; i < sizeof(data); ++i) {
-    data[i] = opcode + i;
-  }
-  
-  PortPrivate::writeBytesToSlice(opcode | 0x80, 0, data, sizeof(data));
-  PortPrivate::readBytesFromSlice(opcode | 0x80, 0, result, sizeof(result));
-  
-  for (int i = 0; i < sizeof(data); ++i) {
-    if (data[i] != result[i]) {
-      failed = true;
+
+  for (byte slice = 0; slice < 2; ++slice) {
+    if (!validateOpcodeForSlice(opcode | 0x80, slice)) {
       setDisplay(0xAA);
+      failed = true;
       return 100;
     }
   }

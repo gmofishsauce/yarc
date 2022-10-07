@@ -95,10 +95,11 @@
 
 # alu 23:16
 # alu_ctl = 2 is called alu_in_xcv_en# in https://circuitverse.org/simulator/edit/alu-controls-second-try
+# clock the ALU holding register when alu_ctl is 0 or 2
 .bitfield alu_op        32  23:20   # 1 of 16 alu operations
-.bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = enable sysdata inbound, 3 = none
-.bitfield alu_hold_clk  32  17:17   # open/clock the ALU port 2 holding reg
-.bitfield alu_TBD_16    32  16:16   # unassigned:1
+.bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = alu_in_xcv_en, 3 = none
+.bitfield alu_TBD_17_16 32  17:16   # unassigned
+
 
 # busses and stack 15:8
 .bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd tbd)
