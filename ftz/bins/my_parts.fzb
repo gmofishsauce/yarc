@@ -79,5 +79,14 @@
         <instance moduleIdRef="74HC573_424ad81bc9e4e6e2e2a4b93463ebdbdb_1" modelIndex="6305" path="/Users/jeff/Documents/Fritzing/parts/user/74HC573_424ad81bc9e4e6e2e2a4b93463ebdbdb_1.fzp">
             <views/>
         </instance>
+        <instance moduleIdRef="74HC86_1c34bbfced92428cdfbc97524d0d38fd_1" modelIndex="6336" path="/Users/jeff/Documents/Fritzing/parts/user/74HC86_1c34bbfced92428cdfbc97524d0d38fd_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC21_86548399cb7291e88373d7b47cbdd229_1" modelIndex="177274" path="/Users/jeff/Documents/Fritzing/parts/user/74HC21_86548399cb7291e88373d7b47cbdd229_1.fzp">
+            <views/>
+        </instance>
+        <instance moduleIdRef="74HC153_d41566f74157273c15c02d7df7d9d660_1" modelIndex="177307" path="/Users/jeff/Documents/Fritzing/parts/user/74HC153_d41566f74157273c15c02d7df7d9d660_1.fzp">
+            <views/>
+        </instance>
     </instances>
 </module>
