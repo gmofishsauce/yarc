@@ -944,7 +944,7 @@ int portTask() {
     return 100;
   }
 
-  for (byte slice = 0; slice < 3; ++slice) {
+  for (byte slice = 0; slice < 4; ++slice) {
     if (!validateOpcodeForSlice(opcode | 0x80, slice)) {
       setDisplay(0xAA);
       failed = true;
