@@ -271,6 +271,9 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs.mem = make([]byte, 0x7800, 0x7800)
 	gs.memNext = 0
 	gs.wcs = make([]uint32, 0x2000, 0x2000)
+	for i := 0; i < len(gs.wcs); i++ {
+		gs.wcs[i] = SLOT_NOOP;
+	}
 	gs.wcsNext = 0
 	gs.reader = new(stackingNameLineByteReader)
 	gs.symbols = make(symbolTable)

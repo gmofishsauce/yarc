@@ -211,14 +211,14 @@ func dumpMem(gs *globalState) {
 const WCS_SLOTS_PER_OPCODE = 64
 const WCS_SIZE = 0x2000                             // in uint32
 const WCS_OPCODES = WCS_SIZE / WCS_SLOTS_PER_OPCODE // 128
-const EMPTY_SLOT = 0x00000000                       // TODO define emptiness (noop content)
+const SLOT_NOOP = 0xFFFFFFFF
 
 func dumpWCS(gs *globalState) {
 	fmt.Println("SLOT DATA")
 	for opcode := 0; opcode < WCS_OPCODES; opcode += WCS_SLOTS_PER_OPCODE {
 		printThisOpcode := false
 		for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-			if gs.wcs[opcode+slot] != EMPTY_SLOT {
+			if gs.wcs[opcode+slot] != SLOT_NOOP {
 				printThisOpcode = true
 				break
 			}
@@ -226,7 +226,7 @@ func dumpWCS(gs *globalState) {
 		if printThisOpcode {
 			fmt.Printf("0x%02X ", opcode+0x80) // should disassemble, add is a hack, etc.
 			for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-				if gs.wcs[opcode+slot] == EMPTY_SLOT {
+				if gs.wcs[opcode+slot] == SLOT_NOOP {
 					fmt.Println()
 					break // Hmmm, cannot have an empty slot followed by non-empty slots?
 				}
