@@ -192,9 +192,8 @@ namespace PortPrivate {
   // enables the write line to the RAMs; data is latched when it transistions
   // to high. It changes state one gate delay -after- the transceivers are
   // enabled, leading to a potential ~10ns bus conflict where the transceivers
-  // are enabled but the RAM outputs have not yet been disabled. The solution
-  // is a trixie programming pattern where the read/write line (bit 7, 0x80)
-  // must not be set to low until write line has been set low a cycle before.
+  // are enabled but the RAM outputs have not yet been disabled. This turned
+  // out to be hard to fix, so it's still present in the design.
   //
   // Bit 2 (0x04) enables the slice-addressed transceiver that passes data
   // from the sysaddr transceiver (enabled by WCS_EN_L, bit 0 in the MCR)
