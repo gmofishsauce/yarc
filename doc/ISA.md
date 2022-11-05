@@ -14,7 +14,7 @@ data or program memory.
 YARC has four general registers r0 through r3 and a few special registers.
 RSP and PSP are the stack pointers for the hardware stacks. IR holds the
 currently-executing opcode. There is a flags register F containing the
-traditional Z, N, C, and V (Zero, Negative, Carry, Overflow) flags.
+traditional C, Z, N, and V (Carry, Zero, Negative, Overflow) flags.
 
 The hardware dictates a number of restrictions. ALU operations take 2 cycles
 called "phase 1" and "phase 2".  ALU operands may be registers, not memory.
@@ -36,7 +36,7 @@ The opcode set is conveniently divided into lower and upper halves.
 Opcodes in the range 0 to 32k-1 (0x0000 - 0x7FFF) are absolute JUMP and
 CALL instructions. They are their own target address: the opcode 0x0020 is
 a call to address 0x0020, etc. Since code addresses must be 16-bit aligned
-(even), odd values from 0x0000 through 0x7FFF would not valid if used in
+(even), odd values from 0x0001 through 0x7FFF would not valid if used in
 this way. Instead, these values are defined as jumps to the next lower even
 address: opcode 0x0021 is a jump to address 0x0020, etc. CALL instructions
 push the return address on the return stack, while JUMP instructions simply
@@ -127,7 +127,7 @@ from -64 through 63. This may change to -128..127 in the future.
 | 0xA0xx | MV       | s1, --, d    | register to register move |
 | 0xA1xx | MV       | (s1), --, d  | memory to register move, memory address in s1, s1 in 0..3 |
 | 0xA2xx | MV       | s1, --, (d)  | register to memory move |
-| 0xA3xx | TBD      | none         | unassigend |
+| 0xA3xx | TBD      | none         | unassigned |
 | 0xA4xx | PUSHPSP  | s1, --, --   | push s1 to PSP |
 | 0xA5xx | POPPSP   | --, --, d    | pop PSP to d (d is a general register only) |
 | 0xA6xx | PUSHRSP  | s1, --, --   | push s1 to RSP |

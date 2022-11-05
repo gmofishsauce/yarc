@@ -18,32 +18,32 @@
 # The "no op" value for all microcode fields is all 1s. We can fill
 # the control store with 0xFF FF FF FF ... and it will be a noop.
 
-# general registers
+# general registers - these values make sense in src1, src2, or dst
 .set r0 0
 .set r1 1
 .set r2 2
 .set r3 3
+
 .set PC r1
 .set src1_none 3 # arbitrary value to use when alu_op is none
 .set src2_none 7 # arbitrary value to use when alu_op is none
 .set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
 # data bus drivers for memory writes
-.set gr 0        # general register drives bus
-.set sp 1        # stack (PSP or RSP) drives bus
-.set ir 2        # instruction register drives bus
-.set f  3        # flags register drives bus
-.set mem 4       # memory drives bus (memory read)
-.set bus_tbd_5 5 # unused
-.set bus_tbd_6 6 # unused
-.set bus_none  7 # reserved (?)
+.set bus_gr    0        # general register drives bus
+.set bus_sp    1        # stack (PSP or RSP) drives bus
+.set bus_ir    2        # instruction register drives bus
+.set bus_f     3        # flags register drives bus
+.set bus_memi  4        # memory drives bus (memory read)
+.set bus_tbd_5 5        # unused
+.set bus_tbd_6 6        # unused
+.set bus_none  7        # reserved
 
 # General register src2 constant registers
-# TBD - these assignments may have changed
-.set n2 6   # negative 2 constant register
-.set n1 7   # negative 1 constant register
-.set p1 5   # positive 1 constant register
-.set p2 4   # positive 2 constant register
+.set p2 4	# 4 in src2 makes the value positive 2 (p2)
+.set p1 5   # 5 makes the value positive 1 (p1)
+.set n2 6   # 6 makes the value negative 2 (n2)
+.set n1 7   # 7 makes the value negative 1 (n1)
 
 # General register conditional writes. These
 # are primarily targeted as enabling branches
@@ -100,6 +100,10 @@
 .bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = alu_in_xcv_en, 3 = none
 .bitfield alu_TBD_17_16 32  17:16   # unassigned
 
+# Note to the above: it struck me in 11/2022 that after loading the ALU holding register by
+# setting alu_in_xcv_en, I would need a funny kind of ALU cycle that didn't load the port 2
+# holding register from a general register on phi1 because it's already loaded. I'll probably
+# have to claim another bit for that and it'll come from alu_TBD_17_16.
 
 # busses and stack 15:8
 .bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd tbd)

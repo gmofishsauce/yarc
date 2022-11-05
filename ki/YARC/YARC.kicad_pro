@@ -366,16 +366,16 @@
       "South Central"
     ],
     [
-      "d7c77b2b-faf6-440e-8344-5bd78dc46161",
-      "ConstRegsAndClocks"
-    ],
-    [
       "51c42971-ddd1-444d-b989-88f84ae04d0f",
       "North Central"
     ],
     [
       "feebb92e-360c-455c-a141-048b807a0420",
       "ALU"
+    ],
+    [
+      "abd64d43-20ca-4b37-94fd-5fc041c76dd4",
+      "ConstantRegisters"
     ]
   ],
   "text_variables": {}
