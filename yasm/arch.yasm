@@ -34,16 +34,16 @@
 .set bus_sp    1        # stack (PSP or RSP) drives bus
 .set bus_ir    2        # instruction register drives bus
 .set bus_f     3        # flags register drives bus
-.set bus_memi  4        # memory drives bus (memory read)
+.set bus_mem   4        # memory drives bus (memory read)
 .set bus_tbd_5 5        # unused
 .set bus_tbd_6 6        # unused
-.set bus_none  7        # reserved
+.set bus_none  7        # "none"
 
 # General register src2 constant registers
-.set p2 4	# 4 in src2 makes the value positive 2 (p2)
-.set p1 5   # 5 makes the value positive 1 (p1)
-.set n2 6   # 6 makes the value negative 2 (n2)
-.set n1 7   # 7 makes the value negative 1 (n1)
+.set const_p2 4   # 4 in src2 makes the value positive 2 (p2)
+.set const_p1 5   # 5 makes the value positive 1 (p1)
+.set const_n2 6   # 6 makes the value negative 2 (n2)
+.set const_n1 7   # 7 makes the value negative 1 (n1)
 
 # General register conditional writes. These
 # are primarily targeted as enabling branches
@@ -68,7 +68,7 @@
 .set alu_or    0x07 # bit set
 .set alu_not   0x08
 .set alu_xor   0x09
-.set alu_0x0A  0x0A # unassigned
+.set alu_neg   0x0A # negate (almost for this one)
 .set alu_0x0B  0x0B # unassigned
 .set alu_0x0C  0x0C # unassigned
 .set alu_0x0D  0x0D # unassigned
@@ -78,7 +78,7 @@
 # ALU control
 .set alu_phi1   0   # operate on low 8 bits
 .set alu_phi2   1   # operate on high 8 bits and commit
-.set alu_load   2   # load the src2 alu holding register
+.set alu_tbd    2   # undefined - was load ALU holding register
 .set alu_none   3   # no operation
 
 # Microcode words, 32 bits
@@ -89,24 +89,38 @@
 # Signals ending in _dir are transceiver direction controls (ambiguity TBD)
 
 # register specifier word 31:24
+# Note about src2: it only partially determines the content of the ALU port 2 bus.
+# Its meaning depends on both alu_ctl and sysdata_src. When sysdata_src is 0, the
+# bit :29 is ignored and bits 28:27 determine which general register 0..3 drives
+# the sysdata bus. This is how general registers can be written to memory. Otherwise,
+# when alu_ctl has value 2, sysdata is driven inbound to the port 2 bus. Here bits
+# 28:27 are ignored. Bit :29 = 0 causes a 16-bit transfer inbound from sysdata and
+# bit :29 = 1 causes a sign-extended 8-bit transfer, e.g. for a branch offset. The
+# ALU port 2 holding register should be clocked on such cycles (alu_load_hold, below,
+# should be 0) or they become noops. Finally, when sysdata_src is not 0 and alu_ctl
+# is not 2, values 0..3 specify a general register 0..3 and values 4..7 specify a
+# a small constant -2, -1, 1, or 2 specified by the const_xx value above.
+#
+# src1 is far simpler: it's just a 2-bit field that specifies a general register.
+# The dst field specifies a general register when its value is in 0..3. The values
+# 4..7 specify a conditional write based on the alu flag specifier, instruction
+# bits 11:8. This is sufficient to support all the standard branch instructions,
+# but it's inflexible because any other type of conditional must use another 16
+# precious opcodes to encode the condition specifier in the low 4 bits.
+
 .bitfield src1          32  31:30   # contains a gr
 .bitfield src2          32  29:27   # contains a gr (3..0) or a constant reg (7..4)
 .bitfield dst           32  26:24   # contains a gr (3..0) or a conditional gr (7..4)
 
 # alu 23:16
 # alu_ctl = 2 is called alu_in_xcv_en# in https://circuitverse.org/simulator/edit/alu-controls-second-try
-# clock the ALU holding register when alu_ctl is 0 or 2
 .bitfield alu_op        32  23:20   # 1 of 16 alu operations
-.bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = alu_in_xcv_en, 3 = none
-.bitfield alu_TBD_17_16 32  17:16   # unassigned
-
-# Note to the above: it struck me in 11/2022 that after loading the ALU holding register by
-# setting alu_in_xcv_en, I would need a funny kind of ALU cycle that didn't load the port 2
-# holding register from a general register on phi1 because it's already loaded. I'll probably
-# have to claim another bit for that and it'll come from alu_TBD_17_16.
+.bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = sysdata inbound, 3 = none
+.bitfield alu_load_hold 32  17:17   # when low, clock the port 2 ALU holding register
+.bitfield alu_TBD_16    32  16:16   # unassigned
 
 # busses and stack 15:8
-.bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd tbd)
+.bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd none)
 .bitfield reg_in_mux    32   12:12  # register input mux, 1 = sysdata, 0 = alu output
 .bitfield stack_up_clk  32   11:11  # when low deselected SP increments
 .bitfield stack_dn_clk  32   10:10  # when low deselected SP decrements
@@ -130,9 +144,9 @@
 .set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
 
 # Microcode for a FETCH cycle
-.set FETCH_3 "src1=PC src2=p2 dst=dst_none"
+.set FETCH_3 "src1=PC src2=const_p2 dst=dst_none"
 .set FETCH_2 "alu_op=alu_add alu_ctl=alu_phi1"
-.set FETCH_1 "sysdata_src=mem reg_in_mux=from_bus stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
+.set FETCH_1 "sysdata_src=bus_mem reg_in_mux=from_bus stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
 .set FETCH_0 "rw=1 rsw_ir_uc=1 m16_en=0 ir_clk=0 rsw_ir_uc=0"
 
 # Microcode for a FETCH (and start PC increment) cycle
