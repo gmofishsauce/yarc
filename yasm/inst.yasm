@@ -12,8 +12,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-# definition of instructions
+#
+# Note: this file is designed to be assembed by yasm, but edited with the
+# microcode editor (ued). It should contain only the following kinds of lines:
+# full line comments like this one, blank lines, and three keywords: .opcode,
+# .slot, and .endopcode. Ued's lexer is very simple minded. When it writes
+# this file back, the top comment block is preserved and .opcode keywords
+# are preceded by a blank line. Nothing else is saved.
 
 .opcode ADD 0x80 3 src1 src2 dst
 .slot FETCH ;

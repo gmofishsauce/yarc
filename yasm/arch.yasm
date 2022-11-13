@@ -66,11 +66,11 @@
 .set alu_rsbb  0x05 # reverse subtract with borrow
 .set alu_nand  0x06 # bit clear
 .set alu_or    0x07 # bit set
-.set alu_not   0x08
-.set alu_xor   0x09
-.set alu_neg   0x0A # negate (almost for this one)
-.set alu_0x0B  0x0B # unassigned
-.set alu_0x0C  0x0C # unassigned
+.set alu_not   0x08 # bitwise not
+.set alu_xor   0x09 # bitwise xor
+.set alu_neg   0x0A # arithmetic negate
+.set alu_0x0B  0x0B # modify flags?
+.set alu_0x0C  0x0C # programmable rotate or shift?
 .set alu_0x0D  0x0D # unassigned
 .set alu_0x0E  0x0E # unassigned
 .set alu_0x0F  0x0F # unassigned
@@ -78,7 +78,7 @@
 # ALU control
 .set alu_phi1   0   # operate on low 8 bits
 .set alu_phi2   1   # operate on high 8 bits and commit
-.set alu_tbd    2   # undefined - was load ALU holding register
+.set alu_in     2   # no alu operation; sysdata transceivers inbound
 .set alu_none   3   # no operation
 
 # Microcode words, 32 bits
@@ -92,7 +92,7 @@
 # Note about src2: it only partially determines the content of the ALU port 2 bus.
 # Its meaning depends on both alu_ctl and sysdata_src. When sysdata_src is 0, the
 # bit :29 is ignored and bits 28:27 determine which general register 0..3 drives
-# the sysdata bus. This is how general registers can be written to memory. Otherwise,
+# the sysdata bus. This allows general registers to be written to memory. Otherwise,
 # when alu_ctl has value 2, sysdata is driven inbound to the port 2 bus. Here bits
 # 28:27 are ignored. Bit :29 = 0 causes a 16-bit transfer inbound from sysdata and
 # bit :29 = 1 causes a sign-extended 8-bit transfer, e.g. for a branch offset. The
@@ -117,7 +117,7 @@
 .bitfield alu_op        32  23:20   # 1 of 16 alu operations
 .bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = sysdata inbound, 3 = none
 .bitfield alu_load_hold 32  17:17   # when low, clock the port 2 ALU holding register
-.bitfield alu_TBD_16    32  16:16   # unassigned
+.bitfield alu_load_flgs 32  16:16   # when low, clock the flags (ALU phi2 or write to flags)
 
 # busses and stack 15:8
 .bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd none)
@@ -134,9 +134,13 @@
 .bitfield rsw_ir_uc     32    4:4   # RSW from LS byte of microcode when low else from IRL
 .bitfield ctl_TBD_30    32    3:0   # unassigned:4
 
+# When alu_ctl = 3, the alu_op field can be repurposed, say for I/O operations. When alu_ctl = 3,
+# dst_wr_en# is high, and alu_load_hold is high, the microcode RSW (K register 31:24) can be
+# similarly repurposed.
+
 # Microcode combinations
 .set IDLE_3 "src1=src1_none src2=src2_none dst=dst_none" # 0xFF
-.set IDLE_2 "alu_op=0xF alu_ctl=alu_none alu_TBD_17_16=3" # 0xFF
+.set IDLE_2 "alu_op=0xF alu_ctl=alu_none alu_load_hold=1 alu_load_flgs=1" # 0xFF
 .set IDLE_1 "sysdata_src=bus_none reg_in_mux=1 stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1" # 0xFF
 .set IDLE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=1 ctl_TBD_30=0xF" # 0xFF
 
@@ -145,7 +149,7 @@
 
 # Microcode for a FETCH cycle
 .set FETCH_3 "src1=PC src2=const_p2 dst=dst_none"
-.set FETCH_2 "alu_op=alu_add alu_ctl=alu_phi1"
+.set FETCH_2 "alu_op=alu_add alu_ctl=alu_phi1 alu_load_hold=0 alu_load_flags=1"
 .set FETCH_1 "sysdata_src=bus_mem reg_in_mux=from_bus stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
 .set FETCH_0 "rw=1 rsw_ir_uc=1 m16_en=0 ir_clk=0 rsw_ir_uc=0"
 
@@ -153,8 +157,9 @@
 .set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
 
 # Microcode for a decode cycle. Complete the PC increment and write to back to the PC.
+# Note: don't touch the flags when completing the PC increment!
 .set DECODE_3 "src1=src1_none src2=src2_none dst=PC"
-.set DECODE_2 "alu_op=alu_add alu_ctl=alu_phi2"
+.set DECODE_2 "alu_op=alu_add alu_ctl=alu_phi2 alu_load_hold=1 alu_load_flgs=1"
 .set DECODE_1 "sysdata_src=bus_none reg_in_mux=0 stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=0"
 .set DECODE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=0"
 
