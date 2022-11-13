@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.7.0
-	go.bug.st/serial.v1 v0.0.0-20191202182710-24a6610f0541
+	go.bug.st/serial v1.4.0
 	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171
 )
 
@@ -15,7 +15,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.bug.st/serial v1.4.0 // indirect
 	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
