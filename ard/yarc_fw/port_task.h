@@ -45,7 +45,7 @@
 // Physical pins 22 and 23 (PORTC:3 and PORTC:4) are used to "strobe" the
 // decoder line select by the select port, which is bussed to two decoders.
 //
-// Writing nn external register requires coordinating three ports. First,
+// Writing to an external register requires coordinating three ports. First,
 // the data port must be switched to output and a value set on its pins.
 // Next, the select port must be set the index of 1 of 8 output strobes on
 // the decoders (their three A-lines are bus-connected). Finally, one of the
@@ -125,7 +125,7 @@ namespace PortPrivate {
   typedef byte REGISTER_ID;
 
   // Addresses on low decoder
-  constexpr byte IR_INPUT = 0;
+  constexpr byte DATA_INPUT = 0;
   constexpr byte DATAHI = 1;
   constexpr byte DATALO = 2;
   constexpr byte ADDRHI = 3;
@@ -145,7 +145,7 @@ namespace PortPrivate {
   constexpr byte MCR_OUTPUT = 7;
 
   // Register IDs on low decoder are just their address
-  constexpr REGISTER_ID BusInputRegister      = IR_INPUT;
+  constexpr REGISTER_ID BusInputRegister      = DATA_INPUT;
   constexpr REGISTER_ID DataRegisterHigh      = DATAHI;
   constexpr REGISTER_ID DataRegisterLow       = DATALO;
   constexpr REGISTER_ID AddrRegisterHigh      = ADDRHI;
@@ -177,7 +177,8 @@ namespace PortPrivate {
   //
   // Bit 7 (0x80) sets the direction of per-slice transceivers; high (READ)
   // is "safe", low is not safe because the RAMs have bidirectional data
-  // lines and bus conflicts must be avoided.
+  // lines and bus conflicts must be avoided. To avoid this, we use the
+  // "write block trick" described below.
   //
   // Bit 6 (0x40) clocks data into the K registers. Oddly, it makes sense
   // to clock the K registers with nothing on the bus, e.g. with Bit 7 in
@@ -192,8 +193,8 @@ namespace PortPrivate {
   // enables the write line to the RAMs; data is latched when it transistions
   // to high. It changes state one gate delay -after- the transceivers are
   // enabled, leading to a potential ~10ns bus conflict where the transceivers
-  // are enabled but the RAM outputs have not yet been disabled. This turned
-  // out to be hard to fix, so it's still present in the design.
+  // are enabled but the RAM outputs have not yet been disabled. This was
+  // eventually fixed by the "write block trick" described below.
   //
   // Bit 2 (0x04) enables the slice-addressed transceiver that passes data
   // from the sysaddr transceiver (enabled by WCS_EN_L, bit 0 in the MCR)
@@ -211,7 +212,22 @@ namespace PortPrivate {
   constexpr byte UCR_DIR_WR_L            = 0x80;
   constexpr byte UCR_SAFE                = 0xFF;
 
-    // Bits in the MCR
+  // Write block trick: the low order 6 bits 0..5 of the state counter provide
+  // the low order address bits to the microcode RAMs. This allows an instruction
+  // to have 2^6 microcode words, 0..63. The physical state counter is 8 bits
+  // wide, and for a long time bits :6 and :7 were not connected. Then I realized
+  // that by connecting bit :6 (the 64-weight bit) to the output enable enable
+  // lines of all four microcode RAMs, I could resolve the bus conflict issues
+  // on writes. To write either the microcode RAMs or the K register, the Nano
+  // must first write the upper bits of the address to the instruction register.
+  // This clears the state counter. Then the Nano should generate 64 clocks. This
+  // causes a rollover (carry) out of bit :5 of the state counter into bit :6,
+  // which raises the OE# line on the RAMs and leaves bits 0..5 as 0s. The Nano
+  // can now write up to 64 bytes to the RAM slice, or write the K register (but
+  // not both). This trick is embedded in the functions below that write to the
+  // microcode RAM and K register.
+
+  // Bits in the MCR
   constexpr byte MCR_BIT_0_WCS_EN_L      = 0x01; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
   constexpr byte MCR_BIT_1_IR_EN_L       = 0x02; // Clock enable for Nano writing to IR when SYSCLK
   constexpr byte MCR_BIT_2_UNUSED        = 0x04;
@@ -224,6 +240,8 @@ namespace PortPrivate {
   // MCR shadow register. Can do multiple update to this, then call
   // syncMCR() to update the hardware.
   byte mcrShadow = ~MCR_BIT_YARC_NANO_L;
+
+  // === start of lowest level code for writing to ports ===
   
   // Set the data port to the byte b. The data port is made from pieces of
   // the Nano's internal PORTB and PORTD.
@@ -366,6 +384,8 @@ namespace PortPrivate {
     nanoTogglePulse(reg);
   }
 
+  // === end of lowest layer of port and decoder control ===
+  
   void singleClock() {
     nanoTogglePulse(RawNanoClock);
   }
@@ -465,17 +485,8 @@ namespace PortPrivate {
     syncMCR();
   }
 
-  /*
-  constexpr byte UCR_SLICE_ADDR_MASK     = (0x01|0x02);
-  constexpr byte UCR_SLICE_EN_L          = 0x04;
-  constexpr byte UCR_RAM_WR_EN_L         = 0x08;
-  constexpr unsigned int UCR_K_ADDR_SHFT = 4;
-  constexpr byte UCR_KREG_ADDR_MASK      = (0x010|0x020);
-  constexpr byte UCR_KREG_WR_EN_L        = 0x40;
-  constexpr byte UCR_DIR_WR_L            = 0x80;
-  constexpr byte UCR_SAFE                = 0xFF;
-   */
-   
+  // UCR (microcode control register) shadow support
+  
   byte ucrShadow = UCR_SAFE;
 
   // Sync the microcode control register to its shadow.
@@ -504,7 +515,8 @@ namespace PortPrivate {
   }
 
   // Set the selected slice transceiver to the unsafe
-  // write (inbound) direction.
+  // write (inbound) direction. Note: use the "write block trick"
+  // described above before pushing this setting to the hardware.
   //
   // Does not update the hardware.
   inline void ucrSetDirectionWrite() {
@@ -558,6 +570,15 @@ namespace PortPrivate {
     syncUCR();
   }
 
+  // Write a 16-bit value to the instruction register
+  void writeIR(byte high, byte low) {
+    setAH(0x7F); setAL(0xFF);
+    setDH(high); setDL(low);
+    mcrEnableIRwrite(); syncMCR();
+    singleClock();
+    mcrDisableIRwrite(); syncMCR();
+  }
+  
   // Write the value to the given K register. The RAM byte
   // addressed by the IR, the state counter, and the selected
   // slice is also overwritten (there is no alternative that
@@ -568,6 +589,19 @@ namespace PortPrivate {
   // is 0xFF (everything disabled), WCS/sysdata transceiver
   // disabled (MCR bit), and sysaddr:15 is high (read).
   void writeByteToK(byte kRegister, byte value) {
+
+    // "write block trick"
+    // BEFORE setting the UCR to write, load the IR and then
+    // clock it 64 times to raise the OE# signal on the RAMs.
+    // This sets the RAM location that will be overwritten.
+    writeIR(0xFC, 0x00);
+    for (int i = 0; i < 64; ++i) {
+      singleClock();
+    }
+    
+    // The RAM output enable (OE#) line, which is connected
+    // to the 64-weight bit of the microcode state counter,
+    // should now be high, disabling the RAM outputs.
     
     // Set up the UCR for writes.
     ucrSetSlice(kRegister);
@@ -590,6 +624,7 @@ namespace PortPrivate {
 
     mcrMakeSafe();
     ucrMakeSafe();
+    writeIR(0xFC, 0x00); // re-enable RAM output
     setAH(0xFF); 
   }
 
@@ -598,11 +633,17 @@ namespace PortPrivate {
   void writeBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
     // Write the opcode to the IR. This sets the upper address bits to the
     // opcode and resets the state counter (setting lower address bits to 0)
-    setAH(0x7F); setAL(0xFF);
-    setDH(opcode); setDL(0x00);
-    mcrEnableIRwrite(); syncMCR();
-    singleClock();
-    mcrDisableIRwrite(); syncMCR();
+    writeIR(opcode, 0);
+
+    // write block trick
+    // BEFORE setting the UCR to write, generate 64 clock pulses
+    // to raise the OE# signal on the RAMs.
+    for (int i = 0; i < 64; ++i) {
+      singleClock();
+    }
+
+    // Now RAM OE# is high and we can safely enable the slice transceiver
+    // to the write state without a bus conflict.
     
     // Set up the UCR for writes.
     ucrSetSlice(slice);
@@ -621,6 +662,7 @@ namespace PortPrivate {
     }
 
     ucrMakeSafe();
+    writeIR(opcode, 0); // re-enable RAM outputs (no longer in the "write block")
   }
 
   // Read up to 64 bytes from the slice for the given opcode, which must be
@@ -628,11 +670,7 @@ namespace PortPrivate {
   void readBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
     // Write the opcode to the IR. This sets the upper address bits to the
     // opcode and resets the state counter (setting lower address bits to 0)
-    setAH(0x7F); setAL(0xFF);
-    setDH(opcode); setDL(0x00);
-    mcrEnableIRwrite(); syncMCR();
-    singleClock();
-    mcrDisableIRwrite(); syncMCR();
+    writeIR(opcode, 0);
     
     // Set up the UCR for reads.
     ucrSetSlice(slice);
@@ -722,6 +760,8 @@ namespace PortPrivate {
 
   // Because of the order of initialization, this is basically
   // the very first code executed on either a hard or soft reset.
+  // This (and all the init() functions) should be fast.
+  
   void internalPortInit() {
     // Set the two decoder select pins to outputs. Delay after making
     // any change to this register.
@@ -756,8 +796,8 @@ namespace PortPrivate {
 
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
   // The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
-  // it's a misleading pun, because postInit() runs on both power-on resets and "soft" resets (of the
-  // Nano only) that occur when the host opens the serial port.
+  // the "power on" part is a misleading pun, because postInit() runs on both power-on resets and "soft"
+  // resets (of the Nano only) that occur when the host opens the serial port.
   //
   // The hardware allows the Nano to detect power-on reset by reading bit 0x08 of the MCR. A 0 value
   // means the YARC is in the reset state. This state lasts at least two seconds after power-on, much
@@ -773,33 +813,6 @@ namespace PortPrivate {
     ucrMakeSafe();
     mcrMakeSafe();
 
-    //    byte b = 0;
-    //    for (;;) {
-    //      writeByteToK(0, b);
-    //      b++;
-    //    }
-
-    //    byte data[] = {0xAA};
-    //    for (;;) {
-    //      writeBytesToSlice(0x80, 0, data, 1);
-    //    }
-
-    //    static byte data[64];
-    //    for (int i = 0; i < sizeof(data); ++i) {
-    //      data[i] = (i << 1) + 1;
-    //    }
-    //    
-    //    for (;;) {
-    //      setDisplay(0xAA);
-    //      for (byte opcode = 0x80; opcode != 0; ++opcode) {
-    //        writeBytesToSlice(opcode, 0, data, sizeof(data));
-    //      }
-    //      setDisplay(0xAB);
-    //      for (byte opcode = 0x80; opcode != 0; ++opcode) {
-    //        readBytesFromSlice(opcode, 0, data, sizeof(data));
-    //      }
-    //    }
-    
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
       // We only run the code below after a power cycle.
@@ -899,6 +912,13 @@ namespace PortPrivate {
     }
 
     setDisplay(0xC0);
+
+//    for (;;) {
+//      writeByteToK(3, 0x02);
+//      writeIR(0x80,   0x02);
+//      writeByteToK(3, 0x02);
+//      writeIR(0x80,   0x02);
+//    }
     return true;
   }
 
@@ -953,6 +973,36 @@ int portTask() {
   
   setDisplay(opcode);
   opcode++;
+
+  // Some bits of code from power on testing for hardware bring up
+  //
+  //    byte b = 0;
+  //    for (;;) {
+  //      writeByteToK(0, b);
+  //      b++;
+  //    }
+
+  //    byte data[] = {0xAA};
+  //    for (;;) {
+  //      writeBytesToSlice(0x80, 0, data, 1);
+  //    }
+
+  //    static byte data[64];
+  //    for (int i = 0; i < sizeof(data); ++i) {
+  //      data[i] = (i << 1) + 1;
+  //    }
+  //    
+  //    for (;;) {
+  //      setDisplay(0xAA);
+  //      for (byte opcode = 0x80; opcode != 0; ++opcode) {
+  //        writeBytesToSlice(opcode, 0, data, sizeof(data));
+  //      }
+  //      setDisplay(0xAB);
+  //      for (byte opcode = 0x80; opcode != 0; ++opcode) {
+  //        readBytesFromSlice(opcode, 0, data, sizeof(data));
+  //      }
+  //    }
+    
   
   return 100;
 }
