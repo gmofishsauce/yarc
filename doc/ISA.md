@@ -8,7 +8,7 @@ of main memory. The top 2k of the address space is reserved for I/O registers.
 In addition to main memory, YARC has two hardware stacks called the parameter
 stack and the return stack. These are located in physically separate memory.
 Certain instructions make reference to these stacks while other instructions
-allow programmer-specified access. The stacks only be used as stacks, not as
+allow programmer-specified access. The stacks may only be used as stacks, not as
 data or program memory.
 
 YARC has four general registers r0 through r3 and a few special registers.
@@ -85,10 +85,10 @@ fields, each two or three bits.
 | 0x85LB | RSBB | src1, src2, dst | src2 - src1 - c => dst, operands in LB |
 | 0x86LB | NAND | src1, src2, dst | src1 & ~src2 => dst, operands in LB |
 | 0x87LB | OR | src1, src2, dst | src1 OR src2 => dst, operands in LB |
-| 0x88LB | NOT | src1, src2, dst | ~src1 => dst, operands in LB |
-| 0x89LB | XOR | src1, src2, dst | src1 ^ src2 => dst, operands in LB |
-| 0x8ALB | TBD | src1, src2, dst | ALU operation 10 (TBD), operands in LB |
-| 0x8BLB | TBD | src1, src2, dst | ALU operation 11 (TBD), operands in LB |
+| 0x88LB | XOR | src1, src2, dst | src1 XOR src2 => dst, operands in LB |
+| 0x89LB | NOT | ----, src2, dst | ~src2 => dst, operands in LB |
+| 0x8ALB | NEG | ----, src2, dst | -src2 => dst, operands in LB |
+| 0x8BLB | ROT | src1, src2, dst | rotate (see "Additional Information" below) |
 | 0x8CLB | TBD | src1, src2, dst | ALU operation 12 (TBD), operands in LB |
 | 0x8DLB | TBD | src1, src2, dst | ALU operation 13 (TBD), operands in LB |
 | 0x8ELB | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
@@ -104,8 +104,8 @@ the high byte of the microcode as selected by a microcode bit.
 
 The source1 field of the RSW selects one of 4 general registers to the first
 of the two ALU inputs. The source2 field selects either one of 4 general
-registers (0..3) or one of four small constant registers (-2, -1, 1, or 2 as
-encoded by the values 4..7) to the second ALU input. Finally, the 3-bit
+registers (0..3) or one of four small constant registers (2, 1, -2, or -1,
+encoded by the values 4..7) to the second ALU input. These values have special predefined meanings for the ROT (rotate) instruction. Finally, the 3-bit
 destination field selects either a write to one of the four general register
 (0..3) or a conditional write (4..7). Conditional writes are explained next.
 
@@ -120,17 +120,38 @@ conditions selected by "F", the low-order 4 bits of the upper half of IR.
 The lower byte LB contains the branch offset in 16-bit instruction words
 from -64 through 63. This may change to -128..127 in the future.
 
+The assignment of flags to the opcodes 0x9F, F in 0..15 (0xF):
+
+| Value of "F" | Interpretation ("Branch if...") |
+| :----------- | :------------- |
+| 0x0          | Carry set |
+| 0x1          | Zero set |
+| 0x2          | Negative |
+| 0x3          | Signed overflow |
+| 0x4          | True (always taken) |
+| 0x5          | Carry or Zero (unsigned "not above"/"below or equal") |
+| 0x6          | Sign and overflow differ (signed "less"/"not greater or equal")
+| 0x7          | Sign and overflow differ and zero is set (signed "less or equal"/"not greater")
+| 0x8          | Not carry |
+| 0x9          | Not zero |
+| 0xA          | Signed positive or zero (not negative) |
+| 0xB          | No signed overflow |
+| 0xC          | False (never taken) |
+| 0xD          | Not carry and not zero (unsigned "above") |
+| 0xE          | Sign and overflow match (signed greater or equal) |
+| 0xF          | Sign and overflow match or zero is clear (signed greater than) |
+
 ### Move and push instructions
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
-| 0xA0xx | MV       | s1, --, d    | register to register move |
-| 0xA1xx | MV       | (s1), --, d  | memory to register move, memory address in s1, s1 in 0..3 |
-| 0xA2xx | MV       | s1, --, (d)  | register to memory move |
-| 0xA3xx | TBD      | none         | unassigned |
-| 0xA4xx | PUSHPSP  | s1, --, --   | push s1 to PSP |
+| 0xA0xx | MV       | --, s2, d    | register to register move |
+| 0xA1xx | MV       | (s1), --, d  | memory to register move, source address in s1 |
+| 0xA2xx | MV       | (s1), --, d  | register to memory move, target address in s1 |
+| 0xA3xF | MV       | immed4, F    | move the four LSBs to F (C Z N V are 0..3) |
+| 0xA4xx | PUSHPSP  | --, s2, --   | push s2 to PSP |
 | 0xA5xx | POPPSP   | --, --, d    | pop PSP to d (d is a general register only) |
-| 0xA6xx | PUSHRSP  | s1, --, --   | push s1 to RSP |
+| 0xA6xx | PUSHRSP  | --, s2, --   | push s2 to RSP |
 | 0xA7xx | POPRSP   | --, --, d    | pop RSP to d (d is a general register only) |
 | 0xANIM - 0xANIM | MV immed8, r(N - 8)  | immediate value, register | sign extended byte IM to r0 - r3 low byte |
 | 0xAN00 - 0xAN00 0xIMIM | MV immed16, r(N - 12) | immediate value, register | 16-bit word to r0 - r3 |
@@ -155,6 +176,17 @@ from -64 through 63. This may change to -128..127 in the future.
 | 0xBD00 | TBD      |              |       |
 | 0xBE00 | TBD      |              |       |
 | 0xBF00 | TBD      |              |       |
+
+### Additional Information
+
+The rotate instruction rotates the register specified by src1 and places the result in dst (often, src1 and dst will be the same). The rotation is specified by src2, which is usually one of the small constant registers 4..7. The operations are:
+
+| src2 value | Small constant value | Meaning |
+|:---------- | :------------------- | :------ |
+| 4          | 2                    | Rotate left. The LS bit and carry flag in the dst are set to the value of the MS bit from src1. Other bits are shifted left one position. |
+| 5          | 1                    | Rotate left through carry. The LS bit is set to the value of the carry flag. The carry flag is set to the value of the MS bit. Other bits are shifted left one position. |
+| 6          | -2                   | Rotate right. The MS bit and carry flag are set to the value of the LS bit. Other bits are shifted right one position. |
+| 7          | -1                   | Rotate right through carry. The MS bit is set to the value of the carry flag. The carry flag is set to the value of the LS bit. Other bits are shifted right one position. |
 
 ### Microcoded FORTH primitive instructions
 
