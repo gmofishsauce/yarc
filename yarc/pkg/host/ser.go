@@ -133,13 +133,6 @@ func session (nano *arduino.Arduino, nanoLog *log.Logger) error {
 }
 
 func nanoSyscall(req string) error {
-	if req == "$B" {
-		// Breakpoint. For now we don't have to do anything here.
-		// When the user types the continue command, we'll send
-		// continue to the Nano.
-		fmt.Printf("=== Nano is at a breakpoint ===\n")
-		return nil
-	}
 	return fmt.Errorf("unexpected syscall from Nano: %s", req)
 }
 

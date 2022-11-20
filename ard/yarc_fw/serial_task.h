@@ -117,6 +117,9 @@ namespace SerialPrivate {
 
   // Communication from the Nano up to the Mac.
   //
+  // Note: the mechanism described here turned out to be complicated
+  // and may be revisited. Part of the implementation has been removed.
+  //
   // There are multiple logical "channels" from the Nano up to the Mac.
   // The log task implements a single "fire and forget" channel for log
   // messages. Here we implement one (and in the future, possibly more)
@@ -154,54 +157,22 @@ namespace SerialPrivate {
   // provides a motivation for implementing this request/response model that
   // will be required for more significant purposes later.
   
-  typedef bool (*responseCallback)(void *response);
-  responseCallback serviceResponseCallback = 0;
-  void *responseCallbackArg = 0;
+//  typedef bool (*responseCallback)(void *response);
+//  responseCallback serviceResponseCallback = 0;
+//  void *responseCallbackArg = 0;
   
   // This is the callback specified by the LogTask - the message is being
   // sent to the Mac, right now, so format it into the buffer and return
   // the count. There should be room.
-  byte requestCallback(byte *bp, byte bMax) {
-    if (bMax < 3) {
-      panic(PANIC_SERIAL_BUFFER_OVERRUN);
-      return 0;
-    }
-    *bp++ = '$';
-    *bp++ = 'B';
-    return 2;
-  }
-  
-  // This is now part of the implementation of breakpointing and not part of
-  // the request/response protocol. The caller defines a variable where even-
-  // number values are states entered when it's time to wait and odd numbers
-  // mean "continue". When the !C (continue from breakpoint) message is received
-  // from the host, the upper callback sets the LS bit of the int at this pointer,
-  // changing from the current wait state to the matching continue state.
-  
-  // This is the higher-level callback that implements continue after breakpoint
-  // The response is supposed to be "!C" (continue), not null terminated.
-  bool srCallback(void *response) {    
-    serviceResponseCallback = 0;
-
-    int *bpState = (int *)responseCallbackArg;
-    if (bpState == 0) {
-      return false;
-    }
-    *bpState |= 1;
-    responseCallbackArg = 0;
-    return true;
-  }
-
-  // This is the method called in the "foreground" (of course actually it's
-  // really all foreground...)  to issue a breakpoint request before blocking.
-  void internalBreakpointRequest(int *statePointer) {
-    if (serviceResponseCallback != 0) {
-      panic(PANIC_CHAN_BUSY);
-    }
-    serviceResponseCallback = srCallback;
-    responseCallbackArg = (void *) statePointer;
-    logQueueCallback(requestCallback);
-  }
+//  byte requestCallback(byte *bp, byte bMax) {
+//    if (bMax < 3) {
+//      panic(PANIC_SERIAL_BUFFER_OVERRUN);
+//      return 0;
+//    }
+//    *bp++ = '$';
+//    *bp++ = 'B';
+//    return 2;
+//  }
 
   // A byte is expected; try to read it, granting a few milliseconds
   // for it to arrive. If timeouts become an issue, the only solution
@@ -249,24 +220,14 @@ namespace SerialPrivate {
     return n;
   }
 
-  // Handle an upper protocol response. N.B. - this implementation knows too
-  // much about the surrounding implementation details.
+  // Handle an upper protocol response.
   void stRespCmd(byte b) {
-    if (serviceResponseCallback == 0) {
-      panic(PANIC_UPPER_PROTOCOL);
-      return;
-    }
-    byte resp[16];
-    int n = readResponseCmd(resp, sizeof(resp));
-    if (n != 2 || resp[0] != '!' || resp[1] != 'C') {
-      panic(PANIC_UPPER_PROTOCOL);
-      return;
-    }
-    if (!(*serviceResponseCallback)(responseCallbackArg)) {
-      panic(PANIC_UPPER_PROTOCOL);
-      return;
-    }
-    stSendAck(b);
+    panic(PANIC_UPPER_PROTOCOL);
+    //stSendAck(b);
+  }
+
+  void stSetK(byte b) {
+    // TODO COMPLETE ME
   }
   
   // Handlers for commands received in state READY.
@@ -280,7 +241,7 @@ namespace SerialPrivate {
   
     stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF0 ...
     stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF4 ...
-    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF8 ...
+    stBadCmd,   stBadCmd,  stBadCmd,   stSetK,       // 0xF8 ...
     stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
   };
   
@@ -350,25 +311,9 @@ namespace SerialPrivate {
     }
     return 0;
   }
-
-  // This is a quick hack to save the value of an integer until the log
-  // callback is called so that a message can be loggd with the "right" value.
-  int savedValueOfState = -2;
-  
-  byte logBPRequestWithValueOfState(byte *bp, byte bmax) {
-      int result = snprintf_P((char *)bp, bmax, PSTR("Breakpoint %d"), savedValueOfState);
-      if (result > bmax) result = bmax;
-      return result;
-  }
 }
 
 // Public interface
-
-void breakpointRequest(int *statePointer) {
-  SerialPrivate::savedValueOfState = *statePointer;
-  logQueueCallback(SerialPrivate::logBPRequestWithValueOfState);
-  return SerialPrivate::internalBreakpointRequest(statePointer);
-}
 
 void serialShutdown() {
   SerialPrivate::stProtoUnsync();

@@ -3,7 +3,7 @@
 
 package serial_protocol
 
-const ProtocolVersion = 3
+const ProtocolVersion = 4
 
 func Ack(b byte) byte {
 	return ^b
@@ -31,6 +31,7 @@ const CmdGetResult         = 0xF5
 const CmdXferSingle        = 0xF8
 const CmdWritePage         = 0xF9
 const CmdReadPage          = 0xFA
+const CmdSetK              = 0xFB
 
 const ErrNosync            = 0x80
 const ErrPassive           = 0x81

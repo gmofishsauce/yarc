@@ -36,6 +36,7 @@ var names = []struct {
 	{ "STCMD_XFER_SINGLE", 0xF8 },
 	{ "STCMD_WRITE_PAGE", 0xF9 },
 	{ "STCMD_READ_PAGE", 0xFA },
+	{ "STCMD_SET_K", 0xFB },
 }
 
 var errors = []struct {
@@ -52,7 +53,9 @@ var errors = []struct {
 	{ "STERR_BADCMD", 0x86, "invalid command byte" },
 }
 
-const protocolVersion = 3
+// Protocol version 4. Added SetK to update the K register.
+
+const protocolVersion = 4
 
 func Generate() {
 	generateCSymbols("serial_protocol.h")

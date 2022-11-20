@@ -690,53 +690,6 @@ namespace PortPrivate {
     ucrMakeSafe();
   }
 
-  int bpState = -1;
-
-  void stateBasedDebug() {
-    //    // If we're in an even-number state, we're waiting for
-    //    // a continue after a breakpoint, so just return.
-    //    if ((bpState & 1) == 0) return;
-    //
-    //    // We're in an odd-number state. Increment to the next
-    //    // even number state and take one action before requesting
-    //    // a breakpoint.
-    //    bpState++;
-    //    
-    //    switch (bpState) {
-    //      case 0:
-    //        // do nothing - make scope ready
-    //        break;
-    //      case 2:
-    //        ucrSetSlice(0);
-    //        ucrSetDirectionWrite();
-    //        ucrEnableSliceTransceiver();
-    //        syncUCR();
-    //        break;
-    //      case 4:
-    //        break;
-    //      case 6:
-    //        setAH(0x7F); setAL(0xFF);
-    //        setDH(0x00); setDL(0xAA);
-    //        mcrEnableWcs();
-    //        syncMCR();
-    //        break;
-    //      case 8:
-    //        nanoSetPulseLow(RawNanoClock);
-    //        break;
-    //      case 10:
-    //        nanoSetPulseHigh(RawNanoClock);
-    //        break;
-    //      case 12:
-    //        mcrDisableWcs();
-    //        ucrMakeSafe();
-    //        setAH(0xFF); 
-    //        break;
-    //      default:
-    //        return; // states all done - no bp request
-    //    }
-    //    breakpointRequest(&bpState);
-  }
-
   // Set the four K (microcode) registers to their "safe" value.
   // This function clocks the floating bus into the K registers,
   // because it's easy and fast and the "safe" value of the K
@@ -913,12 +866,6 @@ namespace PortPrivate {
 
     setDisplay(0xC0);
 
-//    for (;;) {
-//      writeByteToK(3, 0x02);
-//      writeIR(0x80,   0x02);
-//      writeByteToK(3, 0x02);
-//      writeIR(0x80,   0x02);
-//    }
     return true;
   }
 
@@ -954,7 +901,6 @@ bool validateOpcodeForSlice(byte opcode, byte slice) {
 }
 
 int portTask() {
-  //PortPrivate::stateBasedDebug();
 
   static byte failed = false;
   static byte opcode = 0;
@@ -1002,8 +948,14 @@ int portTask() {
   //        readBytesFromSlice(opcode, 0, data, sizeof(data));
   //      }
   //    }
-    
-  
+
+  //    for (;;) {
+  //      writeByteToK(3, 0x02);
+  //      writeIR(0x80,   0x02);
+  //      writeByteToK(3, 0x02);
+  //      writeIR(0x80,   0x02);
+  //    }
+
   return 100;
 }
 

@@ -418,3 +418,16 @@ the protocol implementation must retain a shadow of at least the
 last-written Address Register Low value in order to perform the
 incrementation.
 
+. Write K - 0xFB
+. 1 argument bytes
+. 2 or 4 data bytes
+. No result bytes
+
+The argument byte (count) may have the value 2 or 4. If the argument is
+2, the data bytes are the K register to update (0..3) and the new value.
+If the argument is 4, all four K registers are updated with the four data
+bytes. The most significant (K[3]) is transmitted first and least last.
+K[3] contains bits 31:24 while K[0] contains 7:0.
+
+The K (microcode pipeline) register is not readable, so no read capability
+is supported by the protocol.
