@@ -202,21 +202,29 @@ func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
 	return b, nil
 }
 
+// Issue a command with a counted string argument
 func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
-	if len(body) == 0 || len(body) > 255 {
-		return fmt.Errorf("doCommandWithString(): invalid body length %d", len(body))
-	}
-	msg := make([]byte, 2 + len(body))
-	msg[0] = cmd
-	msg[1] = byte(len(body))
-	for i := range(body) {
-		msg[2 + i] = body[i]
-	}
-	for i := range(msg) {
-		if err := nano.Write(msg[i]); err != nil {
-			return err
-		}
-		fmt.Printf("wrote byte 0x%02x\n", msg[i])
-	}
-	return getAck(nano, cmd)
+	return doCommandWithCountedBytes(nano, cmd, []byte(body))
 }
+
+// Issue a command with an array of byte arguments.
+// Do not include the byte count in the bytes argument.
+func doCommandWithCountedBytes(nano *arduino.Arduino, cmd byte, bytes []byte) error {
+	if len(bytes) == 0 || len(bytes) > 255 {
+		return fmt.Errorf("doCommandWithCountedBytes(): invalid body length %d", len(bytes))
+	}
+	msg := make([]byte, 2 + len(bytes))
+	msg[0] = cmd
+	msg[1] = byte(len(bytes))
+	for i := range(bytes) {
+		msg[2 + i] = bytes[i]
+	}
+    for i := range(msg) {
+        if err := nano.Write(msg[i]); err != nil {
+            return err
+        }
+        fmt.Printf("wrote byte 0x%02x\n", msg[i])
+    }
+    return getAck(nano, cmd)
+}
+

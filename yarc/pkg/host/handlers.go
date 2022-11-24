@@ -10,6 +10,7 @@ import (
 	sp "github.com/gmofishsauce/yarc/pkg/proto"
 
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -23,14 +24,14 @@ type protocolCommand struct {
 } 
 
 const nostr = ""
-type commandHandler func(cmd *protocolCommand, nano *arduino.Arduino) (string, error)
+type commandHandler func(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error)
 
 // Because of Golang's quirky "initialization loop" restriction, we cannot
 // statically initialize the protocolCommand array with the help() function
 // because it refers to the array itself. The fact that I have to write
 // comments like this is a severe criticism of Golang.
 
-func seeInitBelow(notUsed1 *protocolCommand, notUsed2 *arduino.Arduino) (string, error) {
+func seeInitBelow(notUsed1 *protocolCommand, notUsed2 *arduino.Arduino, notUsed3 string) (string, error) {
 	// Never called; resolves initialization loop
 	return nostr, nil
 }
@@ -58,6 +59,7 @@ var commands = []protocolCommand {
 	{ sp.CmdXferSingle,  "xs", "XferSingle",  5, false, notImpl },
 	{ sp.CmdWritePage,   "wp", "WritePage",   1, true,  notImpl },
 	{ sp.CmdReadPage,    "rp", "ReadPage",    1, true,  notImpl },
+	{ sp.CmdSetK,        "sk", "SetK",        2, true,  setK    },
 }
 
 func init() {
@@ -70,7 +72,7 @@ func init() {
 func process(line string, nano *arduino.Arduino) error {
 	for _, cmd := range commands {
 		if strings.HasPrefix(line, cmd.shortCmd) || strings.HasPrefix(line, cmd.longCmd) {
-			if str, err := cmd.handler(&cmd, nano); err != nil {
+			if str, err := cmd.handler(&cmd, nano, line); err != nil {
 				if (debug) {
 					fmt.Printf("ensure variable str is used for now: %s\n", str)
 				}
@@ -86,13 +88,42 @@ func process(line string, nano *arduino.Arduino) error {
 
 // Command handlers
 
-func getMcr(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
+func getMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	result, err := doCommandReturningByte(nano, sp.CmdGetMcr)
 	if err != nil {
 		return nostr, err
 	}
 	fmt.Printf("0x%02x\n", result)
 	return nostr, nil
+}
+
+func setK(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	words := strings.Split(line, " ");
+	if len(words) != 3 {
+		return nostr, fmt.Errorf("usage: sk kRegNum kValue");
+	}
+
+	//var args []byte = byte[2]
+	args := make([]byte, 2, 2)
+	n, err := strconv.ParseInt(words[1], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	if n < 0 || n > 3 {
+		return nostr, fmt.Errorf("k register number must in 0..3");
+	}
+	args[0] = byte(n)
+
+	n, err = strconv.ParseInt(words[2], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	if n < 0 || n > 255 {
+		return nostr, fmt.Errorf("k register value must in 0..255");
+	}
+	args[1] = byte(n)
+
+	return nostr, doCommandWithCountedBytes(nano, sp.CmdSetK, args)
 }
 
 /* This command is issued regularly by the host and it doesn't make sense
@@ -114,7 +145,7 @@ func pollNano(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
 }
 */
 
-func svcResp(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
+func svcResp(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	// For now, just send "!C" to the Nano telling it to continue
 	// from a breakpoint.
 	if err := doCommandWithString(nano, byte(cmd.cmdVal), "!C"); err != nil {
@@ -123,7 +154,7 @@ func svcResp(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
 	return nostr, nil
 }
 
-func help(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
+func help(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	fmtStr := "%-6s%-12s%-6s%-8s\n"
 	fmt.Printf(fmtStr, "Short", "Long", "nArgs", "Counted")
 	fmt.Printf(fmtStr, "-----", "----", "-----", "-------")
@@ -136,7 +167,7 @@ func help(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
 	return nostr, nil
 }
 
-func notImpl(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
+func notImpl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	fmt.Printf("command 0x%x(%d, %v): not implemented\n", cmd.cmdVal, cmd.nArgBytes, cmd.hasCountedBytes)
 	return nostr, nil
 }

@@ -41,10 +41,37 @@ namespace TaskPrivate {
 // A few public utilities, in order to avoid further expanding
 // the already large number of tabs in the IDE.
 
-void panic(byte errorRegisterValue) {
+// Panic - don't rely on our own code except for writing to the display register.
+// Change the display register between the panic code and an arbitrary subcode
+// about every 5 seconds. Turn on the amber LED when the panic code is displayed,
+// and blink it quickly while the subcode is displayed. And turn on the LED first
+// of all, so in the very worst case,it stays on solid.
+
+void panic(byte panicCode, byte subcode) {
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+  
   serialShutdown();
-  freezeDisplay(errorRegisterValue);
-  ledPlaySos();
+  setDisplay(panicCode);
+  int whichDisplay = 0;
+  
+  for (int n = 1; ; ++n) {
+    if (whichDisplay == 0) {
+      setDisplay(panicCode);
+      digitalWrite(LED_PIN, HIGH);
+      delay(200);
+    } else {
+      setDisplay(subcode);
+      digitalWrite(LED_PIN, LOW);
+      delay(100);
+      digitalWrite(LED_PIN, HIGH);
+      delay(100);
+    }
+    // 200mS per iteration, so 5 per second; 25 is five seconds.
+    if (n % 25 == 0) {
+      whichDisplay = 1 - whichDisplay; // old FORTRAN trick
+    }
+  }
 }
 
 // Task module public interface

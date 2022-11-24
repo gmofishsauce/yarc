@@ -64,12 +64,13 @@ func (input *Input) reader() {
 }
 
 func (input *Input) get() string {
+	const delay = 50 * time.Millisecond
 	input.promptIfTerminal()
 	select {
 	case stdin := <- input.channel:
 		input.promptNeeded = true
 		return stdin
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(delay):
 		return ""
 	}
 	return ""

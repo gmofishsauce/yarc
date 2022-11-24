@@ -7,7 +7,9 @@
 #pragma once
 
 // Public interface to the write-only 8-bit Display Register (DR)
-// After freezeDisplay, the DR will not change until the Nano is reset.
 
 void setDisplay(byte b);
-void freezeDisplay(byte b);
+
+// Public functions exposed by the port task
+
+bool publicWriteByteToK(byte kReg, byte kVal);

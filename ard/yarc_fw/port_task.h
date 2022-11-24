@@ -68,9 +68,6 @@
 
 namespace PortPrivate {
 
-  // Lock the display to preserve the critical error code on panic()
-  byte displayIsFrozen = 0;
-
   const byte NOT_PIN = 0;
   typedef const byte PinList[];
 
@@ -756,9 +753,7 @@ namespace PortPrivate {
   // means the YARC is in the reset state. This state lasts at least two seconds after power-on, much
   // longer than it takes the Nano to initialize. The Nano detects this and performs initialization
   // steps both before and after the YARC comes out of the POR state as can be seen in the code below.
-  
-  inline void postPanic(byte n) { panic(PANIC_POST|n); }
-  
+    
   // Power on self test and initialization. Startup will hang if this function returns false.
   bool internalPostInit() {
     // Do unconditionally on any reset
@@ -778,8 +773,7 @@ namespace PortPrivate {
     for(int i = 0; i < 3; ++i) {
       nanoTogglePulse(ResetService);
       if (yarcRequestsService()) {
-          postPanic(1);
-        return false;
+          panic(PANIC_POST, 1);
       }
       
       setAH(0x7F); // 0xFF would be a read
@@ -789,8 +783,7 @@ namespace PortPrivate {
       singleClock(); // set service
   
       if (!yarcRequestsService()) {
-        postPanic(2);
-        return false;
+        panic(PANIC_POST, 2);
       }
     }
     
@@ -799,8 +792,7 @@ namespace PortPrivate {
     nanoTogglePulse(ResetService);
   
     if (getMCR() != byte(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
-      postPanic(3);
-      return false;
+      panic(PANIC_POST, 3);
     }
   
     // Write and read the first 4 bytes
@@ -811,16 +803,16 @@ namespace PortPrivate {
     setAL(0x03); setDL('f' & 0x7F); singleClock();
   
     setAH(0x80); setAL(0x00); singleClock();
-    if (getBIR() != ('j')) { postPanic(0x0A); }
+    if (getBIR() != ('j')) { panic(PANIC_POST, 4); }
     
     setAL(0x01); singleClock();
-    if (getBIR() != ('e')) { postPanic(0x0B); }
+    if (getBIR() != ('e')) { panic(PANIC_POST, 5); }
     
     setAL(0x02); singleClock();
-    if (getBIR() != ('f')) { postPanic(0x0C); }
+    if (getBIR() != ('f')) { panic(PANIC_POST, 6); }
     
     setAL(0x03); singleClock();
-    if (getBIR() != ('f')) { postPanic(0x0D); }
+    if (getBIR() != ('f')) { panic(PANIC_POST, 7); }
   
     // Write and read the first 256 bytes
     setAH(0x00);
@@ -832,7 +824,7 @@ namespace PortPrivate {
     for (int j = 0; j < 256; ++j) {
       setAL(j); singleClock();
       if (getBIR() != byte(256 - j)) {
-        postPanic(0x0E);
+        panic(PANIC_POST, 8);
       }
     }
   
@@ -841,8 +833,7 @@ namespace PortPrivate {
   
      if (!yarcIsPowerOnReset()) {
       // Trouble, /POR should be low right now.
-      postPanic(5);
-      return false;
+      panic(PANIC_POST, 9);
     }
     
     // Wait for POR# to go high here, then test RAM:
@@ -860,7 +851,7 @@ namespace PortPrivate {
       setAH((i >> 8) | 0x80); setAL(i & 0xFF);
       singleClock();
       if (getBIR() != byte(i & 0xFF)) {
-        postPanic(6);
+        panic(PANIC_POST, 10);
       }
     }
 
@@ -903,22 +894,36 @@ bool validateOpcodeForSlice(byte opcode, byte slice) {
 int portTask() {
 
   static byte failed = false;
-  static byte opcode = 0;
+  static byte done = true;
+  static byte opcode;
+  static byte slice;
 
   if (failed) {
-    return 100;
+    return 103;
   }
 
-  for (byte slice = 0; slice < 4; ++slice) {
-    if (!validateOpcodeForSlice(opcode | 0x80, slice)) {
+  if (done) {
+    opcode = 0x80;
+    slice = 0;
+    done = false;
+  }
+
+  if (!validateOpcodeForSlice(opcode, slice)) {
       setDisplay(0xAA);
       failed = true;
-      return 100;
-    }
+      return 103;
+  }
+
+  if (++slice > 3) {
+    slice = 0;
+    opcode++;
+  }
+  if ((opcode & 0x80) == 0) {
+    done = true;
   }
   
-  setDisplay(opcode);
-  opcode++;
+  // setDisplay(opcode);
+  return 11;
 
   // Some bits of code from power on testing for hardware bring up
   //
@@ -956,7 +961,14 @@ int portTask() {
   //      writeIR(0x80,   0x02);
   //    }
 
-  return 100;
+}
+
+bool publicWriteByteToK(byte kReg, byte kVal) {
+  if (kReg > 3) {
+    return false;
+  }
+  PortPrivate::writeByteToK(kReg, kVal);
+  return true;
 }
 
 bool postInit() {
@@ -964,15 +976,7 @@ bool postInit() {
 }
 
 // Public interface to the write-only 8-bit Display Register (DR)
-// After freezeDisplay, the DR will not change until the Nano is reset.
 
 void setDisplay(byte b) {
-  if (!PortPrivate::displayIsFrozen) {
-    PortPrivate::nanoSetRegister(PortPrivate::DisplayRegister, b);
-  }
-}
-
-void freezeDisplay(byte b) {
-  setDisplay(b);
-  PortPrivate::displayIsFrozen = 1;
+  PortPrivate::nanoSetRegister(PortPrivate::DisplayRegister, b);
 }

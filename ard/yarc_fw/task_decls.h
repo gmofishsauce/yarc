@@ -24,25 +24,21 @@ typedef int  (*TaskBody)();
 // Display register values, including panic values.
 
 enum : byte { // including panic codes
-  PANIC_SERIAL_BUFFER_OVERRUN = 0xEF,
-  PANIC_SERIAL_BUFFER_FREE    = 0xEE,
-  PANIC_SERIAL_INVALID_STATE  = 0xED,
-  PANIC_SERIAL_READ_ERROR     = 0xEC,
-  PANIC_CHAN_BUSY             = 0xEB,
-  PANIC_UPPER_PROTOCOL        = 0xEA,
-  PANIC_SERIAL_TIMEOUT        = 0xE9,
+  
+  PANIC_SERIAL_NUMBERED       = 0xEF, // subcode is a code location
+  PANIC_SERIAL_BAD_BYTE       = 0xEE, // subcode is a "bad" byte value
 
   // 0xD0 through 0xDF are power-on self test (POST)
   // failures. Low order bits are defined in the POST
   // code in port_task.h
   PANIC_POST                  = 0xD0,
 
-  TRACE_SERIAL_READY          = 0xC2,
-  TRACE_AFTER_SERIAL_INIT     = 0xC1,
   TRACE_BEFORE_SERIAL_INIT    = 0xC0,
+  TRACE_SERIAL_READY          = 0xC2,
+  TRACE_SERIAL_UNSYNC         = 0xCF
 };
 
 // And, for now, a few general utilities, in order to avoid further
 // increasing the already large number of tabs in the IDE.
 
-void panic(byte errorRegisterValue);
+void panic(byte panicCode, byte subcode);
