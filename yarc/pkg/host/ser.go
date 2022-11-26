@@ -25,8 +25,7 @@ import (
 
 var debug = false
 
-const responseDelay = 20 * time.Millisecond
-const commandDelay = 50 * time.Millisecond
+const responseDelay = 50 * time.Millisecond
 const interSessionDelay = 3000 * time.Millisecond
 
 const arduinoNanoDevice = "/dev/cu.usbserial-AQ0169PT"

@@ -71,7 +71,8 @@ namespace SerialPrivate {
     r->tail = (r->tail + n) % RING_BUF_SIZE;
   }
 
-  // Return the next byte in the ring buffer
+  // Return the next byte in the ring buffer. The state
+  // of the ring is not changed.
   // panic: r is empty
   byte peek(RING* const r) {
     if (r->head == r->tail) {
@@ -87,7 +88,7 @@ namespace SerialPrivate {
   // when the buffer is empty. The value will not become
   // stale while the caller runs, assuming the caller
   // doesn't take any actions (put(), consume(), etc.) to
-  // change it the ring buffer state.
+  // change the ring buffer state.
   //
   // returns the number of bytes placed at *bp, which may be
   // 0 and will not exceed bMax.
@@ -150,12 +151,20 @@ namespace SerialPrivate {
   }
 
   // Send the byte b without interpretation
+  // panic: xmtBuf is full
   void send(byte b) {
     put(xmtBuf, b);
   }
 
+  // Return true if it's possible to transmit (the transmit buffer is not full)
+  bool canSend(byte n) {
+    return n < avail(xmtBuf);
+  }
+
   // Send an ack for the byte b, which must be
   // a valid command byte
+  // panic: b is not a command byte
+  // panic: xmtBuf is full
   void sendAck(byte b) {
     if (!isCommand(b)) {
       panic(PANIC_SERIAL_BAD_BYTE, b);
@@ -166,12 +175,65 @@ namespace SerialPrivate {
   // Nak the byte b, which was received in the context
   // of a command byte but may not in fact be a command.
   // The argument is not used.
+  // panic: xmtBuf is full  
   void sendNak(byte b) {
     send(STERR_BADCMD);
   }
 
   // === Protocol command handlers ===
   // Command handlers must return the "next" state
+
+  typedef State (*CommandHandler)(RING *const r, byte b);
+  CommandHandler inProgress = 0;
+
+  // The poll buffer (serial output buffer) is the single largest
+  // user of RAM in the entire system. It allows us to hide the
+  // nonblocking nature of the code from functions that want to
+  // generate data for the host, allowing use of e.g. xnprintf().
+  // It's 259 to allow for a command byte, a count byte, 255 data
+  // bytes, an unneeded terminating nul should it be written by a
+  // library function, and a guard byte at the end.
+  constexpr int POLL_BUF_SIZE = 259;
+  constexpr int POLL_BUF_LAST = (POLL_BUF_SIZE - 1);
+  constexpr int POLL_BUF_MAX_DATA = 255;
+  constexpr byte GUARD_BYTE = 0xAA;
+
+  typedef struct pollBuffer {
+    int unsent;
+    int next;
+    bool inuse;
+    byte buf[POLL_BUF_SIZE];
+  } PollBuffer;
+
+  PollBuffer uniquePollBuffer; // there can be only one (in practice)
+  PollBuffer* const pb = &uniquePollBuffer;
+
+  // Allocate the poll buffer.
+  // panic: poll buffer in use.
+  void allocPollBuffer() {
+    if (pb->inuse) {
+      panic(PANIC_SERIAL_NUMBERED, 0xD);
+    }
+    pb->inuse = true;
+    pb->unsent = 0;
+    pb->next = 0;
+    pb->buf[POLL_BUF_LAST] = GUARD_BYTE;
+  }
+
+  // Free the poll buffer
+  // panic: poll buffer is not in use
+  // panic: the guard byte was overwritten.
+  void freePollBuffer() {
+    if (!pb->inuse) {
+      panic(PANIC_SERIAL_NUMBERED, 0xE);
+    }
+    if (pb->buf[POLL_BUF_LAST] != GUARD_BYTE) {
+      panic(PANIC_SERIAL_NUMBERED, 0xA);
+    }
+    pb->next = 0;
+    pb->unsent = 0;
+    pb->inuse = false;
+  }
 
   // A bad command byte was processed (either not a command byte
   // value or an unimplemented command). We cannot directly enter
@@ -184,6 +246,11 @@ namespace SerialPrivate {
   // new session.
   State stBadCmd(RING* const r, byte b) {
     if (state != STATE_DESYNCHRONIZING) {
+      if (!canSend(1)) {
+        // We have an error -and- the transmit buffer is full.
+        // Give up with a panic that is distinct to the condition.
+        panic(PANIC_SERIAL_NUMBERED, 0xC);
+      }
       sendNak(b);
       return STATE_DESYNCHRONIZING;
     } else {
@@ -194,14 +261,23 @@ namespace SerialPrivate {
     }
   }
 
+  // Sync command - just ack it and set the display register
   State stSync(RING* const r, byte b) {
-    sendAck(b);
+    if (!canSend(1)) {
+      return;
+    }
     consume(r, 1);
+    sendAck(b);
     setDisplay(0xC2);
     return STATE_READY;
   }
 
+  // GetVer command - when we can send, consume the command
+  // byte and send the ack and version. Does not change state.
   State stGetVer(RING* const r, byte b) {
+    if (!canSend(2)) {
+      return;
+    }
     consume(r, 1);
 
     if (state != STATE_READY) {
@@ -213,27 +289,67 @@ namespace SerialPrivate {
     return state;
   }
 
+  // Respond to a poll request from the host. This is a state machine
+  // that maintains its own state, separate from the State enum.
   State stPoll(RING* const r, byte b) {
-    consume(r, 1);
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {   
-      sendAck(b);
-      send(0); // TODO
+    if (inProgress) {
+      while (canSend(1) && pb->unsent > 0) {
+        send(pb->buf[pb->next]);
+        pb->unsent--;
+        pb->next++;
+      }
+      if (pb->unsent == 0) {
+        consume(r, 1);
+        freePollBuffer();
+        inProgress = 0;              
+      }
+    } else {
+      if (pb->inuse) {
+        // We need the buffer but it's in use.
+        panic(PANIC_SERIAL_NUMBERED, 0xB);
+      }
+      
+      inProgress = stPoll;
+      allocPollBuffer();
+      byte n = logGetPending(&pb->buf[2], POLL_BUF_MAX_DATA);
+      pb->buf[0] = ACK(b);
+      pb->buf[1] = n; // may be zero (it usually is)
+      pb->next = 0;
+      pb->unsent = 2 + n;
     }
     return state;
   }
 
-  // SetK has a count byte which may be 2 or 4
-  // followed by either 2 or 4 argument bytes.
+  // SetK has a count byte which may be 2 or 4 followed by either
+  // 2 or 4 argument bytes. If 2, the bytes are a K register in
+  // 0..3 and a value. If 4, the bytes are all four K register
+  // values in order 0..3. The command was designed this way partly
+  // to see what the implementation code would look like.
   State stSetK(RING* const r, byte b) {
-    panic(PANIC_SERIAL_BAD_BYTE, b);
+    byte cmdBuf[6];
+    if (!canSend(1)) {
+      return;
+    }
+
+    if (copy(rcvBuf, cmdBuf, 2) == 2) {
+      // We have the command and the count
+      if (cmdBuf[1] == 2 && copy(rcvBuf, cmdBuf, 4) == 4) { // short form
+        consume(rcvBuf, 4);
+        publicWriteByteToK(cmdBuf[2], cmdBuf[3]);
+        sendAck(b);
+      } else if (cmdBuf[1] == 4 && copy(rcvBuf, cmdBuf, 6) == 6) { // long form
+        consume(rcvBuf, 6);
+        for (int i = 2; i < 6; ++i) {
+          publicWriteByteToK(i - 2, cmdBuf[i]);
+        }
+        sendAck(b);
+      }
+    }
+    return state;
   }
   
   // Jump table for protocol command handlers. The table is stored in
   // PROGMEM (ROM) so requires special access, below.
-  
-  typedef State (*CommandHandler)(RING *const r, byte b);
   
   const PROGMEM CommandHandler handlers[] = {
     stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xE0 ...
@@ -247,15 +363,15 @@ namespace SerialPrivate {
     stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
   };
 
-  constexpr int NUM_HANDLERS (sizeof(handlers) / sizeof(CommandHandler));
-
   // There is at least one byte waiting to be processed in the receive-
   // side ring buffer at r. The command handler may or may not consume
   // the byte(s) on this call, but must always return the next state.
   
   void process(RING *const r, byte b) {
     CommandHandler handler;
-    if (isCommand(b)) {
+    if (inProgress) {
+      handler = inProgress;
+    } else if (isCommand(b)) {
       handler = pgm_read_ptr_near(&handlers[b - STCMD_BASE]);
     } else {
       handler = stBadCmd;
