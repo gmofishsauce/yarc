@@ -799,12 +799,13 @@ namespace PortPrivate {
     ucrMakeSafe();
     mcrMakeSafe();
 
-#if 0
+#if 1
     setDisplay(0xCC);
     for (;;) {
       byte b = 1;
       writeByteToK(3, 0x01);
       writeBytesToSlice(0x80, 3, &b, 1);
+      writeIR(0x83, 0x83);
 
       setAH(0x00); setDH(0x00);
       setAL(0x00); setDL(b); singleClock();
@@ -921,7 +922,7 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
-#if 1
+#if 0
 // Write the entire 64-byte slice of data for the given opcode with
 // values derived from the opcode. Read the data back from the slice
 // and check it. This function uses 128 bytes of static storage.
@@ -947,7 +948,7 @@ bool validateOpcodeForSlice(byte opcode, byte slice) {
 #endif
 
 int portTask() {
-#if 1
+#if 0
   static byte failed = false;
   static byte done = true;
   static byte opcode;
