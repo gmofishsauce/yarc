@@ -20,7 +20,6 @@ var names = []struct {
 	{ "STCMD_DIS_FAST", 0xE3 },
 	{ "STCMD_EN_SLOW", 0xE4 },
 	{ "STCMD_DIS_SLOW", 0xE5 },
-	{ "STCMD_SINGLE", 0xE6 },
 	{ "STCMD_RUN_YARC", 0xE7 },
 	{ "STCMD_STOP_YARC", 0xE8 },
 	{ "STCMD_POLL", 0xE9 },
@@ -33,6 +32,8 @@ var names = []struct {
 	{ "STCMD_SET_DRL", 0xF3 },
 	{ "STCMD_DO_CYCLE", 0xF4 },
 	{ "STCMD_GET_RESULT", 0xF5 },
+	{ "STCMD_WR_SLICE", 0xF6 },
+	{ "STCMD_RD_SLICE", 0xF7 },
 	{ "STCMD_XFER_SINGLE", 0xF8 },
 	{ "STCMD_WRITE_PAGE", 0xF9 },
 	{ "STCMD_READ_PAGE", 0xFA },
@@ -53,9 +54,9 @@ var errors = []struct {
 	{ "STERR_BADCMD", 0x86, "invalid command byte" },
 }
 
-// Protocol version 4. Added SetK to update the K register.
+// Protocol version 5. Added the read and write microcode slice commands.
 
-const protocolVersion = 4
+const protocolVersion = 5
 
 func Generate() {
 	generateCSymbols("serial_protocol.h")

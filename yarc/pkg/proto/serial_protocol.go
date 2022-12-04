@@ -3,7 +3,7 @@
 
 package serial_protocol
 
-const ProtocolVersion = 4
+const ProtocolVersion = 5
 
 func Ack(b byte) byte {
 	return ^b
@@ -15,7 +15,6 @@ const CmdEnFast            = 0xE2
 const CmdDisFast           = 0xE3
 const CmdEnSlow            = 0xE4
 const CmdDisSlow           = 0xE5
-const CmdSingle            = 0xE6
 const CmdRunYarc           = 0xE7
 const CmdStopYarc          = 0xE8
 const CmdPoll              = 0xE9
@@ -28,6 +27,8 @@ const CmdSetDrh            = 0xF2
 const CmdSetDrl            = 0xF3
 const CmdDoCycle           = 0xF4
 const CmdGetResult         = 0xF5
+const CmdWrSlice           = 0xF6
+const CmdRdSlice           = 0xF7
 const CmdXferSingle        = 0xF8
 const CmdWritePage         = 0xF9
 const CmdReadPage          = 0xFA
