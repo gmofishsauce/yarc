@@ -27,7 +27,6 @@ namespace TaskPrivate {
     {portInit,       portTask      },
     {ledInit,        ledTask       },
     {0,              heartbeatTask },
-    {0,              displayTask   },
     {serialTaskInit, serialTaskBody},
   };
 

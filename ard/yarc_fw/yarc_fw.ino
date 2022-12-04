@@ -1,4 +1,3 @@
-
 // Copyright (c) Jeff Berkowitz 2021. All rights reserved.
 // Downloader firmware for Yet Another Retro Computer - YARC
 //
@@ -43,16 +42,12 @@
 
 #include "task_decls.h"
 #include "port_decls.h"
-#include "display_decls.h"
-#include "led_decls.h"
-#include "log_decls.h"
+#include "small_task_decls.h"
 
-#include "heartbeat_task.h"
+#include "port_utils.h"
+#include "small_tasks.h"
 #include "serial_task.h"
 #include "port_task.h"
-#include "display_task.h"
-#include "led_task.h"
-#include "log_task.h"
 
 #include "task_runner.h"
 

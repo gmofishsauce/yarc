@@ -180,8 +180,7 @@ namespace SerialPrivate {
     send(STERR_BADCMD);
   }
 
-  // === Protocol command handlers ===
-  // Command handlers must return the "next" state
+  // === Poll buffer support ===
 
   typedef State (*CommandHandler)(RING *const r, byte b);
   CommandHandler inProgress = 0;
@@ -235,6 +234,9 @@ namespace SerialPrivate {
     pb->inuse = false;
   }
 
+  // === Protocol command handlers ===
+  // Command handlers must return the "next" state
+
   // A bad command byte was processed (either not a command byte
   // value or an unimplemented command). We cannot directly enter
   // the UNSYNC state because clearing the ring buffer would mean
@@ -261,32 +263,36 @@ namespace SerialPrivate {
     }
   }
 
-  // Sync command - just ack it and set the display register
-  State stSync(RING* const r, byte b) {
-    if (!canSend(1)) {
-      return;
-    }
-    consume(r, 1);
-    sendAck(b);
-    setDisplay(0xC2);
-    return STATE_READY;
+  State stUndef(RING* const r, byte b) {
+    return stBadCmd(r, b); // for now    
   }
 
-  // GetVer command - when we can send, consume the command
-  // byte and send the ack and version. Does not change state.
-  State stGetVer(RING* const r, byte b) {
-    if (!canSend(2)) {
-      return;
-    }
-    consume(r, 1);
+  State stGetMcr(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
 
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {   
-      sendAck(b);
-      send(PROTOCOL_VERSION);
-    }
-    return state;
+  State stEnFast(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stDisFast(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stEnSlow(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stDisSlow(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stRun(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stStop(RING* const r, byte b) {
+    return stBadCmd(r, b);
   }
 
   // Respond to a poll request from the host. This is a state machine
@@ -320,6 +326,82 @@ namespace SerialPrivate {
     return state;
   }
 
+  State stResp(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  // GetVer command - when we can send, consume the command
+  // byte and send the ack and version. Does not change state.
+  State stGetVer(RING* const r, byte b) {
+    if (!canSend(2)) {
+      return;
+    }
+    consume(r, 1);
+
+    if (state != STATE_READY) {
+      sendNak(b);
+    } else {   
+      sendAck(b);
+      send(PROTOCOL_VERSION);
+    }
+    return state;
+  }
+
+  // Sync command - just ack it and set the display register
+  State stSync(RING* const r, byte b) {
+    if (!canSend(1)) {
+      return;
+    }
+    consume(r, 1);
+    sendAck(b);
+    setDisplay(0xC2);
+    return STATE_READY;
+  }
+
+  State stSetAH(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stSetAL(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stSetDH(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stSetDL(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stOneClk(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stGetBir(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stWrSlice(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stRdSlice(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stOneXfr(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stWrPage(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
+  State stRdPage(RING* const r, byte b) {
+    return stBadCmd(r, b);
+  }
+
   // SetK has a count byte which may be 2 or 4 followed by either
   // 2 or 4 argument bytes. If 2, the bytes are a K register in
   // 0..3 and a value. If 4, the bytes are all four K register
@@ -335,12 +417,12 @@ namespace SerialPrivate {
       // We have the command and the count
       if (cmdBuf[1] == 2 && copy(rcvBuf, cmdBuf, 4) == 4) { // short form
         consume(rcvBuf, 4);
-        publicWriteByteToK(cmdBuf[2], cmdBuf[3]);
+        WriteByteToK(cmdBuf[2], cmdBuf[3]);
         sendAck(b);
       } else if (cmdBuf[1] == 4 && copy(rcvBuf, cmdBuf, 6) == 6) { // long form
         consume(rcvBuf, 6);
         for (int i = 2; i < 6; ++i) {
-          publicWriteByteToK(i - 2, cmdBuf[i]);
+          WriteByteToK(i - 2, cmdBuf[i]);
         }
         sendAck(b);
       }
@@ -352,14 +434,14 @@ namespace SerialPrivate {
   // PROGMEM (ROM) so requires special access, below.
   
   const PROGMEM CommandHandler handlers[] = {
-    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xE0 ...
-    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xE4 ...
-    stBadCmd,   stPoll,    stBadCmd,   stBadCmd,     // 0xE8 ...
-    stBadCmd,   stBadCmd,  stGetVer,   stSync,       // 0xEC ...
+    stBadCmd,   stGetMcr,  stEnFast,   stDisFast,    // 0xE0 ...
+    stEnSlow,   stDisSlow, stUndef,    stRun,        // 0xE4 ...
+    stStop,     stPoll,    stResp,     stUndef,      // 0xE8 ...
+    stUndef,    stUndef,   stGetVer,   stSync,       // 0xEC ...
   
-    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF0 ...
-    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xF4 ...
-    stBadCmd,   stBadCmd,  stBadCmd,   stSetK,       // 0xF8 ...
+    stSetAH,    stSetAL,   stSetDH,    stSetDL,      // 0xF0 ...
+    stOneClk,   stGetBir,  stWrSlice,  stRdSlice,    // 0xF4 ...
+    stOneXfr,   stWrPage,  stRdPage,   stSetK,       // 0xF8 ...
     stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
   };
 
