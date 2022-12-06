@@ -485,9 +485,11 @@ namespace PortPrivate {
   //
   // Does not update the hardware.
   void ucrSetSlice(byte slice) {
+    const byte twiddle[] = { 0x00, 0x02, 0x01, 0x03 };
     slice &= UCR_SLICE_ADDR_MASK;
+    byte kReg = twiddle[slice];
     ucrShadow &= ~(UCR_KREG_ADDR_MASK | UCR_SLICE_ADDR_MASK);
-    ucrShadow |= (slice << UCR_K_ADDR_SHFT) | slice;
+    ucrShadow |= (kReg << UCR_K_ADDR_SHFT) | slice;
   }
 
   // Set the selected slice transceiver to the unsafe

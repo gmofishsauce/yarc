@@ -257,6 +257,18 @@ namespace PortPrivate {
     mcrMakeSafe();
 
 #if 0
+    setDisplay(0x3C);
+    for(;;) {
+      byte k = 0x02;
+      //for (byte k = 0; k < 4; k++) {
+        writeByteToK(k, 0);
+      //}
+      //for (byte k = 0; k < 4; k++) {
+      //  writeByteToK(k, 0xFF);
+      //}
+    writeBytesToSlice(0x80, k, &k, 1);
+  }
+
     setDisplay(0xCC);
     for (;;) {
       byte b = 1;
@@ -379,7 +391,7 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
-#if 0
+
 // Write the entire 64-byte slice of data for the given opcode with
 // values derived from the opcode. Read the data back from the slice
 // and check it. This function uses 128 bytes of static storage.
@@ -402,11 +414,8 @@ bool validateOpcodeForSlice(byte opcode, byte slice) {
 
   return true;
 }
-#endif
 
 int portTask() {
-  return 311;
-#if 0
   static byte failed = false;
   static byte done = true;
   static byte opcode;
@@ -438,7 +447,6 @@ int portTask() {
 
   setDisplay(opcode);
   return 11;
-#endif
 }
 
 // Interface to the 4 write-only bus registers: setAH
