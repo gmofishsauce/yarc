@@ -148,7 +148,7 @@
 
 # Microcode for a FETCH cycle
 .set FETCH_3 "src1=PC src2=const_p2 dst=dst_none"
-.set FETCH_2 "alu_op=alu_add alu_ctl=alu_phi1 alu_load_hold=0 alu_load_flags=1"
+.set FETCH_2 "alu_op=alu_add alu_ctl=alu_phi1 alu_load_hold=0 alu_load_flgs=1"
 .set FETCH_1 "sysdata_src=bus_mem reg_in_mux=from_bus stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
 .set FETCH_0 "rw=1 rsw_ir_uc=1 m16_en=0 ir_clk=0 rsw_ir_uc=0"
 
@@ -163,4 +163,3 @@
 .set DECODE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=0"
 
 .set DECODE "DECODE_0 DECODE_1 DECODE_2 DECODE_3"
-

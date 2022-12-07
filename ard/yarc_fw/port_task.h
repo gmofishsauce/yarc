@@ -391,6 +391,8 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
+#define PORT_TESTING 0
+#if PORT_TESTING
 
 // Write the entire 64-byte slice of data for the given opcode with
 // values derived from the opcode. Read the data back from the slice
@@ -449,6 +451,13 @@ int portTask() {
   return 11;
 }
 
+#else
+
+  void portTask() {
+    return 171;
+  }
+
+#endif
 // Interface to the 4 write-only bus registers: setAH
 // (address high), AL, DH (data high), DL.
   

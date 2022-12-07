@@ -215,22 +215,21 @@ const SLOT_NOOP = 0xFFFFFFFF
 
 func dumpWCS(gs *globalState) {
 	fmt.Println("SLOT DATA")
-	for opcode := 0; opcode < WCS_OPCODES; opcode += WCS_SLOTS_PER_OPCODE {
+	for opcode := 0; opcode < WCS_OPCODES; opcode++ {
 		printThisOpcode := false
 		for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-			if gs.wcs[opcode+slot] != SLOT_NOOP {
+			if gs.wcs[WCS_SLOTS_PER_OPCODE*opcode+slot] != SLOT_NOOP {
 				printThisOpcode = true
 				break
 			}
 		}
 		if printThisOpcode {
-			fmt.Printf("0x%02X ", opcode+0x80) // should disassemble, add is a hack, etc.
+			fmt.Printf("Opcode 0x%02X\n", opcode+0x80) // should disassemble, add is a hack, etc.
 			for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-				if gs.wcs[opcode+slot] == SLOT_NOOP {
+				fmt.Printf("%08X ", gs.wcs[WCS_SLOTS_PER_OPCODE*opcode+slot])
+				if slot & 0x07 == 0x07 {
 					fmt.Println()
-					break // Hmmm, cannot have an empty slot followed by non-empty slots?
 				}
-				fmt.Printf("%08X ", gs.wcs[opcode+slot])
 			}
 		}
 	}

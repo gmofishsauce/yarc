@@ -129,6 +129,7 @@ func actionOpcode(gs *globalState) error {
 		func(gs *globalState) error { return doOpcode(gs, name.text()) })
 	gs.inOpcode = true
 	gs.opcodeValue = byte(code)
+	gs.wcsNext = int(gs.opcodeValue &^ 0x80) * WCS_SLOTS_PER_OPCODE
 	return nil
 }
 
@@ -139,6 +140,7 @@ func actionEndOpcode(gs *globalState) error {
 	}
 	gs.inOpcode = false
 	gs.opcodeValue = 0
+	gs.wcsNext = -1;
 	return nil
 }
 
@@ -159,6 +161,7 @@ func actionSlot(gs *globalState) error {
 			return err
 		}
 		if tk.kind() == tkOperator && tk.text() == ";" {
+			gs.wcsNext++;
 			return nil
 		}
 		field, ok := gs.symbols[tk.text()].symbolData.([]int64)
@@ -181,7 +184,10 @@ func actionSlot(gs *globalState) error {
 		if num < 0 || num > max {
 			return fmt.Errorf(".bitfield: %d out of range for %s", num, tk)
 		}
+		gs.wcs[gs.wcsNext] &^= uint32(max << field[2]);
 		gs.wcs[gs.wcsNext] |= uint32((num & max) << field[2])
+		fmt.Printf("set opcode 0x%02x slot %d bit offset %d to 0x%02X value 0x%08x\n",
+			gs.opcodeValue, gs.wcsNext, field[2], uint32(num & max), gs.wcs[gs.wcsNext])
 	}
 }
 

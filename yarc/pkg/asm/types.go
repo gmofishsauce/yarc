@@ -262,7 +262,7 @@ type globalState struct {
 	mem         []byte // memory, 0x0000 .. 0x77FF
 	memNext     int
 	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
-	wcsNext     int
+	wcsNext     int		 // index of "next" slot in wcs
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
@@ -274,7 +274,7 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	for i := 0; i < len(gs.wcs); i++ {
 		gs.wcs[i] = SLOT_NOOP;
 	}
-	gs.wcsNext = 0
+	gs.wcsNext = -1
 	gs.reader = new(stackingNameLineByteReader)
 	gs.symbols = make(symbolTable)
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))
