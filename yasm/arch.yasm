@@ -135,7 +135,7 @@
 .bitfield ctl_TBD_30    32    3:0   # unassigned:4
 
 # When alu_ctl = 3, the alu_op field can be repurposed, say for I/O operations. When alu_ctl = 3,
-# dst_wr_en# is high, and alu_load_hold is high, the RSW (K register 31:24) can be# similarly repurposed.
+# dst_wr_en is high, and alu_load_hold is high, the RSW (K register 31:24) can be similarly repurposed.
 
 # Microcode combinations
 .set IDLE_3 "src1=src1_none src2=src2_none dst=dst_none" # 0xFF

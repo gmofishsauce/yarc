@@ -318,6 +318,32 @@ namespace PortPrivate {
       panic(PANIC_POST, 3);
     }
   
+    // Next try writing and reading the instruction register a few times.
+    // It's enabled to the system data bus by setting the sysdata_src field
+    // of the microcode control register to the value 2 (010b). It's not
+    // clocked (this is an experiment) - when the sysdata_src value is 010b,
+    // it's enabled. But note that the Nano can only read the low half of
+    // sysdata via the BIR - a holdover of the original 8-bit design of YARC.
+
+    // setAH(0xFF); setAL(0xFF);
+    // writeIR(0xAA, 0xAA);
+    // for (;;) {
+    //   writeByteToK(1, 0x5F); // 0B0101_1111 (010 in the high order bits)
+    //   singleClock(); // to clock the bus input register
+    //   byte b = getBIR();
+    //   writeByteToK(1, 0xFF);
+    // }
+    // if (b != 0xAA) {
+    //   panic(PANIC_POST, 11);
+    // }    
+
+    // Now in order to read and write main memory, we need to set the
+    // the sysdata_src field of the microcode control register K to the
+    // value MEM. This is a value of 5 in the three MS bits of K byte 1.
+
+    setAH(0xFF); setAL(0xFF);
+    writeByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
+
     // Write and read the first 4 bytes
     setAH(0x00);
     setAL(0x00); setDL('j' & 0x7F); singleClock();
@@ -391,7 +417,7 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
-#define PORT_TESTING 0
+#define PORT_TESTING 1
 #if PORT_TESTING
 
 // Write the entire 64-byte slice of data for the given opcode with
