@@ -224,7 +224,7 @@ namespace PortPrivate {
   // Bits in the MCR
   constexpr byte MCR_BIT_0_WCS_EN_L      = 0x01; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
   constexpr byte MCR_BIT_1_IR_EN_L       = 0x02; // Clock enable for Nano writing to IR when SYSCLK
-  constexpr byte MCR_BIT_2_UNUSED        = 0x04;
+  constexpr byte MCR_BIT_2_SYSBUS_EN_L   = 0x04; // Low enable for sysdata_src decoder; even mem can't drive sysbus unless low
   constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
   constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
   constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
@@ -422,6 +422,16 @@ namespace PortPrivate {
     mcrShadow |= MCR_BIT_1_IR_EN_L;
   }
   
+  // Enable other bus masters to drive sysbus
+  inline void mcrEnableSysbus() {
+    mcrShadow &= ~MCR_BIT_2_SYSBUS_EN_L;
+  }
+
+  // Disable all other bus drivers on sysbus, even mem
+  inline void mcrDisableSysbus() {
+    mcrShadow |= MCR_BIT_2_SYSBUS_EN_L;
+  }
+
   inline void mcrEnableFastclock() {
     mcrShadow &= ~MCR_BIT_FASTCLKEN_L;
   }
@@ -439,7 +449,7 @@ namespace PortPrivate {
   }
   
   inline void mcrForceUnusedBitsHigh() {
-    mcrShadow |= (MCR_BIT_2_UNUSED | MCR_BIT_7_UNUSED);
+    mcrShadow |= MCR_BIT_7_UNUSED;
   }
   
   inline bool yarcIsPowerOnReset() {
@@ -455,6 +465,7 @@ namespace PortPrivate {
   void mcrMakeSafe() {
     mcrDisableWcs();
     mcrDisableIRwrite();
+    mcrDisableSysbus();
     mcrDisableFastclock();
     mcrDisableYarc();
     mcrForceUnusedBitsHigh();

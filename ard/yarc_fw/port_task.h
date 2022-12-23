@@ -84,13 +84,13 @@ namespace PortPrivate {
     // BEFORE setting the UCR to write, load the IR and then
     // clock it 64 times to raise the OE# signal on the RAMs.
     // This sets the RAM location that will be overwritten;
-	// currently it's set to 0xFC, which is not used; we could
-	// carefully write the RAM "last" if necessary.
+	  // currently it's set to 0xFC, which is not used; we could
+	  // carefully write the RAM "last" if necessary.
     writeIR(0xFC, 0x00);
     for (int i = 0; i < 64; ++i) {
       singleClock();
     }
-    
+
     // The RAM output enable (OE#) line, which is connected
     // to the 64-weight bit of the microcode state counter,
     // should now be high, disabling the RAM outputs.
@@ -116,7 +116,7 @@ namespace PortPrivate {
 
     mcrMakeSafe();
     ucrMakeSafe();
-    writeIR(0xFC, 0x00); // re-enable RAM output
+    writeIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
     setAH(0xFF); 
   }
 
@@ -183,23 +183,11 @@ namespace PortPrivate {
   }
 
   // Set the four K (microcode) registers to their "safe" value.
-  // This function clocks the floating bus into the K registers,
-  // because it's easy and fast and the "safe" value of the K
-  // registers is 0xFF (so we are relying on the pullup resistors
-  // for the values clocked into the registers).
-  //
-  // We do this because the write sequence for arbitrary data into
-  // the K register is more complex.
   void kRegMakeSafe() {
-    for (byte kReg = 0; kReg < 4; ++kReg) {
-      ucrShadow = UCR_SAFE & ~(UCR_KREG_ADDR_MASK|UCR_KREG_WR_EN_L);
-      ucrShadow |= (kReg << UCR_K_ADDR_SHFT);
-
-      syncUCR();
-      
-      singleClock();
-    }
-    
+    writeByteToK(0, 0xFF);
+    writeByteToK(1, 0xFF);
+    writeByteToK(2, 0xFF);
+    writeByteToK(3, 0xFF);
     ucrMakeSafe();
   }
 
@@ -224,7 +212,6 @@ namespace PortPrivate {
     // and UCR in a safe state, and then put the MCR back in a safe state.
     mcrMakeSafe();
     kRegMakeSafe();
-    ucrMakeSafe();
     mcrMakeSafe();
   }
 
@@ -234,10 +221,41 @@ namespace PortPrivate {
     ucrMakeSafe();
     mcrMakeSafe();
     
+    mcrEnableSysbus();      // Allow other than Nano to drive the bus
     mcrEnableYarc();        // lock the Nano off the bus
     mcrEnableFastclock();   // enable the YARC to run at speed
     syncMCR();
   }
+
+/*
+
+  // Write the entire 64-byte slice of data for the given opcode with
+  // values derived from the opcode. Read the data back from the slice
+  // and check it. This function uses 128 bytes of static storage, so
+  // it's inside an #if that can be disabled. The #if also disables
+  // calls to this function from the portTask() function, below.
+  bool validateOpcodeForSlice(byte opcode, byte slice) {
+    static byte data[64];
+    static byte result[64];
+    const byte N = 2; // XXX - for troubleshooting can be less than 64 
+
+    for (int i = 0; i < N; ++i) {
+      data[i] = opcode + i;
+    }
+    
+    writeBytesToSlice(opcode | 0x80, slice, data, N);
+    readBytesFromSlice(opcode | 0x80, slice, result, N);
+    
+    for (int i = 0; i < N; ++i) {
+      if (data[i] != result[i]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+*/
 
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
   // The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
@@ -255,34 +273,6 @@ namespace PortPrivate {
     kRegMakeSafe();
     ucrMakeSafe();
     mcrMakeSafe();
-
-#if 0
-    setDisplay(0x3C);
-    for(;;) {
-      byte k = 0x02;
-      //for (byte k = 0; k < 4; k++) {
-        writeByteToK(k, 0);
-      //}
-      //for (byte k = 0; k < 4; k++) {
-      //  writeByteToK(k, 0xFF);
-      //}
-    writeBytesToSlice(0x80, k, &k, 1);
-  }
-
-    setDisplay(0xCC);
-    for (;;) {
-      byte b = 1;
-      writeByteToK(3, 0x01);
-      writeBytesToSlice(0x80, 3, &b, 1);
-      writeIR(0x83, 0x83);
-
-      setAH(0x00); setDH(0x00);
-      setAL(0x00); setDL(b); singleClock();
-      setAL(0x01); setDL(b); singleClock();
-      setAL(0x02); setDL(b); singleClock();
-      setAL(0x03); setDL(b); singleClock();
-    }
-#endif
    
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
@@ -318,24 +308,7 @@ namespace PortPrivate {
       panic(PANIC_POST, 3);
     }
   
-    // Next try writing and reading the instruction register a few times.
-    // It's enabled to the system data bus by setting the sysdata_src field
-    // of the microcode control register to the value 2 (010b). It's not
-    // clocked (this is an experiment) - when the sysdata_src value is 010b,
-    // it's enabled. But note that the Nano can only read the low half of
-    // sysdata via the BIR - a holdover of the original 8-bit design of YARC.
-
-    // setAH(0xFF); setAL(0xFF);
-    // writeIR(0xAA, 0xAA);
-    // for (;;) {
-    //   writeByteToK(1, 0x5F); // 0B0101_1111 (010 in the high order bits)
-    //   singleClock(); // to clock the bus input register
-    //   byte b = getBIR();
-    //   writeByteToK(1, 0xFF);
-    // }
-    // if (b != 0xAA) {
-    //   panic(PANIC_POST, 11);
-    // }    
+    setAH(0xFF); setAL(0xFF);
 
     // Now in order to read and write main memory, we need to set the
     // the sysdata_src field of the microcode control register K to the
@@ -343,6 +316,8 @@ namespace PortPrivate {
 
     setAH(0xFF); setAL(0xFF);
     writeByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
+    mcrEnableSysbus();
+    syncMCR();
 
     // Write and read the first 4 bytes
     setAH(0x00);
@@ -404,10 +379,13 @@ namespace PortPrivate {
       }
     }
 
+    kRegMakeSafe();
+    ucrMakeSafe();
+    mcrMakeSafe();
     setDisplay(0xC0);
 
     return true;
-  }
+  } // End of internalPostInit()
 
 } // End of PortPrivate section
 
@@ -417,31 +395,7 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
-#define PORT_TESTING 1
-#if PORT_TESTING
-
-// Write the entire 64-byte slice of data for the given opcode with
-// values derived from the opcode. Read the data back from the slice
-// and check it. This function uses 128 bytes of static storage.
-bool validateOpcodeForSlice(byte opcode, byte slice) {
-  static byte data[64];
-  static byte result[64];
-
-  for (int i = 0; i < sizeof(data); ++i) {
-    data[i] = opcode + i;
-  }
-  
-  PortPrivate::writeBytesToSlice(opcode | 0x80, slice, data, sizeof(data));
-  PortPrivate::readBytesFromSlice(opcode | 0x80, slice, result, sizeof(result));
-  
-  for (int i = 0; i < sizeof(data); ++i) {
-    if (data[i] != result[i]) {
-      return false;
-    }
-  }
-
-  return true;
-}
+/*
 
 int portTask() {
   static byte failed = false;
@@ -459,10 +413,11 @@ int portTask() {
     done = false;
   }
 
-  if (!validateOpcodeForSlice(opcode, slice)) {
-      setDisplay(0xAA);
-      failed = true;
-      return 103;
+  if (!PortPrivate::validateOpcodeForSlice(opcode, slice)) {
+      panic(opcode, slice);
+      //setDisplay(0xAA);
+      //failed = true;
+      //return 103;
   }
 
   if (++slice > 3) {
@@ -477,43 +432,43 @@ int portTask() {
   return 11;
 }
 
-#else
+*/
 
-  void portTask() {
-    return 171;
-  }
+int portTask() {
+  return 171;
+}
 
-#endif
+
 // Interface to the 4 write-only bus registers: setAH
 // (address high), AL, DH (data high), DL.
   
-  void SetAH(byte b) {
-    PortPrivate::setAH(b);
-  }
+void SetAH(byte b) {
+  PortPrivate::setAH(b);
+}
+
+void SetAL(byte b) {
+  PortPrivate::setAL(b);
+}
   
-  void SetAL(byte b) {
-    PortPrivate::setAL(b);
-  }
-  
-  void SetDH(byte b) {
-    PortPrivate::setDH(b);
-  }
-  
-  void SetDL(byte b) {
-    PortPrivate::setDL(b);
-  }
-  
-  // Public interface to the read registers: Bus Input Register
-  // and the readback value of the MCR.
-  
-  byte GetBIR() {
-    return PortPrivate::getBIR();
-  }
-  
-  byte GetMCR() {
-    return PortPrivate::getMCR();
-  }
-  
+void SetDH(byte b) {
+  PortPrivate::setDH(b);
+}
+
+void SetDL(byte b) {
+  PortPrivate::setDL(b);
+}
+
+// Public interface to the read registers: Bus Input Register
+// and the readback value of the MCR.
+
+byte GetBIR() {
+  return PortPrivate::getBIR();
+}
+
+byte GetMCR() {
+  return PortPrivate::getMCR();
+}
+
 bool WriteByteToK(byte kReg, byte kVal) {
   if (kReg > 3) {
     return false;
