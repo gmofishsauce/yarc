@@ -5,6 +5,25 @@ package host
 // Command handlers for Arduino Nano ("Downloader", "System
 // Interface" interactions.
 
+// Proposed design for simple macros and command files:
+//
+// 1. Implement semicolon as an in-line command separator.
+// 2. Implement slash char as a macro definition -
+//    /macro_name command1 ; command2 ; etc
+//    The entire command after macro_name is simply stored
+//    Macros must be contained in a single line.
+// 3. Use of the macro name as a command invokes the line
+// 4. Implement at char as a way to indirect to file -
+//    @filename causes the content of filename to be read.
+// 5. Allow a commmand as an optional command line argument:
+//    ./yarc host @filename
+//
+// Macros can freely invoke other macros, with a modest depth
+// limit to prevent infinite recursion. @-file can also invoke
+// other @-files, same deal.
+//
+// 12/26/2022 - None of this is implemented.
+
 import (
 	"github.com/gmofishsauce/yarc/pkg/arduino"
 	sp "github.com/gmofishsauce/yarc/pkg/proto"
@@ -61,6 +80,7 @@ var commands = []protocolCommand {
 	{ sp.CmdWritePage,   "wp", "WritePage",   1, true,  notImpl },
 	{ sp.CmdReadPage,    "rp", "ReadPage",    1, true,  notImpl },
 	{ sp.CmdSetK,        "sk", "SetK",        2, true,  setK    },
+	{ sp.CmdSetMcr,      "sm", "SetMCR",      1, false, setMcr  },
 }
 
 func init() {
@@ -104,7 +124,6 @@ func setK(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, err
 		return nostr, fmt.Errorf("usage: sk kRegNum kValue");
 	}
 
-	//var args []byte = byte[2]
 	args := make([]byte, 2, 2)
 	n, err := strconv.ParseInt(words[1], 0, 16)
 	if err != nil {
@@ -125,6 +144,18 @@ func setK(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, err
 	args[1] = byte(n)
 
 	return nostr, doCommandWithCountedBytes(nano, sp.CmdSetK, args)
+}
+
+func setMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	words := strings.Split(line, " ");
+	if len(words) != 2 {
+		return nostr, fmt.Errorf("usage: sm mcrValue");
+	}
+	n, err := strconv.ParseInt(words[1], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	return nostr, doCommandWithFixedArgs(nano, []byte { sp.CmdSetMcr, byte(n) });
 }
 
 /* This command is issued regularly by the host and it doesn't make sense

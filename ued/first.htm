@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>YARC Microcode Definition</title>
+
+    <script>
+
+	// Save the text in the named file.
+    function download(filename, text) {
+      var element = document.createElement('a');
+      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+      element.setAttribute('download', filename);
+      element.style.display = 'none';
+
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    }
+
+	// Get a filename from the user (mandatory)
+	function openFile() {
+	  document.getElementById('inp').click();
+	}
+
+	// Read the selected filename (and for now, display
+	// it in a predefined location in on the screen - TBD)
+	function readFile(e) {
+	  var file = e.target.files[0];
+	  if (!file) return;
+	  var reader = new FileReader();
+	  reader.addEventListener("load", () => {
+        // this will then display a text file
+        contents.innerText = reader.result;
+      }, false);
+
+	  reader.onload = function(e) {
+		document.getElementById('contents').innerHTML = e.target.result;
+	  }
+	  reader.readAsText(file)
+	}
+
+	// Collect the values of all the controls in the form and
+	// assemble them into a string of [name:value] pairs.
+	function collect() {
+		result = ""
+		const forms = document.querySelectorAll('form');
+		const form = forms[0];
+		Array.from(form.elements).forEach((input) => {
+		  console.log(input.value);
+		  result += "[" + input.name + ":" + input.value + "]\n"
+		});
+
+		return result;
+	}
+
+    </script>
+  </head>
+
+  <body>
+    <H1>
+	  YARC Microcode Editor
+    </H1>
+    <p>
+	  <button onclick="download('microcode.txt', collect());">Save</button>
+	  &nbsp;
+	  <button onclick="openFile()">Open</button>
+	  <input id="inp" type='file' style="visibility:hidden;" onchange="readFile(event)" />
+	  <pre id="contents"></pre>
+	</p>
+
+	<form name=all action="/this/form/cannot/be/submitted">
+    
+	  <p>
+	  K3:&nbsp
+	  src1: <select name="src1">
+		<option value="0">R0</option>
+		<option value="1">R1</option>
+		<option value="2">R2</option>
+		<option value="3" selected>R3</option>
+	  </select>
+	  &nbsp;
+	  src2: <select name="src2">
+		<option value="0">R0</option>
+		<option value="1">R1</option>
+		<option value="2">R2</option>
+		<option value="3">R3</option>
+		<option value="4">+2</option>
+		<option value="5">+1</option>
+		<option value="6">-2</option>
+		<option value="7" selected>-1</option>
+	  </select>
+	  &nbsp;
+	  dst: <select name="dst">
+		<option value="0">R0</option>
+		<option value="1">R1</option>
+		<option value="2">R2</option>
+		<option value="3">R3</option>
+		<option value="4">?R0</option>
+		<option value="5">?R1</option>
+		<option value="6">?R2</option>
+		<option value="7" selected>?R3</option>
+	  </select>
+	  </p>
+
+	  <p>
+	  K2:
+	  alu_op: <select name="alu_op">
+        <option value="0">alu_add</option>
+        <option value="1">alu_sub</option>
+        <option value="2">alu_rsub</option>
+        <option value="3">alu_adc</option>
+        <option value="4">alu_sbb</option>
+        <option value="5">alu_rsbb</option>
+        <option value="6">alu_nand</option>
+        <option value="7">alu_or</option>
+        <option value="8">alu_xor</option>
+        <option value="9">alu_not</option>
+        <option value="10">alu_neg</option>
+        <option value="11">alu_rot</option>
+        <option value="12">alu_0x0C</option>
+        <option value="13">alu_0x0D</option>
+        <option value="14">alu_0x0E</option>
+        <option value="15" selected>alu_0x0F</option>
+	  </select>
+	  alu_ctl: <select name="alu_ctl">
+        <option value="0">alu_phi1</option>
+        <option value="1">alu_phi2</option>
+        <option value="2">alu_in</option>
+        <option value="3" selected>alu_none</option>
+	  </select>
+	  <!-- careful: unselected evaluates to 1, selected to 0 -->
+	  alu_load_hold: <input type=checkbox name="alu_load_hold"/>
+	  alu_load_flgs: <input type=checkbox name="alu_load_flgs"/>
+	  </p>
+
+	  <p>
+	  K1:
+	  sysdata_src: <select name="sysdata_src">
+	    <option value="0">gr</option>
+	    <option value="1">sp</option>
+	    <option value="2">ir</option>
+	    <option value="3">f</option>
+	    <option value="4">mem</option>
+	    <option value="5">TBD</option>
+	    <option value="6">TBD</option>
+	    <option value="7" selected>none</option>
+	  </select>
+	  reg_in_mux: <select name="reg_in_mux">
+	    <option value="0">alu</option>
+	    <option value="1" selected>sysdata</option>
+	  </select>
+      stack_up_clk: <input type=checkbox name="stack_up_clk"/>
+      stack_dn_clk: <input type=checkbox name="stack_dn_clk"/>
+	  psp_rsp: <select name="psp_rsp">
+		<option value="0">rsp</option>
+		<option value="1" selected>psp</option>
+	  </select>
+	  dst_wr_en: <input type=checkbox name="dst_wr_en"/>
+	  </p>
+
+	  <p>
+	  K0:
+	  rw: <input type=checkbox name="rw"/>
+	  m16_en: <input type=checkbox name="m16_en"/>
+	  ir_clk: <input type=checkbox name="ir_clk"/>
+	  rsw_ir_uc: <input type=checkbox name="rsw_ir_uc"/>
+	  (four bits unassigned)
+	  </p>
+	</form>
+  </body>
+</html>

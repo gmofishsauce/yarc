@@ -481,6 +481,13 @@ bool postInit() {
   return PortPrivate::internalPostInit();
 }
 
+// Change of philosophy: direct set of MCR
+
+void SetMCR(byte b) {
+  PortPrivate::mcrShadow = b;
+  PortPrivate::syncMCR();
+}
+
 // Public interface to the write-only 8-bit Display Register (DR)
 
 void setDisplay(byte b) {

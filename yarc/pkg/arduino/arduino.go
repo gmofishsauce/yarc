@@ -93,7 +93,7 @@ func (arduino *Arduino) ReadFor(timeout time.Duration) (byte, error) {
 }
 
 // Write a byte to the Arduino. Return error if the write would block.
-func (arduino *Arduino) Write(b byte) error {
+func (arduino *Arduino) Write(b []byte) error {
 	return arduino.writeByte(b)
 }
 
@@ -149,18 +149,17 @@ func (arduino *Arduino) readByte(readTimeout time.Duration) (byte, error) {
 // event for a long-enough timeout, like a second, and then cancel
 // the write call (I think the serial module supports this) and
 // return an error. So far I haven't bothered.
-func (arduino *Arduino) writeByte(toWrite byte) error {
+func (arduino *Arduino) writeByte(toWrite []byte) error {
 	if debug {
 		log.Printf("writeByte: write 0x%X\n", toWrite)
 	}
-	b := []byte { toWrite }
 	var n int
 	var err error
 
 	// The for-loop is -solely- to handle EINTR, which occurs constantly
 	// as a result of Golang's Goroutine-level context switching mechanism.
 	for {
-		n, err = arduino.port.Write(b)
+		n, err = arduino.port.Write(toWrite)
 		// Drop out of the loop on success
 		// or error, but not on EINTR.
 		if !isRetryableSyscallError(err) {
@@ -173,8 +172,8 @@ func (arduino *Arduino) writeByte(toWrite byte) error {
 	if err != nil {
 		return err
 	}
-	if n != 1 {
-		return fmt.Errorf("write consumed 0 bytes")
+	if n != len(toWrite) {
+		return fmt.Errorf("write didn't consume all the bytes")
 	}
 	return nil
 }

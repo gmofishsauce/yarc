@@ -268,7 +268,18 @@ namespace SerialPrivate {
   }
 
   State stGetMcr(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    if (!canSend(2)) {
+      return;
+    }
+    consume(r, 1);
+
+    if (state != STATE_READY) {
+      sendNak(b);
+    } else {   
+      sendAck(b);
+      send(GetMCR());
+    }
+    return state;
   }
 
   State stEnFast(RING* const r, byte b) {
@@ -425,11 +436,31 @@ namespace SerialPrivate {
           WriteByteToK(i - 2, cmdBuf[i]);
         }
         sendAck(b);
-      }
+      } // else don't consume and don't reply; just wait
     }
     return state;
   }
   
+  // Set the MCR. This is a change in philosophy added December 2022.
+  State stSetMCR(RING* const r, byte b) {
+    if (!canSend(1)) {
+      return;
+    }
+    byte cmdbuf[2];
+    if (copy(r, cmdbuf, 2) != 2) {
+      return;
+    }
+    consume(r, 2);
+
+    if (state != STATE_READY) {
+      sendNak(b);
+    } else {
+      SetMCR(cmdbuf[1]);
+      sendAck(b);
+    }
+    return state;
+  }
+
   // Jump table for protocol command handlers. The table is stored in
   // PROGMEM (ROM) so requires special access, below.
   
@@ -442,7 +473,7 @@ namespace SerialPrivate {
     stSetAH,    stSetAL,   stSetDH,    stSetDL,      // 0xF0 ...
     stOneClk,   stGetBir,  stWrSlice,  stRdSlice,    // 0xF4 ...
     stOneXfr,   stWrPage,  stRdPage,   stSetK,       // 0xF8 ...
-    stBadCmd,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
+    stSetMCR,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
   };
 
   // There is at least one byte waiting to be processed in the receive-

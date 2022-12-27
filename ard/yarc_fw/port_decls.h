@@ -17,7 +17,8 @@ void SetAH(byte b);
 void SetAL(byte b);
 void SetDH(byte b);
 void SetDL(byte b);
-byte GetMcr();
+void SetMCR(byte b);
+byte GetMCR();
 byte GetBir();
 
 

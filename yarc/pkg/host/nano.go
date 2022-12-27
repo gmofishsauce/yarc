@@ -170,14 +170,22 @@ func (u *UnexpectedResponseError) Error() string {
 
 // Do a command, returning error if no ack or bad ack.
 func doCommand(nano *arduino.Arduino, cmd byte) error {
+	b := []byte { cmd }
+	return doCommandWithFixedArgs(nano, b)
+}
+
+func doCommandWithFixedArgs(nano *arduino.Arduino, cmd []byte) error {
+	if len(cmd) < 1 || len(cmd) > 8 {
+		return fmt.Errorf("invalid command length")
+	}
 	if debug {
-		log.Printf("doCommand: write 0x%X\n", cmd)
+		log.Printf("doCommand: write 0x%X with %d argument bytes\n", cmd[0], len(cmd) - 1)
 	}
 	if err := nano.Write(cmd); err != nil {
 		// typical error here: "write would block"
 		return err
 	}
-	return getAck(nano, cmd)
+	return getAck(nano, cmd[0])
 }
 
 func getAck(nano *arduino.Arduino, cmd byte) error {
@@ -219,12 +227,7 @@ func doCommandWithCountedBytes(nano *arduino.Arduino, cmd byte, bytes []byte) er
 	for i := range(bytes) {
 		msg[2 + i] = bytes[i]
 	}
-    for i := range(msg) {
-        if err := nano.Write(msg[i]); err != nil {
-            return err
-        }
-        fmt.Printf("wrote byte 0x%02x\n", msg[i])
-    }
+	nano.Write(msg)
     return getAck(nano, cmd)
 }
 

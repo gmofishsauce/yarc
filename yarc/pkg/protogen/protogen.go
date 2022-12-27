@@ -38,6 +38,7 @@ var names = []struct {
 	{ "STCMD_WRITE_PAGE", 0xF9 },
 	{ "STCMD_READ_PAGE", 0xFA },
 	{ "STCMD_SET_K", 0xFB },
+	{ "STCMD_SET_MCR", 0xFC },
 }
 
 var errors = []struct {
@@ -55,8 +56,9 @@ var errors = []struct {
 }
 
 // Protocol version 5. Added the read and write microcode slice commands.
+// Protocol version 6. Change of philosophy: added direct set of MCR.
 
-const protocolVersion = 5
+const protocolVersion = 6
 
 func Generate() {
 	generateCSymbols("serial_protocol.h")
