@@ -54,6 +54,28 @@
 		return result;
 	}
 
+	function collect2() {
+	  const kmap = new Map();
+	  kmap.set("k3", 0xFF); kmap.set("k2", 0xFF); kmap.set("k1", 0xFF); kmap.set("k0", 0xFF);
+
+	  Array.from(document.getElementById('all').elements).forEach((ctl) => {
+		console.log(ctl.name + ": " + ctl.value);
+		a = ctl.name.split("-");
+		if (a.length == 4 && a[0].startsWith("k")) { // if it's a "k control" (microcode setting):
+		  // a[0] is the k-register; a[1] is the field name; a[2] is the AND pattern; a[3] is the shift
+		  console.log(ctl.name + ": " + a[0] + " " + a[1] + " " + a[2] + " " + a[3] + " " + kmap.get(a[0]));
+		  kmap.set(a[0], kmap.get(a[0]) & ~(a[2] << a[3]));
+		  kmap.set(a[0], kmap.get(a[0]) | ((ctl.value & a[2]) << a[3]));
+		}
+	  });
+
+	  contents.innerText =
+		"sk 0 " + "0x" + kmap.get("k0").toString(16) + "\n" + 
+		"sk 1 " + "0x" + kmap.get("k1").toString(16) + "\n" + 
+		"sk 2 " + "0x" + kmap.get("k2").toString(16) + "\n" + 
+		"sk 3 " + "0x" + kmap.get("k3").toString(16) + "\n";
+	}
+
     </script>
   </head>
 
@@ -62,25 +84,28 @@
 	  YARC Microcode Editor
     </H1>
     <p>
+	  <button onclick="collect2()">Update</button>
+	  <!-- COMMENTED OUT
 	  <button onclick="download('microcode.txt', collect());">Save</button>
 	  &nbsp;
 	  <button onclick="openFile()">Open</button>
 	  <input id="inp" type='file' style="visibility:hidden;" onchange="readFile(event)" />
 	  <pre id="contents"></pre>
+	   -->
 	</p>
 
-	<form name=all action="/this/form/cannot/be/submitted">
+	<form name=all id=all action="/this/form/cannot/be/submitted">
     
 	  <p>
 	  K3:&nbsp
-	  src1: <select name="src1">
+	  src1: <select name="k3-src1-3-6">
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
 		<option value="3" selected>R3</option>
 	  </select>
 	  &nbsp;
-	  src2: <select name="src2">
+	  src2: <select name="k3-src2-7-3">
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
@@ -91,7 +116,7 @@
 		<option value="7" selected>-1</option>
 	  </select>
 	  &nbsp;
-	  dst: <select name="dst">
+	  dst: <select name="k3-dst-7-0">
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
@@ -103,9 +128,9 @@
 	  </select>
 	  </p>
 
-	  <p>
+	  <p id="k2">
 	  K2:
-	  alu_op: <select name="alu_op">
+	  alu_op: <select name="k2-alu_op-15-4">
         <option value="0">alu_add</option>
         <option value="1">alu_sub</option>
         <option value="2">alu_rsub</option>
@@ -123,20 +148,25 @@
         <option value="14">alu_0x0E</option>
         <option value="15" selected>alu_0x0F</option>
 	  </select>
-	  alu_ctl: <select name="alu_ctl">
+	  alu_ctl: <select name="k2-alu_ctl-3-2">
         <option value="0">alu_phi1</option>
         <option value="1">alu_phi2</option>
         <option value="2">alu_in</option>
         <option value="3" selected>alu_none</option>
 	  </select>
-	  <!-- careful: unselected evaluates to 1, selected to 0 -->
-	  alu_load_hold: <input type=checkbox name="alu_load_hold"/>
-	  alu_load_flgs: <input type=checkbox name="alu_load_flgs"/>
+	  alu_load_hold: <select name="k2-alu_load_hold-1-1">
+		<option value="0">yes</option>
+		<option value="1" selected>no</option>
+	  </select>
+	  alu_load_flgs: <select name="k2-alu_load_flgs-1-0">
+		<option value="0">yes</option>
+		<option value="1" selected>no</option>
+	  </select>
 	  </p>
 
-	  <p>
+	  <p id="k1">
 	  K1:
-	  sysdata_src: <select name="sysdata_src">
+	  sysdata_src: <select name="k1-sysdata_src-7-5">
 	    <option value="0">gr</option>
 	    <option value="1">sp</option>
 	    <option value="2">ir</option>
@@ -146,27 +176,51 @@
 	    <option value="6">TBD</option>
 	    <option value="7" selected>none</option>
 	  </select>
-	  reg_in_mux: <select name="reg_in_mux">
+	  reg_in_mux: <select name="k1-reg_in_mux-1-4">
 	    <option value="0">alu</option>
 	    <option value="1" selected>sysdata</option>
 	  </select>
-      stack_up_clk: <input type=checkbox name="stack_up_clk"/>
-      stack_dn_clk: <input type=checkbox name="stack_dn_clk"/>
-	  psp_rsp: <select name="psp_rsp">
+	  stack_up_clk: <select name="k1-stack_up_clk-1-3">
+	    <option value="0">yes</option>
+	    <option value="1" selected>no</option>
+	  </select>
+	  stack_dn_clk: <select name="k1-stack_dn_clk-1-2">
+	    <option value="0">yes</option>
+	    <option value="1" selected>no</option>
+	  </select>
+	  psp_rsp: <select name="k1-psp_rsp-1-1">
 		<option value="0">rsp</option>
 		<option value="1" selected>psp</option>
 	  </select>
-	  dst_wr_en: <input type=checkbox name="dst_wr_en"/>
+	  dst_wr_en: <select name="k1-dst_wr_en-1-0">
+		<option value="0">write</option>
+		<option value="1" selected>no write</option>
+	  </select>
 	  </p>
 
-	  <p>
+	  <p id="k0">
 	  K0:
-	  rw: <input type=checkbox name="rw"/>
-	  m16_en: <input type=checkbox name="m16_en"/>
-	  ir_clk: <input type=checkbox name="ir_clk"/>
-	  rsw_ir_uc: <input type=checkbox name="rsw_ir_uc"/>
+	  rw: <select name="k0-rw-1-7">
+		<option value="0">write</option>
+		<option value="1" selected>read</option>
+	  </select>
+	  m16_en: <select name="k0-m16_en-1-6">
+		<option value="0">16-bit</option>
+		<option value="1" selected>8-bit</option>
+	  </select>
+	  ir_clk: <select name="k0-ir_clk-1-5">
+		<option value="0">load IR</option>
+		<option value="1" selected>no load</option>
+	  </select>
+	  rsw_ir_uc: <select name="k0-rsw_ir_uc-1-4">
+		<option value="0">RSW from UC</option>
+		<option value="1" selected>RSW from IR</option>
+	  </select>
 	  (four bits unassigned)
 	  </p>
 	</form>
+	<p>
+	<pre name=contents id=contents></pre>
+	</p>
   </body>
 </html>
