@@ -4,66 +4,43 @@
     <meta charset="utf-8">
     <title>YARC Microcode Definition</title>
 
+	<style>
+	body {
+	  background-color: linen;
+	  margin-left: 40px;
+	  font-family: Arial, Helvetica, sans-serif;
+	}
+
+	pre {
+	  font-family: "Lucida Console", "Courier New", monospace;
+	}
+
+	h1 {
+	  color: maroon;
+	}
+
+	</style>
+
     <script>
 
-	// Save the text in the named file.
-    function download(filename, text) {
-      var element = document.createElement('a');
-      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-      element.setAttribute('download', filename);
-      element.style.display = 'none';
+	window.onload = (event) => {
+	  collect();
+	};
 
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    }
-
-	// Get a filename from the user (mandatory)
-	function openFile() {
-	  document.getElementById('inp').click();
+	function gebi(s) {
+	  return document.getElementById(s);
 	}
 
-	// Read the selected filename (and for now, display
-	// it in a predefined location in on the screen - TBD)
-	function readFile(e) {
-	  var file = e.target.files[0];
-	  if (!file) return;
-	  var reader = new FileReader();
-	  reader.addEventListener("load", () => {
-        // this will then display a text file
-        contents.innerText = reader.result;
-      }, false);
-
-	  reader.onload = function(e) {
-		document.getElementById('contents').innerHTML = e.target.result;
-	  }
-	  reader.readAsText(file)
-	}
-
-	// Collect the values of all the controls in the form and
-	// assemble them into a string of [name:value] pairs.
 	function collect() {
-		result = ""
-		const forms = document.querySelectorAll('form');
-		const form = forms[0];
-		Array.from(form.elements).forEach((input) => {
-		  console.log(input.value);
-		  result += "[" + input.name + ":" + input.value + "]\n"
-		});
-
-		return result;
-	}
-
-	function collect2() {
 	  const kmap = new Map();
 	  kmap.set("k3", 0xFF); kmap.set("k2", 0xFF); kmap.set("k1", 0xFF); kmap.set("k0", 0xFF);
 
-	  Array.from(document.getElementById('all').elements).forEach((ctl) => {
-		console.log(ctl.name + ": " + ctl.value);
-		a = ctl.name.split("-");
+	  Array.from(gebi('all').elements).forEach((ctl) => {
+		console.log(ctl.id + ": " + ctl.value);
+		a = ctl.id.split("-");
 		if (a.length == 4 && a[0].startsWith("k")) { // if it's a "k control" (microcode setting):
 		  // a[0] is the k-register; a[1] is the field name; a[2] is the AND pattern; a[3] is the shift
-		  console.log(ctl.name + ": " + a[0] + " " + a[1] + " " + a[2] + " " + a[3] + " " + kmap.get(a[0]));
+		  console.log(ctl.id + ": " + a[0] + " " + a[1] + " " + a[2] + " " + a[3] + " " + kmap.get(a[0]));
 		  kmap.set(a[0], kmap.get(a[0]) & ~(a[2] << a[3]));
 		  kmap.set(a[0], kmap.get(a[0]) | ((ctl.value & a[2]) << a[3]));
 		}
@@ -74,6 +51,29 @@
 		"sk 1 " + "0x" + kmap.get("k1").toString(16) + "\n" + 
 		"sk 2 " + "0x" + kmap.get("k2").toString(16) + "\n" + 
 		"sk 3 " + "0x" + kmap.get("k3").toString(16) + "\n";
+
+	  // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
+	  rsw_from_instruction = gebi("k0-rsw_ir_uc-1-4").value == 0;
+	  gebi("k3-src1-3-6").disabled = rsw_from_instruction;
+	  gebi("k3-src2-7-3").disabled = rsw_from_instruction;
+	  gebi("k3-dst-7-0").disabled = rsw_from_instruction;
+	  gebi("k2-alu_op-15-4").disabled = rsw_from_instruction;
+
+	  if (gebi("k1-stack_up_clk-1-3").value == 0 && gebi("k1-stack_dn_clk-1-2").value == 0) {
+	   alert("stack up clock and stack down clock shouldn't both be active."); 
+	  }
+
+	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
+		if (gebi("k0-ir_clk-1-5").value == 0) {
+		  alert("warning: clocking undriven sysdata into IR");
+		}
+		if (gebi("k0-rw-1-7").value == 0) {
+		  alert("warning: clocking undriven sysdata into memory");
+		}
+		if (gebi("k1-dst_wr_en-1-0").value == 0 && gebi("k1-reg_in_mux-1-4").value == 1) {
+		  alert("warning: clocking undriven sysdata into a general register");
+		}
+	  }
 	}
 
     </script>
@@ -83,29 +83,18 @@
     <H1>
 	  YARC Microcode Editor
     </H1>
-    <p>
-	  <button onclick="collect2()">Update</button>
-	  <!-- COMMENTED OUT
-	  <button onclick="download('microcode.txt', collect());">Save</button>
-	  &nbsp;
-	  <button onclick="openFile()">Open</button>
-	  <input id="inp" type='file' style="visibility:hidden;" onchange="readFile(event)" />
-	  <pre id="contents"></pre>
-	   -->
-	</p>
 
 	<form name=all id=all action="/this/form/cannot/be/submitted">
     
 	  <p>
-	  K3:&nbsp
-	  src1: <select name="k3-src1-3-6">
+	  K3:
+	  src1: <select id="k3-src1-3-6" onchange="collect()">
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
-		<option value="3" selected>R3</option>
-	  </select>
-	  &nbsp;
-	  src2: <select name="k3-src2-7-3">
+		<option value="3" selected>R3</option onchange="collect()">
+	  </select> &nbsp;
+	  src2: <select id="k3-src2-7-3" onchange="collect()">
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
@@ -114,9 +103,8 @@
 		<option value="5">+1</option>
 		<option value="6">-2</option>
 		<option value="7" selected>-1</option>
-	  </select>
-	  &nbsp;
-	  dst: <select name="k3-dst-7-0">
+	  </select> &nbsp;
+	  dst: <select id="k3-dst-7-0" onchange="collect()">
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
@@ -130,7 +118,7 @@
 
 	  <p id="k2">
 	  K2:
-	  alu_op: <select name="k2-alu_op-15-4">
+	  alu_op: <select id="k2-alu_op-15-4" onchange="collect()">
         <option value="0">alu_add</option>
         <option value="1">alu_sub</option>
         <option value="2">alu_rsub</option>
@@ -147,26 +135,27 @@
         <option value="13">alu_0x0D</option>
         <option value="14">alu_0x0E</option>
         <option value="15" selected>alu_0x0F</option>
-	  </select>
-	  alu_ctl: <select name="k2-alu_ctl-3-2">
+	  </select> &nbsp;
+	  alu_ctl: <select id="k2-alu_ctl-3-2" onchange="collect()">
         <option value="0">alu_phi1</option>
         <option value="1">alu_phi2</option>
         <option value="2">alu_in</option>
         <option value="3" selected>alu_none</option>
-	  </select>
-	  alu_load_hold: <select name="k2-alu_load_hold-1-1">
+	  </select> &nbsp;
+	  alu_load_hold: <select id="k2-alu_load_hold-1-1" onchange="collect()">
+		<option value="0">yes</option>
+		<option value="1" selected>no</option>
+	  </select> &nbsp;
+	  alu_load_flgs: <select id="k2-alu_load_flgs-1-0" onchange="collect()">
 		<option value="0">yes</option>
 		<option value="1" selected>no</option>
 	  </select>
-	  alu_load_flgs: <select name="k2-alu_load_flgs-1-0">
-		<option value="0">yes</option>
-		<option value="1" selected>no</option>
-	  </select>
+	  &nbsp;
 	  </p>
 
 	  <p id="k1">
 	  K1:
-	  sysdata_src: <select name="k1-sysdata_src-7-5">
+	  sysdata_src: <select id="k1-sysdata_src-7-5" onchange="collect()">
 	    <option value="0">gr</option>
 	    <option value="1">sp</option>
 	    <option value="2">ir</option>
@@ -175,24 +164,24 @@
 	    <option value="5">TBD</option>
 	    <option value="6">TBD</option>
 	    <option value="7" selected>none</option>
-	  </select>
-	  reg_in_mux: <select name="k1-reg_in_mux-1-4">
+	  </select> &nbsp;
+	  reg_in_mux: <select id="k1-reg_in_mux-1-4" onchange="collect()">
 	    <option value="0">alu</option>
 	    <option value="1" selected>sysdata</option>
-	  </select>
-	  stack_up_clk: <select name="k1-stack_up_clk-1-3">
+	  </select> &nbsp;
+	  stack_up_clk: <select id="k1-stack_up_clk-1-3" onchange="collect()">
 	    <option value="0">yes</option>
 	    <option value="1" selected>no</option>
-	  </select>
-	  stack_dn_clk: <select name="k1-stack_dn_clk-1-2">
+	  </select> &nbsp;
+	  stack_dn_clk: <select id="k1-stack_dn_clk-1-2" onchange="collect()">
 	    <option value="0">yes</option>
 	    <option value="1" selected>no</option>
-	  </select>
-	  psp_rsp: <select name="k1-psp_rsp-1-1">
+	  </select> &nbsp;
+	  psp_rsp: <select id="k1-psp_rsp-1-1" onchange="collect()">
 		<option value="0">rsp</option>
 		<option value="1" selected>psp</option>
-	  </select>
-	  dst_wr_en: <select name="k1-dst_wr_en-1-0">
+	  </select> &nbsp;
+	  dst_wr_en: <select id="k1-dst_wr_en-1-0" onchange="collect()">
 		<option value="0">write</option>
 		<option value="1" selected>no write</option>
 	  </select>
@@ -200,27 +189,77 @@
 
 	  <p id="k0">
 	  K0:
-	  rw: <select name="k0-rw-1-7">
+	  rw: <select id="k0-rw-1-7" onchange="collect()" onchange="collect()">
 		<option value="0">write</option>
 		<option value="1" selected>read</option>
-	  </select>
-	  m16_en: <select name="k0-m16_en-1-6">
+	  </select> &nbsp;
+	  m16_en: <select id="k0-m16_en-1-6" onchange="collect()">
 		<option value="0">16-bit</option>
 		<option value="1" selected>8-bit</option>
-	  </select>
-	  ir_clk: <select name="k0-ir_clk-1-5">
+	  </select> &nbsp;
+	  ir_clk: <select id="k0-ir_clk-1-5" onchange="collect()">
 		<option value="0">load IR</option>
 		<option value="1" selected>no load</option>
-	  </select>
-	  rsw_ir_uc: <select name="k0-rsw_ir_uc-1-4">
-		<option value="0">RSW from UC</option>
-		<option value="1" selected>RSW from IR</option>
-	  </select>
+	  </select> &nbsp;
+	  rsw_ir_uc: <select id="k0-rsw_ir_uc-1-4" onchange="collect()">
+		<option value="0">RSW from IR</option>
+		<option value="1" selected>RSW from UC</option>
+	  </select> &nbsp;
 	  (four bits unassigned)
 	  </p>
 	</form>
 	<p>
-	<pre name=contents id=contents></pre>
+	  <pre name=contents id=contents></pre>
 	</p>
   </body>
 </html>
+<!--
+// Save the text in the named file.
+function download(filename, text) {
+  var element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+  element.setAttribute('download', filename);
+  element.style.display = 'none';
+
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+}
+
+// Get a filename from the user (mandatory)
+function openFile() {
+  document.getElementById('inp').click();
+}
+
+// Read the selected filename (and for now, display
+// it in a predefined location in on the screen - TBD)
+function readFile(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.addEventListener("load", () => {
+	// this will then display a text file
+	contents.innerText = reader.result;
+  }, false);
+
+  reader.onload = function(e) {
+	document.getElementById('contents').innerHTML = e.target.result;
+  }
+  reader.readAsText(file)
+}
+
+// Collect the values of all the controls in the form and
+// assemble them into a string of [name:value] pairs.
+function collect() {
+	result = ""
+	const forms = document.querySelectorAll('form');
+	const form = forms[0];
+	Array.from(form.elements).forEach((input) => {
+	  console.log(input.value);
+	  result += "[" + input.name + ":" + input.value + "]\n"
+	});
+
+	return result;
+}
+ -->
+
