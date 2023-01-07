@@ -685,7 +685,8 @@
     (uuid fd12743a-d412-4888-8cf6-3c3a3d71454d)
   )
 
-  (text "INSTRUCTION REGISTER\nALSO ON SHT 7" (at 68.58 71.12 0)
+  (text "NOTE: INSTRUCTION REGISTER\nALSO ON SHT 7. U67 = U55."
+    (at 63.5 68.58 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid a296879a-c811-4f4f-9cda-d1e1713cef5e)
   )

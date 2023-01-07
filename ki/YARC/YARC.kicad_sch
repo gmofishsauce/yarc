@@ -948,6 +948,15 @@
     (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/1fb9b317-b5e2-4de0-9f02-3f38794e9c40"
       (reference "#PWR0172") (unit 1) (value "VCC") (footprint "")
     )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/68ddf7ee-9f62-476b-aa1c-6aed0831b8df"
+      (reference "#PWR0173") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/126aec73-f420-4da1-a51b-89f22b12639d"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/337086bf-d521-444c-b11e-0bb934fbbc29"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+    )
     (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/ab26a42e-b7f6-4a80-b26c-c01085e448c7"
       (reference "A1") (unit 1) (value "Arduino_Nano_v3.x") (footprint "Module:Arduino_Nano")
     )
@@ -1452,7 +1461,7 @@
     (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/0500234b-8955-41bd-86d9-11f52115ebd0"
       (reference "U88") (unit 3) (value "74HC00") (footprint "")
     )
-    (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/4e0c045d-0e14-433c-9da2-cdb96596083e"
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/8980997b-7b86-4da4-b771-bf86589fc9c1"
       (reference "U88") (unit 4) (value "74HC00") (footprint "")
     )
     (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/ccff3b88-fb8c-4e75-a673-9cd93e328bbe"
@@ -1538,6 +1547,12 @@
     )
     (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/867a2e75-0fda-4cda-9c19-c9f134d2aeb3"
       (reference "U101") (unit 1) (value "74LS157") (footprint "")
+    )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/5623a6b7-c294-44a9-906f-69fe8cabbd3d"
+      (reference "U102") (unit 1) (value "74HC245") (footprint "")
+    )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/be147eac-c43b-4531-9825-86ae24fe72aa"
+      (reference "U103") (unit 1) (value "74HC245") (footprint "")
     )
     (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/f8ebbe10-0751-4bba-bb4f-21bf35b8e2ef"
       (reference "X1") (unit 1) (value "CXO_DIP8") (footprint "Oscillator:Oscillator_DIP-8")
