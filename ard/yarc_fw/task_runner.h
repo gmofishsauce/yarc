@@ -28,6 +28,7 @@ namespace TaskPrivate {
     {ledInit,        ledTask       },
     {0,              heartbeatTask },
     {serialTaskInit, serialTaskBody},
+    {costTaskInit,   costTask      },    
   };
 
   const int N_TASKS = (sizeof(Tasks) / sizeof(TaskInfo));

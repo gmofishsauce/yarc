@@ -227,36 +227,6 @@ namespace PortPrivate {
     syncMCR();
   }
 
-/*
-
-  // Write the entire 64-byte slice of data for the given opcode with
-  // values derived from the opcode. Read the data back from the slice
-  // and check it. This function uses 128 bytes of static storage, so
-  // it's inside an #if that can be disabled. The #if also disables
-  // calls to this function from the portTask() function, below.
-  bool validateOpcodeForSlice(byte opcode, byte slice) {
-    static byte data[64];
-    static byte result[64];
-    const byte N = 2; // XXX - for troubleshooting can be less than 64 
-
-    for (int i = 0; i < N; ++i) {
-      data[i] = opcode + i;
-    }
-    
-    writeBytesToSlice(opcode | 0x80, slice, data, N);
-    readBytesFromSlice(opcode | 0x80, slice, result, N);
-    
-    for (int i = 0; i < N; ++i) {
-      if (data[i] != result[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-*/
-
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
   // The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
   // the "power on" part is a misleading pun, because postInit() runs on both power-on resets and "soft"
@@ -395,49 +365,9 @@ void portInit() {
   PortPrivate::internalPortInit();
 }
 
-/*
-
-int portTask() {
-  static byte failed = false;
-  static byte done = true;
-  static byte opcode;
-  static byte slice;
-
-  if (failed) {
-    return 103;
-  }
-
-  if (done) {
-    opcode = 0x80;
-    slice = 0;
-    done = false;
-  }
-
-  if (!PortPrivate::validateOpcodeForSlice(opcode, slice)) {
-      panic(opcode, slice);
-      //setDisplay(0xAA);
-      //failed = true;
-      //return 103;
-  }
-
-  if (++slice > 3) {
-    slice = 0;
-    opcode++;
-  }
-  if ((opcode & 0x80) == 0) {
-    done = true;
-  }
-
-  setDisplay(opcode);
-  return 11;
-}
-
-*/
-
 int portTask() {
   return 171;
 }
-
 
 // Interface to the 4 write-only bus registers: setAH
 // (address high), AL, DH (data high), DL.
