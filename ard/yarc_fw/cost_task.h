@@ -36,13 +36,10 @@
 namespace CostPrivate {
 	bool running = true;
 
-  constexpr byte TestIdUcodeBasic = 0;
-  constexpr byte TestIdMemoryBasic = 1;
-  constexpr byte MAX_TESTS = 0x10;
-
-  byte currentTestId = MAX_TESTS;
-
   static union {
+    struct delayData {
+      long int delay;      
+    } delayData;
     struct ucodeBasicData {
       byte opcode;
       byte slice;
@@ -57,6 +54,8 @@ namespace CostPrivate {
   typedef void (*TestInit)();
   typedef bool (*Test)();
 
+  void delayTaskInit(void);
+  bool delayTaskBody(void);
   void ucodeTestInit(void);
   bool ucodeBasicTest(void);
   void memoryTestInit(void);
@@ -68,15 +67,25 @@ namespace CostPrivate {
   } TestRef;
 
   const PROGMEM TestRef Tests[] = {
-    ucodeTestInit,    ucodeBasicTest,
-    memoryTestInit,   memoryBasicTest  
+    { delayTaskInit,    delayTaskBody },
+    { ucodeTestInit,    ucodeBasicTest },
+    { memoryTestInit,   memoryBasicTest }  
   };
 
-  constexpr int N_TESTS = (sizeof(Tests) / sizeof(TestRef));
+  constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
+  constexpr byte MAX_TESTS = 0x10;
+  byte currentTestId = N_TESTS;
+  byte lastTestId = N_TESTS - 1;
 
   // Calllback for the executive's single log line per cycle
   byte costMessageCallback(byte *bp, byte bmax) {
     int result = snprintf_P((char *)bp, bmax, PSTR("cost: test cycle starting"));
+    if (result > bmax) result = bmax;
+    return result;
+  }
+
+  byte costTestStarting(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("  new test starting"));
     if (result > bmax) result = bmax;
     return result;
   }
@@ -87,29 +96,50 @@ namespace CostPrivate {
       return 257; // come back and check a few times per second
     }
 
-    // Start a new test cycle (including first time initialization)
+    // Is a new test cycle starting? (Including first-time initialization)
     if (currentTestId >= N_TESTS) {
-      currentTestId = 0;  // the first test
-      makeSafe();
+      currentTestId = 0;
       logQueueCallback(costMessageCallback);
+    }
+
+    // Is a new test starting within the current cycle?
+    if (lastTestId != currentTestId) {
+      logQueueCallback(costTestStarting);
+      lastTestId = currentTestId;
+      makeSafe(); // clean up YARC state for the next test
       const TestInit testInit = pgm_read_ptr_near(&Tests[currentTestId].init);
       (*testInit)();
       return 0;
     }
-    
+
     // Run the test function and move on to the next test if it returns false
     const Test test = pgm_read_ptr_near(&Tests[currentTestId].test);
     if (! (*test)()) {
       currentTestId++;
-      makeSafe();
-      if (currentTestId >= N_TESTS) {
-        return 6011; // delay between cycles
-      }
-      const TestInit testInit = pgm_read_ptr_near(&Tests[currentTestId].init);
-      (*testInit)();
     }
-
     return 0;
+  }
+
+  // === delay task implements the startup and inter-cycle delay ===
+
+  byte delayTaskMessageCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("  delayTask: done"));
+    if (result > bmax) result = bmax;
+    return result;
+  }
+
+  void delayTaskInit() { 
+    // about 40 calls per millisecond
+    delayData.delay = 40L * 1000L * 11L;   
+  }
+
+  bool delayTaskBody() {
+    if (delayData.delay < 0L) {
+      logQueueCallback(delayTaskMessageCallback);
+      return false; // done
+    }
+    delayData.delay = delayData.delay - 1L;
+    return true; // not done
   }
 
   // === ucode (Microcode RAM) basic test ===
@@ -159,6 +189,7 @@ namespace CostPrivate {
       savedFailedOpcode = ubData.opcode;
       savedFailedSlice = ubData.slice;
       logQueueCallback(ucodeBasicMessageCallback);
+      return false;
     }
 
     if (++ubData.slice > 3) {

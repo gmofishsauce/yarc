@@ -439,11 +439,11 @@ void makeSafe() {
 // Write up to 64 bytes to the slice for the given opcode, which must be
 // in the range 128 ... 255.
 void WriteBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
-  PortPrivate::writeBytesToSlice(opcode, slice, *data, n);
+  PortPrivate::writeBytesToSlice(opcode, slice, data, n);
 }
 
 // Read up to 64 bytes from the slice for the given opcode, which must be
 // in the range 128 ... 255.
 void ReadBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
-  PortPrivate::readBytesFromSlice(opcode, slice, *data, n);
+  PortPrivate::readBytesFromSlice(opcode, slice, data, n);
 }  
