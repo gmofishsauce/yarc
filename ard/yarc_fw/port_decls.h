@@ -20,5 +20,6 @@ void SetDL(byte b);
 void SetMCR(byte b);
 byte GetMCR();
 byte GetBir();
+void makeSafe();
 
 

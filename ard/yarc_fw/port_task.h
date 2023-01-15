@@ -227,6 +227,16 @@ namespace PortPrivate {
     syncMCR();
   }
 
+  void internalMakeSafe() {
+    kRegMakeSafe();
+    ucrMakeSafe();
+    writeIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
+    setAH(0xFF); 
+    setAL(0xFF);
+    mcrMakeSafe();
+    setDisplay(0xC0);
+  }
+
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
   // The name is a pun, because POST stands for Power On Self Test in addition to meaning "after". But
   // the "power on" part is a misleading pun, because postInit() runs on both power-on resets and "soft"
@@ -240,9 +250,7 @@ namespace PortPrivate {
   // Power on self test and initialization. Startup will hang if this function returns false.
   bool internalPostInit() {
     // Do unconditionally on any reset
-    kRegMakeSafe();
-    ucrMakeSafe();
-    mcrMakeSafe();
+    makeSafe();
    
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
@@ -423,3 +431,19 @@ void SetMCR(byte b) {
 void setDisplay(byte b) {
   PortPrivate::nanoSetRegister(PortPrivate::DisplayRegister, b);
 }
+
+void makeSafe() {
+  PortPrivate::internalMakeSafe();
+}
+
+// Write up to 64 bytes to the slice for the given opcode, which must be
+// in the range 128 ... 255.
+void WriteBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
+  PortPrivate::writeBytesToSlice(opcode, slice, *data, n);
+}
+
+// Read up to 64 bytes from the slice for the given opcode, which must be
+// in the range 128 ... 255.
+void ReadBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
+  PortPrivate::readBytesFromSlice(opcode, slice, *data, n);
+}  

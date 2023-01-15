@@ -33,9 +33,15 @@ enum : byte { // including panic codes
   // code in port_task.h
   PANIC_POST                  = 0xD0,
 
+  // These are display register values, not panics.
   TRACE_BEFORE_SERIAL_INIT    = 0xC0,
   TRACE_SERIAL_READY          = 0xC2,
-  TRACE_SERIAL_UNSYNC         = 0xCF
+  TRACE_SERIAL_UNSYNC         = 0xCF,
+
+  // 0xA0 through 0xAF are Continuous Self Test (COST) failures.
+  // The low-order 4 bits of the first byte identify one of 16 Tests.
+  // The subcode is test-specific.
+  PANIC_COST                  = 0xA0
 };
 
 // And, for now, a few general utilities, in order to avoid further
