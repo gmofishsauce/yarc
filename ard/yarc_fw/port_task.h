@@ -426,6 +426,10 @@ void SetMCR(byte b) {
   PortPrivate::syncMCR();
 }
 
+void SingleClock() {
+  PortPrivate::singleClock();
+}
+
 // Public interface to the write-only 8-bit Display Register (DR)
 
 void setDisplay(byte b) {

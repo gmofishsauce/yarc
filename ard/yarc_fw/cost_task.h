@@ -47,7 +47,11 @@ namespace CostPrivate {
       byte result[64];
     } ubData;
     struct memoryBasicData {
-      int x;      
+      byte AH;
+      byte AL;
+      byte data[64];
+      byte result[64];
+      byte DL;
     } mbData;
   };
 
@@ -63,13 +67,14 @@ namespace CostPrivate {
 
   typedef struct tr {
     TestInit init;
-    Test test; 
+    Test test;
+    char* name;
   } TestRef;
 
   const PROGMEM TestRef Tests[] = {
-    { delayTaskInit,    delayTaskBody },
-    { ucodeTestInit,    ucodeBasicTest },
-    { memoryTestInit,   memoryBasicTest }  
+    { delayTaskInit,    delayTaskBody,   "delay"  },
+    { ucodeTestInit,    ucodeBasicTest,  "ucode"  },
+    { memoryTestInit,   memoryBasicTest, "memory" }  
   };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
@@ -77,16 +82,36 @@ namespace CostPrivate {
   byte currentTestId = N_TESTS;
   byte lastTestId = N_TESTS - 1;
 
-  // Calllback for the executive's single log line per cycle
-  byte costMessageCallback(byte *bp, byte bmax) {
+  // General note about logging: there is a (necessary) issue throughout
+  // the Nano firmware caused by the design of the logger. To conserve
+  // memory, there is just a single line buffer, and the message isn't
+  // formatted until it's about to sent to the host (Mac). There is no
+  // dynamic heap so no easy way to "close" over the value of a variable
+  // to be logged. And the tests here share memory through the anonymous
+  // union above. So test "N+1" tends to change the value of the variables
+  // that test "N" wanted to log before the old values get formatted into
+  // the log buffer. Here in the COST tests only, we address this by
+  // tracking the number of log messages *we* enqueue and not running the
+  // "next" test in a test cycle until that number drops to 0. The max
+  // value of queued messages is 2 because of the "test cycle starting"
+  // message just below, but it doesn't rely on the value of any variable.
+
+  int queuedLogMessageCount = 0;
+
+  // Callback for the executive's single log line per cycle
+  byte testCycleStarting(byte *bp, byte bmax) {
+    randomSeed(millis());
     int result = snprintf_P((char *)bp, bmax, PSTR("cost: test cycle starting"));
     if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
     return result;
   }
 
-  byte costTestStarting(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  new test starting"));
+  byte testStarting(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("  test %s starting"),
+      pgm_read_ptr_near(&Tests[currentTestId].name));
     if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
     return result;
   }
 
@@ -96,15 +121,24 @@ namespace CostPrivate {
       return 257; // come back and check a few times per second
     }
 
+    // Wait for all previously queued log messages to be formatted and sent
+    // to the host. See the block comment above ("General note about...")
+    if (queuedLogMessageCount > 0) {
+      return 87;
+    }
+
     // Is a new test cycle starting? (Including first-time initialization)
     if (currentTestId >= N_TESTS) {
       currentTestId = 0;
-      logQueueCallback(costMessageCallback);
+      queuedLogMessageCount++;
+      logQueueCallback(testCycleStarting);
+      return 0;
     }
 
     // Is a new test starting within the current cycle?
     if (lastTestId != currentTestId) {
-      logQueueCallback(costTestStarting);
+      queuedLogMessageCount++;
+      logQueueCallback(testStarting);
       lastTestId = currentTestId;
       makeSafe(); // clean up YARC state for the next test
       const TestInit testInit = pgm_read_ptr_near(&Tests[currentTestId].init);
@@ -125,16 +159,18 @@ namespace CostPrivate {
   byte delayTaskMessageCallback(byte *bp, byte bmax) {
     int result = snprintf_P((char *)bp, bmax, PSTR("  delayTask: done"));
     if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
     return result;
   }
 
   void delayTaskInit() { 
-    // about 40 calls per millisecond
-    delayData.delay = 40L * 1000L * 11L;   
+    // about 30 calls per millisecond
+    delayData.delay = 30L * 1000L * 11L;   
   }
 
   bool delayTaskBody() {
     if (delayData.delay < 0L) {
+      queuedLogMessageCount++;
       logQueueCallback(delayTaskMessageCallback);
       return false; // done
     }
@@ -149,11 +185,15 @@ namespace CostPrivate {
   static byte savedFailedOpcode = 0;
   static byte savedFailedSlice = 0;
 
-  // Calllback for the executive's single log line per cycle
+  // Calllback for the executive's single log line per cycle. Here is an example
+  // of a place where incorrect values would be logged if we didn't wait for the
+  // log message queue to clear each time we queue a message: the test after ucode
+  // would overwrite the opcode and slice, causing nonsense values to be logged.
   byte ucodeBasicMessageCallback(byte *bp, byte bmax) {
     int result = snprintf_P((char *)bp, bmax, PSTR("  ucodeBasic: fail op 0x%02X sl 0x%02X"),
-      savedFailedOpcode, savedFailedSlice);
+      ubData.opcode, ubData.slice);
     if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
     return result;
   }
 
@@ -186,8 +226,7 @@ namespace CostPrivate {
   
   bool ucodeBasicTest() {
     if (!validateOpcodeForSlice(ubData.opcode, ubData.slice)) {
-      savedFailedOpcode = ubData.opcode;
-      savedFailedSlice = ubData.slice;
+      queuedLogMessageCount++;
       logQueueCallback(ucodeBasicMessageCallback);
       return false;
     }
@@ -203,19 +242,67 @@ namespace CostPrivate {
   }
 
   // === memory (main system memory) basic test ===
-  // Calllback for the executive's single log line per cycle
+
+  // Solve the usual problem of closing over an address rather than a value:
+  static byte savedResult;
+
+  // Callback for the executive's single log line per cycle
   byte memoryBasicMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  memoryBasic: nothing done"));
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  memoryBasic: test failed at 0x%02X 0x%02X exp 0x%02X got 0x%02X"),
+      mbData.AH, mbData.AL, mbData.DL, savedResult);
     if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
     return result;
   }
 
   void memoryTestInit() {
+    // Now in order to read and write main memory, we need to set the
+    // the sysdata_src field of the microcode control register K to the
+    // value MEM. This is a value of 5 in the three MS bits of K byte 1.
+    // Then we need to enable other things than the Nano to drive sysdata.
+    SetAH(0xFF);
+    SetAL(0xFF);
+    WriteByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
+    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
+    SetDH(0xFF);  // Not relevant since we only do 8-bit memory cycles
+
+    mbData.AH = 0;
+    mbData.AL = 0;
+    mbData.DL = 0;
   }
   
-  bool memoryBasicTest() { 
-    logQueueCallback(memoryBasicMessageCallback);
-    return false;   
+  bool memoryBasicTest() {
+    if (mbData.AH >= 0x78) {
+      return false; // done - 0x7800 = 30k RAM
+    }
+    
+    byte n = random(0, 255);
+    for (int i = 0; i < 256; ++i) {
+      mbData.AL = (byte) i;
+      SetAL(mbData.AL);
+      SetAH(mbData.AH & ~0x80); // write
+      SetDL(n);
+      SingleClock();
+
+      SetAH(mbData.AH | 0x80); // read
+      SingleClock();
+      savedResult = GetBIR();
+      // if (mbData.AL == 0x31 && n < 2) {
+      //   // Make a "failure" happen every so often
+      //   savedResult = 1 + n;
+      // }
+      if (savedResult != n) {
+        queuedLogMessageCount++;
+        logQueueCallback(memoryBasicMessageCallback);
+        return false;
+      } 
+
+      n++;     
+    }
+
+    mbData.AH++;
+    return true;   
   }
 }
 
@@ -223,63 +310,26 @@ namespace CostPrivate {
 
 // This is called from the SerialTask or other executive to enable the
 // tests to run. As always, no special synchronization is required since
-// all activity runs in the foreground.
+// all activity runs in the foreground. For now, COST runs by default so
+// there are no callers (TBD).
 void costRun() {
   makeSafe();
 	CostPrivate::running = true;
 }
 
 // Called from the SerialTask or other executive to stop the tests from
-// running.
+// running. For now, COST runs continuously so there are not callers.
 void costStop() {
 	CostPrivate::running = false;
   makeSafe();
 }
 
 void costTaskInit() {
+  // The individual tests have their own init functions, called from task.
 }
 
 int costTask() {
+  // Do the next step in some test
   return CostPrivate::internalCostTask();
 }
 
-
-
-/*
-
-int portTask() {
-  static byte failed = false;
-  static byte done = true;
-  static byte opcode;
-  static byte slice;
-
-  if (failed) {
-    return 103;
-  }
-
-  if (done) {
-    opcode = 0x80;
-    slice = 0;
-    done = false;
-  }
-
-  if (!PortPrivate::validateOpcodeForSlice(opcode, slice)) {
-      panic(opcode, slice);
-      //setDisplay(0xAA);
-      //failed = true;
-      //return 103;
-  }
-
-  if (++slice > 3) {
-    slice = 0;
-    opcode++;
-  }
-  if ((opcode & 0x80) == 0) {
-    done = true;
-  }
-
-  setDisplay(opcode);
-  return 11;
-}
-
-*/
