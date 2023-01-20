@@ -831,6 +831,11 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 51d88d34-e7c1-4ff4-9140-56d9a685a6a7)
   )
+  (text "<== THIS IS WRONG - the signal comes from a '157. TODO."
+    (at 38.1 124.46 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid de3d775f-53e3-4951-a07d-03f13f5cb735)
+  )
 
   (label "SYSADDR15" (at 66.04 45.72 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
