@@ -18,8 +18,9 @@ void SetAL(byte b);
 void SetDH(byte b);
 void SetDL(byte b);
 void SetMCR(byte b);
-byte GetMCR();
-byte GetBir();
-void makeSafe();
+byte GetMCR(void);
+byte GetBir(void);
+void makeSafe(void);
+void SingleClock(void);
 
 

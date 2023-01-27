@@ -251,7 +251,66 @@ namespace PortPrivate {
   bool internalPostInit() {
     // Do unconditionally on any reset
     makeSafe();
-   
+
+#if 0
+    WriteByteToK(3, 0xFF);
+    WriteByteToK(2, 0xFF);
+    WriteByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
+
+    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
+    setDisplay(0xC6);
+    byte base = 0;
+    byte dh = 0;
+    byte dl = 0xAA;
+    byte ah = 0x00;
+    byte al = 0x00;
+
+    for(;;) {
+      WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
+      SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
+
+      SetAH(ah);  // mem write to 0
+      SetAL(al);
+      SetDL(dl);
+      SetDH(dh);      
+      SingleClock();
+    
+      SetAH(ah | 0x80); // mem read 0
+      SingleClock();
+
+      if (PortPrivate::getBIR() != dl) {
+        setDisplay(0x7E);
+      }
+
+      WriteByteToK(0, 0xFF); // m16 bit high - byte cycle
+      SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
+      SetAH(ah | 0x80);
+      SetAL(al | 0x01);   
+      SingleClock(); // 8 bit mem read 1
+
+      if (PortPrivate::getBIR() != dh) {
+        setDisplay(PortPrivate::getBIR());
+      }
+
+      al++;
+      if (al == 0) {
+        ah++;
+        if (ah == 0x78) {
+          ah = 0;          
+        }
+      }
+      
+      dl++;
+      if (dl == 0) {
+        dh++;
+        if (dh == 0) {
+          base++;
+          dh = base;
+        }
+      }
+    }
+  #endif
+     
     if (!yarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
       // We only run the code below after a power cycle.
@@ -259,7 +318,7 @@ namespace PortPrivate {
     }
     
     // Looks like an actual power-on reset.
-    
+
     // Set and reset the Service Request flip-flop a few times.
     for(int i = 0; i < 3; ++i) {
       nanoTogglePulse(ResetService);

@@ -33,8 +33,12 @@
 // worry about overrunning the log if they follow this rule because the
 // executive will not call them "too often".
 
+#define COST 1
+
 namespace CostPrivate {
 	bool running = true;
+
+#if COST
 
   static union {
     struct delayData {
@@ -53,6 +57,13 @@ namespace CostPrivate {
       byte result[64];
       byte DL;
     } mbData;
+    struct memory16Data {
+      byte AH;
+      byte AL;
+      byte DH;
+      byte DL;
+      byte readValue;
+    } m16Data;
   };
 
   typedef void (*TestInit)();
@@ -60,6 +71,10 @@ namespace CostPrivate {
 
   void delayTaskInit(void);
   bool delayTaskBody(void);
+  void m16TestInit(void);
+  bool m16TestBody(void);
+  void regTestInit(void);
+  bool regTestBody(void);
   void ucodeTestInit(void);
   bool ucodeBasicTest(void);
   void memoryTestInit(void);
@@ -73,6 +88,8 @@ namespace CostPrivate {
 
   const PROGMEM TestRef Tests[] = {
     { delayTaskInit,    delayTaskBody,   "delay"  },
+    { m16TestInit,      m16TestBody,     "mem16"  },
+    { regTestInit,      regTestBody,     "reg"    },
     { ucodeTestInit,    ucodeBasicTest,  "ucode"  },
     { memoryTestInit,   memoryBasicTest, "memory" }  
   };
@@ -95,6 +112,10 @@ namespace CostPrivate {
   // "next" test in a test cycle until that number drops to 0. The max
   // value of queued messages is 2 because of the "test cycle starting"
   // message just below, but it doesn't rely on the value of any variable.
+  //
+  // N.B. - this means the tests will come to a halt unless the the host
+  // program is runnning to soak up the log messages, because the serial
+  // task doesn't invoke the log callbacks. 
 
   int queuedLogMessageCount = 0;
 
@@ -124,12 +145,15 @@ namespace CostPrivate {
     // Wait for all previously queued log messages to be formatted and sent
     // to the host. See the block comment above ("General note about...")
     if (queuedLogMessageCount > 0) {
+      setDisplay(0x38); // temporary
       return 87;
     }
+    setDisplay(0xC4); // temporary
 
     // Is a new test cycle starting? (Including first-time initialization)
     if (currentTestId >= N_TESTS) {
       currentTestId = 0;
+      randomSeed(millis());
       queuedLogMessageCount++;
       logQueueCallback(testCycleStarting);
       return 0;
@@ -178,13 +202,137 @@ namespace CostPrivate {
     return true; // not done
   }
 
+  // === m16 (16 bit memory cycles) test ===
+
+  byte m16LowByteCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("  m16: low: got 0x%02X"), m16Data.readValue);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  byte m16HighByteCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("  m16: high: got 0x%02X"), m16Data.readValue);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  void m16TestInit() {
+    m16Data.AH = 0x00;
+    m16Data.AL = 0x00;
+    m16Data.DH = random(0, 255);
+    m16Data.DL = random(0, 255);
+
+    // These three bytes from the K register will not change
+    WriteByteToK(3, 0xFF);
+    WriteByteToK(2, 0xFF);
+    WriteByteToK(1, 0xBF); // MEM_EN (101 in the high order bits)
+  }
+
+  // Write 256 bytes memory with 16-bit cycles. All
+  // arguments are passed through the anonymous union.
+  void writeStep16() {
+    WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
+    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN# low, all other high
+
+    do {
+      SetAH(m16Data.AH);
+      SetAL(m16Data.AL);
+      SetDH(m16Data.DH);
+      SetDL(m16Data.DL);
+      SingleClock();
+      m16Data.AL += 2;       
+    } while (m16Data.AL != 0);
+  }
+
+  // Verify 256 bytes memory using 16-bit cycles. For each cycle, check
+  // just the low-order 8 bits of the value. The Nano only has an
+  // 8-bit bus read register (a holdover of the previous 8-bit design)
+  // so it cannot see the high byte of a 16-bit transfer. All arguments
+  // are passed through the anonymous union.
+  bool readStep16() {
+    WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
+    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN# low, all other high
+
+    do {
+      SetAH(m16Data.AH | 0x80); // 0x80 => read
+      SetAL(m16Data.AL);
+      SingleClock();
+      m16Data.readValue = GetBIR();
+      if (m16Data.readValue != m16Data.DL) {
+        return false; // just detect one failure
+      }
+      m16Data.AL += 2;       
+    }  while (m16Data.AL != 0);
+    return true;   
+  }
+
+  // Verify the high byte of 256 bytes memory using 8-bit cycles. For each
+  // cycle, check just the high-order 8 bits of the value. The Nano only
+  // has an 8-bit bus read register (a holdover of the previous 8-bit design)
+  // so it can only see the high-order byte of 16-bit memory location by
+  // triggering a byte transfer, which engagesthe "cross" transceiver to
+  // return the high byte on the low-order bits of sysdata.
+  bool readStep8() {
+    WriteByteToK(0, 0xFF); // m16 bit high - byte memory cycles
+    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN# low, all other high
+
+    do {
+      SetAH(m16Data.AH | 0x80); // 0x80 => read
+      SetAL(m16Data.AL | 0x01); // the high byte
+      SingleClock();
+      m16Data.readValue = GetBIR();
+      if (m16Data.readValue != m16Data.DH) {
+        return false; // just detect one failure
+      }
+      m16Data.AL += 2;       
+    }   while (m16Data.AL != 0);
+    return true;
+  }
+
+  bool m16TestBody() {
+    if (m16Data.AH == 0x78) {
+      return false; // done
+    }
+
+    writeStep16();
+    if (!readStep16()) {
+      queuedLogMessageCount++;
+      logQueueCallback(m16LowByteCallback);
+      return false; // only detect 1 failure
+    }
+    if (!readStep8()) {
+      queuedLogMessageCount++;
+      logQueueCallback(m16HighByteCallback);
+      return false; // only detect 1 failure
+    }
+
+    m16Data.AH++;
+    m16Data.DL++;
+    if (m16Data.DL == 0) {
+      m16Data.DH++;
+    }
+    
+    return true; // not done  
+  }
+  
+  // === reg (general register) basic test ===
+
+  void regTestInit() {
+  }
+
+  bool regTestBody() {
+    WriteByteToK(3, 0xF8);  // LS bits are dst (target) = unconditional R0
+    WriteByteToK(2, 0xFF);  // no ALU activity
+    WriteByteToK(1, 0xFE);  // LS bit enables write to register
+    WriteByteToK(0, 0xFF);  // Don't clock IR; RSW from microcode
+    SingleClock();
+    return false;
+  }
+  
   // === ucode (Microcode RAM) basic test ===
   
-  // The usual problem of saving data to be logged so it won't change underneath
-  // us before the log callback is invoked and the log messages is formatted.
-  static byte savedFailedOpcode = 0;
-  static byte savedFailedSlice = 0;
-
   // Calllback for the executive's single log line per cycle. Here is an example
   // of a place where incorrect values would be logged if we didn't wait for the
   // log message queue to clear each time we queue a message: the test after ucode
@@ -304,6 +452,7 @@ namespace CostPrivate {
     mbData.AH++;
     return true;   
   }
+#endif // COST
 }
 
 // === public functions of the CoST task ===
@@ -329,7 +478,11 @@ void costTaskInit() {
 }
 
 int costTask() {
+#if COST
   // Do the next step in some test
   return CostPrivate::internalCostTask();
+#else
+  return 29023;
+#endif  
 }
 
