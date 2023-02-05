@@ -952,10 +952,10 @@
       (reference "#PWR0173") (unit 1) (value "VCC") (footprint "")
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/126aec73-f420-4da1-a51b-89f22b12639d"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+      (reference "#PWR0174") (unit 1) (value "GND") (footprint "")
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/337086bf-d521-444c-b11e-0bb934fbbc29"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+      (reference "#PWR0175") (unit 1) (value "GND") (footprint "")
     )
     (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/ab26a42e-b7f6-4a80-b26c-c01085e448c7"
       (reference "A1") (unit 1) (value "Arduino_Nano_v3.x") (footprint "Module:Arduino_Nano")
@@ -1365,12 +1365,6 @@
     (path "/a3892bed-2422-46c3-a2f7-c55c7ea6ac93/27c35f06-22f7-45a7-9875-de623ed1cd09"
       (reference "U64") (unit 1) (value "74LS157") (footprint "")
     )
-    (path "/abd64d43-20ca-4b37-94fd-5fc041c76dd4/16effaac-651d-4ee6-96f5-2e20deb10de7"
-      (reference "U65") (unit 1) (value "74LS32") (footprint "")
-    )
-    (path "/abd64d43-20ca-4b37-94fd-5fc041c76dd4/2469257b-f489-415a-9524-70241a02310b"
-      (reference "U65") (unit 2) (value "74LS32") (footprint "")
-    )
     (path "/a3892bed-2422-46c3-a2f7-c55c7ea6ac93/0391a588-2870-4ce1-94e5-aceb84b471ac"
       (reference "U65") (unit 3) (value "74LS32") (footprint "")
     )
@@ -1514,6 +1508,12 @@
     )
     (path "/abd64d43-20ca-4b37-94fd-5fc041c76dd4/8119a514-7b09-46e8-87ca-538c594bf2ca"
       (reference "U96") (unit 5) (value "74LS32") (footprint "")
+    )
+    (path "/abd64d43-20ca-4b37-94fd-5fc041c76dd4/16effaac-651d-4ee6-96f5-2e20deb10de7"
+      (reference "U96A") (unit 1) (value "74LS32") (footprint "")
+    )
+    (path "/abd64d43-20ca-4b37-94fd-5fc041c76dd4/2469257b-f489-415a-9524-70241a02310b"
+      (reference "U96B") (unit 2) (value "74LS32") (footprint "")
     )
     (path "/abd64d43-20ca-4b37-94fd-5fc041c76dd4/94ce56d3-6d5b-40f7-8797-8220d234c6ed"
       (reference "U97") (unit 1) (value "74HC00") (footprint "")
