@@ -8,13 +8,16 @@
 
 namespace PortPrivate {
 
+  void callWhenAnyReset(void);
+  void callWhenPowerOnReset(void);
+  
   // Write a 16-bit value to the instruction register
   void writeIR(byte high, byte low) {
     setAH(0x7F); setAL(0xFF);
     setDH(high); setDL(low);
-    mcrEnableIRwrite(); syncMCR();
+    SetMCR(McrEnableIRwrite(MCR_SAFE));
     singleClock();
-    mcrDisableIRwrite(); syncMCR();
+    SetMCR(McrDisableIRwrite(MCR_SAFE));
   }
 
   // Ahem. The internal bus that connects the system data bus to the
@@ -104,8 +107,7 @@ namespace PortPrivate {
 
     // Enable the sysdata to microcode transceiver
     // and clock the data.
-    mcrEnableWcs();
-    syncMCR();
+    SetMCR(McrEnableWcs(MCR_SAFE));
     
     // Set the data and address. The write line matters to
     // the WCS transceiver which we enable later, but doesn't
@@ -114,7 +116,7 @@ namespace PortPrivate {
     setDH(0x00); setDL(reverse_byte(value));
     singleClock();
 
-    mcrMakeSafe();
+    McrMakeSafe();
     ucrMakeSafe();
     writeIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
     setAH(0xFF); 
@@ -148,9 +150,9 @@ namespace PortPrivate {
     setDH(0x00);
     for (int i = 0; i < n; ++i, ++data) {
       setDL(reverse_byte(*data));
-      mcrEnableWcs(); syncMCR();
+      SetMCR(McrEnableWcs(MCR_SAFE));
       singleClock();
-      mcrDisableWcs(); syncMCR();
+      SetMCR(McrDisableWcs(MCR_SAFE));
     }
 
     ucrMakeSafe();
@@ -173,10 +175,10 @@ namespace PortPrivate {
 
     setAH(0xFF); setAL(0xFF);
     for (int i = 0; i < n; ++i, ++data) {
-      mcrEnableWcs(); syncMCR();
+      SetMCR(McrEnableWcs(MCR_SAFE));
       singleClock();
       *data = reverse_byte(getBIR());
-      mcrDisableWcs(); syncMCR();
+      SetMCR(McrDisableWcs(MCR_SAFE));
     }
 
     ucrMakeSafe();
@@ -210,21 +212,18 @@ namespace PortPrivate {
 
     // Now put the MCR in a known state, use it to put the K registers
     // and UCR in a safe state, and then put the MCR back in a safe state.
-    mcrMakeSafe();
+    McrMakeSafe();
     kRegMakeSafe();
-    mcrMakeSafe();
+    McrMakeSafe();
   }
 
   // Run the YARC.
   void internalRunYARC() {
     kRegMakeSafe();
     ucrMakeSafe();
-    mcrMakeSafe();
+    McrMakeSafe();
     
-    mcrEnableSysbus();      // Allow other than Nano to drive the bus
-    mcrEnableYarc();        // lock the Nano off the bus
-    mcrEnableFastclock();   // enable the YARC to run at speed
-    syncMCR();
+    SetMCR(McrEnableSysbus(McrEnableYarc(McrEnableFastclock(MCR_SAFE))));
   }
 
   void internalMakeSafe() {
@@ -233,8 +232,8 @@ namespace PortPrivate {
     writeIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
     setAH(0xFF); 
     setAL(0xFF);
-    mcrMakeSafe();
-    setDisplay(0xC0);
+    McrMakeSafe();
+    SetDisplay(0xC0);
   }
 
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
@@ -248,81 +247,27 @@ namespace PortPrivate {
   // steps both before and after the YARC comes out of the POR state as can be seen in the code below.
     
   // Power on self test and initialization. Startup will hang if this function returns false.
+
   bool internalPostInit() {
     // Do unconditionally on any reset
-    makeSafe();
+    MakeSafe();
 
-#if 0
-    WriteByteToK(3, 0xFF);
-    WriteByteToK(2, 0xFF);
-    WriteByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
+    callWhenAnyReset();
 
-    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
-    setDisplay(0xC6);
-    byte base = 0;
-    byte dh = 0;
-    byte dl = 0xAA;
-    byte ah = 0x00;
-    byte al = 0x00;
-
-    for(;;) {
-      WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
-      SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
-
-      SetAH(ah);  // mem write to 0
-      SetAL(al);
-      SetDL(dl);
-      SetDH(dh);      
-      SingleClock();
-    
-      SetAH(ah | 0x80); // mem read 0
-      SingleClock();
-
-      if (PortPrivate::getBIR() != dl) {
-        setDisplay(0x7E);
-      }
-
-      WriteByteToK(0, 0xFF); // m16 bit high - byte cycle
-      SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
-      SetAH(ah | 0x80);
-      SetAL(al | 0x01);   
-      SingleClock(); // 8 bit mem read 1
-
-      if (PortPrivate::getBIR() != dh) {
-        setDisplay(PortPrivate::getBIR());
-      }
-
-      al++;
-      if (al == 0) {
-        ah++;
-        if (ah == 0x78) {
-          ah = 0;          
-        }
-      }
-      
-      dl++;
-      if (dl == 0) {
-        dh++;
-        if (dh == 0) {
-          base++;
-          dh = base;
-        }
-      }
-    }
-  #endif
-     
-    if (!yarcIsPowerOnReset()) {
+    if (!YarcIsPowerOnReset()) {
       // A soft reset from the host opening the serial port.
       // We only run the code below after a power cycle.
       return true;
     }
-    
+            
     // Looks like an actual power-on reset.
+
+    callWhenPowerOnReset();
 
     // Set and reset the Service Request flip-flop a few times.
     for(int i = 0; i < 3; ++i) {
       nanoTogglePulse(ResetService);
-      if (yarcRequestsService()) {
+      if (YarcRequestsService()) {
           panic(PANIC_POST, 1);
       }
       
@@ -332,7 +277,7 @@ namespace PortPrivate {
       setDL(0xFF);
       singleClock(); // set service
   
-      if (!yarcRequestsService()) {
+      if (!YarcRequestsService()) {
         panic(PANIC_POST, 2);
       }
     }
@@ -353,8 +298,7 @@ namespace PortPrivate {
 
     setAH(0xFF); setAL(0xFF);
     writeByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
-    mcrEnableSysbus();
-    syncMCR();
+    SetMCR(McrEnableSysbus(MCR_SAFE));
 
     // Write and read the first 4 bytes
     setAH(0x00);
@@ -392,14 +336,14 @@ namespace PortPrivate {
     // And now we'd better still in the /POR
     // state, or we're screwed.
   
-     if (!yarcIsPowerOnReset()) {
+     if (!YarcIsPowerOnReset()) {
       // Trouble, /POR should be low right now.
       panic(PANIC_POST, 9);
     }
     
     // Wait for POR# to go high here, then test RAM:
-    setDisplay(0xFF);
-    while (!yarcIsPowerOnReset()) {
+    SetDisplay(0xFF);
+    while (!YarcIsPowerOnReset()) {
       // do nothing
     }
     
@@ -418,8 +362,8 @@ namespace PortPrivate {
 
     kRegMakeSafe();
     ucrMakeSafe();
-    mcrMakeSafe();
-    setDisplay(0xC0);
+    McrMakeSafe();
+    SetDisplay(0xC0);
 
     return true;
   } // End of internalPostInit()
@@ -434,6 +378,10 @@ void portInit() {
 
 int portTask() {
   return 171;
+}
+
+bool postInit() {
+  return PortPrivate::internalPostInit();
 }
 
 // Interface to the 4 write-only bus registers: setAH
@@ -466,6 +414,8 @@ byte GetMCR() {
   return PortPrivate::getMCR();
 }
 
+// This function alters the state of all registers under Nano
+// software control. It does not restore them.
 bool WriteByteToK(byte kReg, byte kVal) {
   if (kReg > 3) {
     return false;
@@ -474,15 +424,10 @@ bool WriteByteToK(byte kReg, byte kVal) {
   return true;
 }
 
-bool postInit() {
-  return PortPrivate::internalPostInit();
-}
-
 // Change of philosophy: direct set of MCR
 
 void SetMCR(byte b) {
-  PortPrivate::mcrShadow = b;
-  PortPrivate::syncMCR();
+  PortPrivate::setMCR(b);
 }
 
 void SingleClock() {
@@ -491,11 +436,11 @@ void SingleClock() {
 
 // Public interface to the write-only 8-bit Display Register (DR)
 
-void setDisplay(byte b) {
+void SetDisplay(byte b) {
   PortPrivate::nanoSetRegister(PortPrivate::DisplayRegister, b);
 }
 
-void makeSafe() {
+void MakeSafe() {
   PortPrivate::internalMakeSafe();
 }
 
@@ -509,4 +454,54 @@ void WriteBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
 // in the range 128 ... 255.
 void ReadBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
   PortPrivate::readBytesFromSlice(opcode, slice, data, n);
-}  
+}
+
+// These are convenience functions. Making them functions allows me to stash them
+// at the very bottom of the file.
+namespace PortPrivate {
+
+  void callWhenPowerOnReset() {
+  }
+
+  // MakeSafe() has just been called.
+
+  void callWhenAnyReset() {
+    return; // ==================== XXX currently dead code rest of function
+
+    byte ucodeNoops[64];
+    byte n = 0;
+
+    SetDisplay(n);
+    for (byte b = 0; b < sizeof(ucodeNoops); ++b) {
+      ucodeNoops[b] = 0xFF;      
+    }
+
+    for (byte b = 0x80; b != 0; b++) {
+      SetDisplay(++n);
+      writeBytesToSlice(b, 0, ucodeNoops, sizeof(ucodeNoops)); 
+      writeBytesToSlice(b, 1, ucodeNoops, sizeof(ucodeNoops)); 
+      writeBytesToSlice(b, 2, ucodeNoops, sizeof(ucodeNoops)); 
+      writeBytesToSlice(b, 3, ucodeNoops, sizeof(ucodeNoops)); 
+    }
+
+    MakeSafe();
+    
+    WriteByteToK(0, 0xff);  // 16-bit memory read
+    WriteByteToK(1, 0x1f);  // ALU control = alu_in
+    WriteByteToK(2, 0xfb);  // sysdata_src = mem, reg_in_mux = sysdata, write
+    WriteByteToK(3, 0x0);   // Read port 1 = r0, read port 2 = r0, write r0
+
+    SetAH(0xFF); SetAL(0xFF);
+    SetDH(0xFF); SetDL(0xFF);
+    McrMakeSafe();
+    
+    for(;;) {
+      SingleClock();    
+      WriteByteToK(2, 0x1b);  // sysdata_src = mem, reg_in_mux = sysdata, write
+      SingleClock();
+      WriteByteToK(2, 0x9b);
+    }
+  }
+}
+
+

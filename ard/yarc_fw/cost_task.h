@@ -64,6 +64,12 @@ namespace CostPrivate {
       byte DL;
       byte readValue;
     } m16Data;
+    struct registerBasicData {
+      byte AH;
+      byte AL;
+      byte DH;
+      byte DL;
+    } regData;
   };
 
   typedef void (*TestInit)();
@@ -121,13 +127,14 @@ namespace CostPrivate {
 
   // Callback for the executive's single log line per cycle
   byte testCycleStarting(byte *bp, byte bmax) {
-    randomSeed(millis());
     int result = snprintf_P((char *)bp, bmax, PSTR("cost: test cycle starting"));
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
   }
 
+  // Callback for test starting within a cycle. This function also doesn't
+  // use any variable data.
   byte testStarting(byte *bp, byte bmax) {
     int result = snprintf_P((char *)bp, bmax, PSTR("  test %s starting"),
       pgm_read_ptr_near(&Tests[currentTestId].name));
@@ -145,10 +152,10 @@ namespace CostPrivate {
     // Wait for all previously queued log messages to be formatted and sent
     // to the host. See the block comment above ("General note about...")
     if (queuedLogMessageCount > 0) {
-      setDisplay(0x38); // temporary
+      SetDisplay(0x38); // temporary
       return 87;
     }
-    setDisplay(0xC4); // temporary
+    SetDisplay(0xC4); // temporary
 
     // Is a new test cycle starting? (Including first-time initialization)
     if (currentTestId >= N_TESTS) {
@@ -164,7 +171,7 @@ namespace CostPrivate {
       queuedLogMessageCount++;
       logQueueCallback(testStarting);
       lastTestId = currentTestId;
-      makeSafe(); // clean up YARC state for the next test
+      MakeSafe(); // clean up YARC state for the next test
       const TestInit testInit = pgm_read_ptr_near(&Tests[currentTestId].init);
       (*testInit)();
       return 0;
@@ -309,10 +316,8 @@ namespace CostPrivate {
     }
 
     m16Data.AH++;
-    m16Data.DL++;
-    if (m16Data.DL == 0) {
-      m16Data.DH++;
-    }
+    m16Data.DL += 7;
+    m16Data.DH += 17;
     
     return true; // not done  
   }
@@ -462,7 +467,7 @@ namespace CostPrivate {
 // all activity runs in the foreground. For now, COST runs by default so
 // there are no callers (TBD).
 void costRun() {
-  makeSafe();
+  MakeSafe();
 	CostPrivate::running = true;
 }
 
@@ -470,7 +475,7 @@ void costRun() {
 // running. For now, COST runs continuously so there are not callers.
 void costStop() {
 	CostPrivate::running = false;
-  makeSafe();
+  MakeSafe();
 }
 
 void costTaskInit() {

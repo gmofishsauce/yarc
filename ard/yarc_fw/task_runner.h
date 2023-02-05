@@ -52,16 +52,16 @@ void panic(byte panicCode, byte subcode) {
   digitalWrite(LED_PIN, HIGH);
   
   serialShutdown();
-  setDisplay(panicCode);
+  SetDisplay(panicCode);
   int whichDisplay = 0;
   
   for (int n = 1; ; ++n) {
     if (whichDisplay == 0) {
-      setDisplay(panicCode);
+      SetDisplay(panicCode);
       digitalWrite(LED_PIN, HIGH);
       delay(200);
     } else {
-      setDisplay(subcode);
+      SetDisplay(subcode);
       digitalWrite(LED_PIN, LOW);
       delay(100);
       digitalWrite(LED_PIN, HIGH);

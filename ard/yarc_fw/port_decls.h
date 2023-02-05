@@ -8,7 +8,7 @@
 
 // Public interface to the write-only 8-bit Display Register (DR)
 
-void setDisplay(byte b);
+void SetDisplay(byte b);
 
 // Public functions exposed by the port task
 
@@ -19,8 +19,8 @@ void SetDH(byte b);
 void SetDL(byte b);
 void SetMCR(byte b);
 byte GetMCR(void);
-byte GetBir(void);
-void makeSafe(void);
+byte GetBIR(void);
+void MakeSafe(void);
 void SingleClock(void);
 
 

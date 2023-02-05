@@ -140,7 +140,7 @@ namespace SerialPrivate {
     xmtBuf->head = 0;
     xmtBuf->tail = 0;
     state = STATE_UNSYNC;
-    setDisplay(0xCF);
+    SetDisplay(0xCF);
   }
 
   // Return true if the byte is a valid command byte.
@@ -365,7 +365,7 @@ namespace SerialPrivate {
     }
     consume(r, 1);
     sendAck(b);
-    setDisplay(0xC2);
+    SetDisplay(0xC2);
     return STATE_READY;
   }
 
@@ -526,7 +526,7 @@ void serialShutdown() {
 }
 
 void serialTaskInit() {
-  setDisplay(TRACE_BEFORE_SERIAL_INIT);
+  SetDisplay(TRACE_BEFORE_SERIAL_INIT);
   SerialPrivate::stProtoUnsync();
 
   Serial.begin(115200);

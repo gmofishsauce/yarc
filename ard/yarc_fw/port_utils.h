@@ -197,15 +197,6 @@ namespace PortPrivate {
   // instruction register and the state counter. These must be placed in
   // defined states separately.
   
-  constexpr byte UCR_SLICE_ADDR_MASK     = (0x01|0x02);
-  constexpr byte UCR_SLICE_EN_L          = 0x04;
-  constexpr byte UCR_RAM_WR_EN_L         = 0x08;
-  constexpr unsigned int UCR_K_ADDR_SHFT = 4;
-  constexpr byte UCR_KREG_ADDR_MASK      = (0x010|0x020);
-  constexpr byte UCR_KREG_WR_EN_L        = 0x40;
-  constexpr byte UCR_DIR_WR_L            = 0x80;
-  constexpr byte UCR_SAFE                = 0xFF;
-
   // Write block trick: the low order 6 bits 0..5 of the state counter provide
   // the low order address bits to the microcode RAMs. This allows an instruction
   // to have 2^6 microcode words, 0..63. The physical state counter is 8 bits
@@ -221,19 +212,101 @@ namespace PortPrivate {
   // not both). This trick is embedded in the functions below that write to the
   // microcode RAM and K register.
 
-  // Bits in the MCR
-  constexpr byte MCR_BIT_0_WCS_EN_L      = 0x01; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
-  constexpr byte MCR_BIT_1_IR_EN_L       = 0x02; // Clock enable for Nano writing to IR when SYSCLK
-  constexpr byte MCR_BIT_2_SYSBUS_EN_L   = 0x04; // Low enable for sysdata_src decoder; even mem can't drive sysbus unless low
-  constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
-  constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
-  constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
-  constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
-  constexpr byte MCR_BIT_7_UNUSED        = 0x80; // Unused;                                  MCR bit 7, MCR_EXT connector pin 4
+  constexpr byte UCR_SLICE_ADDR_MASK     = (0x01|0x02);
+  constexpr byte UCR_SLICE_EN_L          = 0x04;
+  constexpr byte UCR_RAM_WR_EN_L         = 0x08;
+  constexpr unsigned int UCR_K_ADDR_SHFT = 4;
+  constexpr byte UCR_KREG_ADDR_MASK      = (0x010|0x020);
+  constexpr byte UCR_KREG_WR_EN_L        = 0x40;
+  constexpr byte UCR_DIR_WR_L            = 0x80;
+  constexpr byte UCR_SAFE                = 0xFF;
+} // End of PortPrivate - I am still debating about the visibility of symbols.
 
-  // MCR shadow register. Can do multiple update to this, then call
-  // syncMCR() to update the hardware.
-  byte mcrShadow = ~MCR_BIT_YARC_NANO_L;
+// Bits in the MCR - public
+
+constexpr byte MCR_BIT_0_WCS_EN_L      = 0x01; // Enable transceiver to/from SYSDATA to/from microcode's internal bus
+constexpr byte MCR_BIT_1_IR_EN_L       = 0x02; // Clock enable for Nano writing to IR when SYSCLK
+constexpr byte MCR_BIT_2_SYSBUS_EN_L   = 0x04; // Low enable for sysdata_src decoder; even mem can't drive sysbus unless low
+constexpr byte MCR_BIT_POR_SENSE       = 0x08; // Read POR state (YARC in reset when low); MCR bit 3, onboard only
+constexpr byte MCR_BIT_FASTCLKEN_L     = 0x10; // Enable YARC fast clock when low;         MCR bit 4, MCR_EXT connector pin 1
+constexpr byte MCR_BIT_YARC_NANO_L     = 0x20; // Nano owns bus when low, YARC when high;  MCR bit 5, MCR_EXT connector pin 2
+constexpr byte MCR_BIT_SERVICE_STATUS  = 0x40; // Read YARC requests service when 1;       MCR bit 6, MCR_EXT connector pin 3
+constexpr byte MCR_BIT_7_REG_WR_EN_L   = 0x80; // Low enable register update               MCR bit 7, MCR_EXT connector pin 4
+
+// The "safe" value - Nano in control, everything else disabled.
+constexpr byte MCR_SAFE = ~MCR_BIT_YARC_NANO_L;
+
+// Functional methods for setting MCR state, e.g.
+// SetMCR(McrDisableIRwrite(McrEnableWcs(MCR_SAFE))), etc.
+// None of these functions have side effects.
+
+inline byte McrEnableWcs(byte mcr) {
+  return mcr & ~MCR_BIT_0_WCS_EN_L;
+}
+
+inline byte McrDisableWcs(byte mcr) {
+  return mcr | MCR_BIT_0_WCS_EN_L;
+}
+
+inline byte McrEnableIRwrite(byte mcr) {
+  return mcr & ~MCR_BIT_1_IR_EN_L;
+}
+
+inline byte McrDisableIRwrite(byte mcr) {
+  return mcr | MCR_BIT_1_IR_EN_L;
+}
+
+// Enable other bus masters to drive sysbus
+inline byte McrEnableSysbus(byte mcr) {
+  return mcr & ~MCR_BIT_2_SYSBUS_EN_L;
+}
+
+// Disable all other bus drivers on sysbus, even mem
+inline byte McrDisableSysbus(byte mcr) {
+  return mcr | MCR_BIT_2_SYSBUS_EN_L;
+}
+
+inline byte McrEnableFastclock(byte mcr) {
+  return mcr & ~MCR_BIT_FASTCLKEN_L;
+}
+
+inline byte McrDisableFastclock(byte mcr) {
+  return mcr | MCR_BIT_FASTCLKEN_L;
+}
+
+inline byte McrEnableYarc(byte mcr) {
+  return mcr | MCR_BIT_YARC_NANO_L;
+}
+
+inline byte McrDisableYarc(byte mcr) {
+  return mcr & ~MCR_BIT_YARC_NANO_L;
+}
+
+inline byte McrEnableRegisterWrite(byte mcr) {
+  return mcr & ~MCR_BIT_7_REG_WR_EN_L;
+}
+
+inline byte McrDisableRegisterWrite(byte mcr) {
+  return mcr | MCR_BIT_7_REG_WR_EN_L;
+}
+
+// Tests for the sense lines in the MCR.
+
+inline bool YarcIsPowerOnReset() {
+  return (GetMCR() & MCR_BIT_POR_SENSE) == 0;
+}
+
+inline bool YarcRequestsService() {
+  return (GetMCR() & MCR_BIT_SERVICE_STATUS) != 0;
+}
+
+// Make the MCR "safe" (from bus conflicts) and put
+// the Nano in control of the system D and A busses.
+void McrMakeSafe() {
+  SetMCR(MCR_SAFE);
+}
+
+namespace PortPrivate {
 
   // === start of lowest level code for writing to ports ===
   
@@ -366,9 +439,9 @@ namespace PortPrivate {
     nanoTogglePulse(RawNanoClock);
   }
 
-  void syncMCR() {
+  void setMCR(byte mcr) {
     nanoSetMode(portData, OUTPUT);
-    nanoPutPort(portData, mcrShadow);
+    nanoPutPort(portData, mcr);
     nanoTogglePulse(MachineControlRegister);
   }
 
@@ -402,76 +475,6 @@ namespace PortPrivate {
     return nanoGetRegister(MachineControlRegisterInput);
   }
   
-  // MCR shadow register support. Something must call
-  // syncMCR() after invoking any of these to update
-  // the actual register.
-
-  inline void mcrEnableWcs() {
-    mcrShadow &= ~MCR_BIT_0_WCS_EN_L;
-  }
-  
-  inline void mcrDisableWcs() {
-    mcrShadow |= MCR_BIT_0_WCS_EN_L;
-  }
-  
-  inline void mcrEnableIRwrite() {
-    mcrShadow &= ~MCR_BIT_1_IR_EN_L;
-  }
-  
-  inline void mcrDisableIRwrite() {
-    mcrShadow |= MCR_BIT_1_IR_EN_L;
-  }
-  
-  // Enable other bus masters to drive sysbus
-  inline void mcrEnableSysbus() {
-    mcrShadow &= ~MCR_BIT_2_SYSBUS_EN_L;
-  }
-
-  // Disable all other bus drivers on sysbus, even mem
-  inline void mcrDisableSysbus() {
-    mcrShadow |= MCR_BIT_2_SYSBUS_EN_L;
-  }
-
-  inline void mcrEnableFastclock() {
-    mcrShadow &= ~MCR_BIT_FASTCLKEN_L;
-  }
-  
-  inline void mcrDisableFastclock() {
-    mcrShadow |= ~MCR_BIT_FASTCLKEN_L;
-  }
-  
-  inline void mcrEnableYarc() {
-    mcrShadow |= MCR_BIT_YARC_NANO_L;
-  }
-  
-  inline void mcrDisableYarc() {
-    mcrShadow &= ~MCR_BIT_YARC_NANO_L;
-  }
-  
-  inline void mcrForceUnusedBitsHigh() {
-    mcrShadow |= MCR_BIT_7_UNUSED;
-  }
-  
-  inline bool yarcIsPowerOnReset() {
-    return (getMCR() & MCR_BIT_POR_SENSE) == 0;
-  }
-  
-  inline bool yarcRequestsService() {
-    return (getMCR() & MCR_BIT_SERVICE_STATUS) != 0;
-  }
-
-  // Make the MCR "safe" (from bus conflicts) and put
-  // the Nano in control of the system D and A busses.
-  void mcrMakeSafe() {
-    mcrDisableWcs();
-    mcrDisableIRwrite();
-    mcrDisableSysbus();
-    mcrDisableFastclock();
-    mcrDisableYarc();
-    mcrForceUnusedBitsHigh();
-    syncMCR();
-  }
-
   // UCR (microcode control register) shadow support
   
   byte ucrShadow = UCR_SAFE;
@@ -483,9 +486,9 @@ namespace PortPrivate {
     setAL(0xFF);
     setDH(0x00);
     setDL(ucrShadow);
-    mcrEnableWcs(); syncMCR();
+    SetMCR(McrEnableWcs(MCR_SAFE));
     nanoTogglePulse(WcsControlClock);
-    mcrDisableWcs(); syncMCR();
+    SetMCR(McrDisableWcs(MCR_SAFE));
   }
 
   // The slice appears in the two low-order bits of both
