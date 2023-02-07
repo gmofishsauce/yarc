@@ -33,7 +33,9 @@
 
 	function collect() {
 	  const kmap = new Map();
+	  const comments = new Map();
 	  kmap.set("k3", 0xFF); kmap.set("k2", 0xFF); kmap.set("k1", 0xFF); kmap.set("k0", 0xFF);
+	  comments.set("k3", ""); comments.set("k2", ""); comments.set("k1", ""); comments.set("k0", "");
 
 	  Array.from(gebi('all').elements).forEach((ctl) => {
 		console.log(ctl.id + ": " + ctl.value);
@@ -43,14 +45,21 @@
 		  console.log(ctl.id + ": " + a[0] + " " + a[1] + " " + a[2] + " " + a[3] + " " + kmap.get(a[0]));
 		  kmap.set(a[0], kmap.get(a[0]) & ~(a[2] << a[3]));
 		  kmap.set(a[0], kmap.get(a[0]) | ((ctl.value & a[2]) << a[3]));
+		  comments.set(a[0], comments.get(a[0]) + " " + a[1] + "=" + ctl.options[ctl.selectedIndex].text);
 		}
 	  });
 
+	// contents.innerText =
+	// 	"sk 0 " + "0x" + kmap.get("k0").toString(16) + "\n" + 
+	// 	"sk 1 " + "0x" + kmap.get("k1").toString(16) + "\n" + 
+	// 	"sk 2 " + "0x" + kmap.get("k2").toString(16) + "\n" + 
+	// 	"sk 3 " + "0x" + kmap.get("k3").toString(16) + "\n";
+
 	  contents.innerText =
-		"sk 0 " + "0x" + kmap.get("k0").toString(16) + "\n" + 
-		"sk 1 " + "0x" + kmap.get("k1").toString(16) + "\n" + 
-		"sk 2 " + "0x" + kmap.get("k2").toString(16) + "\n" + 
-		"sk 3 " + "0x" + kmap.get("k3").toString(16) + "\n";
+		"WriteByteToK(3, 0x" + kmap.get("k3").toString(16) + "); //" + comments.get("k3") + "\n" +
+		"WriteByteToK(2, 0x" + kmap.get("k2").toString(16) + "); //" + comments.get("k2") + "\n" + 
+		"WriteByteToK(1, 0x" + kmap.get("k1").toString(16) + "); //" + comments.get("k1") + "\n" + 
+		"WriteByteToK(0, 0x" + kmap.get("k0").toString(16) + "); //" + comments.get("k0") + "\n";
 
 	  // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
 	  rsw_from_instruction = gebi("k0-rsw_ir_uc-1-4").value == 0;
@@ -92,7 +101,7 @@
 		<option value="0">R0</option>
 		<option value="1">R1</option>
 		<option value="2">R2</option>
-		<option value="3" selected>R3</option onchange="collect()">
+		<option value="3" selected>R3</option>
 	  </select> &nbsp;
 	  src2: <select id="k3-src2-7-3" onchange="collect()">
 		<option value="0">R0</option>
@@ -160,9 +169,9 @@
 	    <option value="1">sp</option>
 	    <option value="2">ir</option>
 	    <option value="3">f</option>
-	    <option value="4">mem</option>
-	    <option value="5">TBD</option>
-	    <option value="6">TBD</option>
+	    <option value="4">TBD4</option>
+	    <option value="5">mem</option>
+	    <option value="6">TBD6</option>
 	    <option value="7" selected>none</option>
 	  </select> &nbsp;
 	  reg_in_mux: <select id="k1-reg_in_mux-1-4" onchange="collect()">
