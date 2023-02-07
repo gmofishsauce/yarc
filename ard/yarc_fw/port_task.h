@@ -424,6 +424,21 @@ bool WriteByteToK(byte kReg, byte kVal) {
   return true;
 }
 
+// This could be made far more efficient by implementing it in
+// the PortPrivate section. Each call to PortPrivate:writeByteToK()
+// currently does 64 clocks in order to disable the microcode RAM
+// outputs. It could then do four writes, but each call only does
+// one. This isn't (currently?) important enough to worry about.
+//
+// This function alters essentially all external registers under
+// the Nano's control and does not restore them.
+void WriteK(byte k3, byte k2, byte k1, byte k0) {
+  PortPrivate::writeByteToK(3, k3);
+  PortPrivate::writeByteToK(2, k2);
+  PortPrivate::writeByteToK(1, k1);
+  PortPrivate::writeByteToK(0, k0);
+}
+
 // Change of philosophy: direct set of MCR
 
 void SetMCR(byte b) {
@@ -456,6 +471,14 @@ void ReadBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
   PortPrivate::readBytesFromSlice(opcode, slice, data, n);
 }
 
+// Set the bus registers (AH, AL, DH, DL)
+void SetADHL(byte ah, byte al, byte dh, byte dl) {
+  SetAH(ah);
+  SetAL(al);
+  SetDH(dh);
+  SetDL(dl);  
+}
+
 // These are convenience functions. Making them functions allows me to stash them
 // at the very bottom of the file.
 namespace PortPrivate {
@@ -466,7 +489,6 @@ namespace PortPrivate {
   // MakeSafe() has just been called.
 
   void callWhenAnyReset() {
-    return; // ==================== XXX currently dead code rest of function
 
     byte ucodeNoops[64];
     byte n = 0;
@@ -485,21 +507,29 @@ namespace PortPrivate {
     }
 
     MakeSafe();
-    
-    WriteByteToK(0, 0xff);  // 16-bit memory read
-    WriteByteToK(1, 0x1f);  // ALU control = alu_in
-    WriteByteToK(2, 0xfb);  // sysdata_src = mem, reg_in_mux = sysdata, write
-    WriteByteToK(3, 0x0);   // Read port 1 = r0, read port 2 = r0, write r0
 
-    SetAH(0xFF); SetAL(0xFF);
-    SetDH(0xFF); SetDL(0xFF);
-    McrMakeSafe();
-    
     for(;;) {
+      WriteByteToK(3, 0xd0); // src1=R3 src2=R2 dst=R0
+      WriteByteToK(2, 0xfb); // alu_op=alu_0x0F alu_ctl=alu_in alu_load_hold=no alu_load_flgs=no
+      WriteByteToK(1, 0xff); // sysdata_src=none reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
+      WriteByteToK(0, 0xff); // rw=read m16_en=8-bit ir_clk=no load rsw_ir_uc=RSW from UC
+      SetADHL(0x7F, 0xFF, 0xA5, 0xA5); // WRITE
+      SetMCR(McrEnableRegisterWrite(MCR_SAFE));
       SingleClock();    
-      WriteByteToK(2, 0x1b);  // sysdata_src = mem, reg_in_mux = sysdata, write
+      SetMCR(MCR_SAFE);
+
+      WriteByteToK(3, 0x42); // src1=R1 src2=R0 dst=R2
+      WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
+      SetADHL(0xFF, 0xFF, 0x00, 0x00); // READ
+      SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
-      WriteByteToK(2, 0x9b);
+      byte b = GetBIR();
+      SetMCR(MCR_SAFE);
+      if ((b&0x0F) == 0x05) {
+        SetDisplay(0x3C);
+      } else {
+        SetDisplay(b);
+      }
     }
   }
 }
