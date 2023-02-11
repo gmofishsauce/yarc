@@ -486,20 +486,16 @@ namespace PortPrivate {
   void callWhenPowerOnReset() {
   }
 
-  // MakeSafe() has just been called.
-
   void callWhenAnyReset() {
 
     byte ucodeNoops[64];
-    byte n = 0;
 
-    SetDisplay(n);
     for (byte b = 0; b < sizeof(ucodeNoops); ++b) {
       ucodeNoops[b] = 0xFF;      
     }
 
-    for (byte b = 0x80; b != 0; b++) {
-      SetDisplay(++n);
+    for (byte n = 0, b = 0x80; b != 0; b++, n++) {
+      SetDisplay(n);
       writeBytesToSlice(b, 0, ucodeNoops, sizeof(ucodeNoops)); 
       writeBytesToSlice(b, 1, ucodeNoops, sizeof(ucodeNoops)); 
       writeBytesToSlice(b, 2, ucodeNoops, sizeof(ucodeNoops)); 
@@ -507,13 +503,80 @@ namespace PortPrivate {
     }
 
     MakeSafe();
+    SetDisplay(0x00);
 
-    for(;;) {
+    byte mAH, mAL, mDH, mDL, b, n, t;
+
+    for (n = 0, t = 0; ; t++) {
+
+      // (1) write 0xAA55 at 0x10 and 0x11
+      WriteK(0xFF, 0xFF, 0xBF, 0xBF);
+      mAH = 0; mAL = 0x10; mDH = 0xAA; mDL = 0x55;
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
+
+      // (2) Check it, low byte first
+      mAH |= 0x80; // read
+      SetAH(mAH);
+      SingleClock(); // read 16 bits but BIR is only 8
+      if ((b = GetBIR()) != mDL) {
+        panic(0x40, b);
+      }
+
+      WriteByteToK(0, 0xFF);  // switch to 8-bit read
+      mAL |= 0x01;            // of the upper byte (0x11)
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
+      b = GetBIR();
+      if ((b = GetBIR()) != mDH) {
+        panic(0x04, b);
+      }
+
+      // TODO FIXME clear location 0x20/0x21 to a different pattern and check it.
+
+      // 16-bit move 0x10 and 0x11 to register 3
+      WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
+      WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
+      WriteByteToK(1, 0xbe); // sysdata_src=mem reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
+      WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
+
+      // Set the address bus for a memory read of 0x10. The data
+      // registers should not be used on the read; put values in
+      // them that will be recognizable if they propagate by mistake.
+      // Clock 0x10/0x11 into dst=R3.
+      mAH = 0x80; mAL = 0x10; mDH = 0x33; mDL = 0x44;
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
+      SingleClock();
+      SetMCR(MCR_SAFE); // freeze the registers
+
+      // Now clock register R3 into memory location 0x20/0x21.
+      WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
+      WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
+      WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
+      WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
+      mAH = 0x00; mAL = 0x20; mDH = 0x33; mDL = 0x44;
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
+
+      // Finally read 0x20 and 0x21 and verify they are now 0xAA55
+      // TODO FIXME
+
+      if (t == 255) {
+        SetDisplay(n++);
+      }
+    }
+
+#if 0 // This simpler test works
+    for(byte writeval = 0; ; writeval++) {
       WriteByteToK(3, 0xd0); // src1=R3 src2=R2 dst=R0
       WriteByteToK(2, 0xfb); // alu_op=alu_0x0F alu_ctl=alu_in alu_load_hold=no alu_load_flgs=no
       WriteByteToK(1, 0xff); // sysdata_src=none reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
       WriteByteToK(0, 0xff); // rw=read m16_en=8-bit ir_clk=no load rsw_ir_uc=RSW from UC
-      SetADHL(0x7F, 0xFF, 0xA5, 0xA5); // WRITE
+      SetADHL(0x7F, 0xFF, 0xFF, writeval); // WRITE
       SetMCR(McrEnableRegisterWrite(MCR_SAFE));
       SingleClock();    
       SetMCR(MCR_SAFE);
@@ -525,12 +588,13 @@ namespace PortPrivate {
       SingleClock();
       byte b = GetBIR();
       SetMCR(MCR_SAFE);
-      if ((b&0x0F) == 0x05) {
+      if (b == writeval) {
         SetDisplay(0x3C);
       } else {
         SetDisplay(b);
       }
     }
+#endif
   }
 }
 

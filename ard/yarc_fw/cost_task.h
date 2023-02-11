@@ -152,10 +152,10 @@ namespace CostPrivate {
     // Wait for all previously queued log messages to be formatted and sent
     // to the host. See the block comment above ("General note about...")
     if (queuedLogMessageCount > 0) {
-      SetDisplay(0x38); // temporary
+      SetDisplay(0x38);
       return 87;
     }
-    SetDisplay(0xC4); // temporary
+    SetDisplay(0xC4);
 
     // Is a new test cycle starting? (Including first-time initialization)
     if (currentTestId >= N_TESTS) {
@@ -241,7 +241,7 @@ namespace CostPrivate {
   // arguments are passed through the anonymous union.
   void writeStep16() {
     WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
-    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN# low, all other high
+    SetMCR(McrEnableSysbus(MCR_SAFE)); // YARC/NANO# low, SYSBUS_EN# low
 
     do {
       SetAH(m16Data.AH);
@@ -327,6 +327,11 @@ namespace CostPrivate {
   void regTestInit() {
   }
 
+  // Write 16 bits to main memory as a single write. Move the 16 bits to 
+  // a register in a single operation. Read the register to a second memory
+  // location with a single register read/memory write. Compare the two
+  // memory locations (in the Nano, using byte reads and writes) and report
+  // if the data transfers were all successful.
   bool regTestBody() {
     WriteByteToK(3, 0xF8);  // LS bits are dst (target) = unconditional R0
     WriteByteToK(2, 0xFF);  // no ALU activity
@@ -409,56 +414,60 @@ namespace CostPrivate {
     return result;
   }
 
-  void memoryTestInit() {
-    // Now in order to read and write main memory, we need to set the
-    // the sysdata_src field of the microcode control register K to the
-    // value MEM. This is a value of 5 in the three MS bits of K byte 1.
-    // Then we need to enable other things than the Nano to drive sysdata.
+  // In order to read and write main memory, we need to set the sysdata_src
+  // field of the microcode control register K to the value MEM. This is a
+  // value of 5 in the three MS bits of K byte 1. Then we need to enable
+  // other things than the Nano to drive sysdata.
+  void prepMemoryWrite() {    
     SetAH(0xFF);
     SetAL(0xFF);
-    WriteByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
-    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN low, all other high
+    WriteK(0xFF, 0xFF, 0xBF, 0xFF); // K1 = 0B1011_1111 (sysdata_src = mem)
+    SetMCR(McrEnableSysbus(MCR_SAFE));
     SetDH(0xFF);  // Not relevant since we only do 8-bit memory cycles
+  }
+
+  void doMemoryWrite(byte ah, byte al, byte n) {
+      SetAL(mbData.AL);
+      SetAH(mbData.AH & ~0x80); // write
+      SetDL(n);
+      SingleClock();
+  }
+
+  // Prepare for a single pass over memory
+  void memoryTestInit() {
+    prepMemoryWrite();
 
     mbData.AH = 0;
     mbData.AL = 0;
     mbData.DL = 0;
   }
   
+  // Do a single pass over memory, 256 bytes per call.  
   bool memoryBasicTest() {
     if (mbData.AH >= 0x78) {
       return false; // done - 0x7800 = 30k RAM
     }
     
     byte n = random(0, 255);
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < 256; ++i, ++n) {
       mbData.AL = (byte) i;
-      SetAL(mbData.AL);
-      SetAH(mbData.AH & ~0x80); // write
-      SetDL(n);
-      SingleClock();
+      doMemoryWrite(mbData.AH, mbData.AL, n); // given MCR and K set
 
       SetAH(mbData.AH | 0x80); // read
       SingleClock();
       savedResult = GetBIR();
-      // if (mbData.AL == 0x31 && n < 2) {
-      //   // Make a "failure" happen every so often
-      //   savedResult = 1 + n;
-      // }
       if (savedResult != n) {
         queuedLogMessageCount++;
         logQueueCallback(memoryBasicMessageCallback);
         return false;
       } 
-
-      n++;     
     }
 
     mbData.AH++;
     return true;   
   }
 #endif // COST
-}
+} // End of CostPrivate namespace
 
 // === public functions of the CoST task ===
 
@@ -475,7 +484,7 @@ void costRun() {
 // running. For now, COST runs continuously so there are not callers.
 void costStop() {
 	CostPrivate::running = false;
-  MakeSafe();
+  MakeSafe(); // ???
 }
 
 void costTaskInit() {
