@@ -487,7 +487,6 @@ namespace PortPrivate {
   }
 
   void callWhenAnyReset() {
-
     byte ucodeNoops[64];
 
     for (byte b = 0; b < sizeof(ucodeNoops); ++b) {
@@ -504,9 +503,37 @@ namespace PortPrivate {
 
     MakeSafe();
     SetDisplay(0x00);
-
     byte mAH, mAL, mDH, mDL, b, n, t;
 
+    // Write one byte to main memory at 0x14 and verify it.
+    mAH = 0; mAL = 0x14; mDH = 0x00; mDL = 0x00; n = 0;
+    for (;;) {
+      SetMCR(MCR_SAFE);
+      WriteByteToK(1, 0xFF); // no read
+      WriteByteToK(0, 0x7F); // write
+      SetADHL(mAH, mAL, mDH, mDL);
+      SingleClock();
+
+      SetMCR(MCR_SAFE); // disable writes
+      WriteByteToK(1, 0x9F); // Enable memory to bus (soon...)
+      WriteByteToK(0, 0xFF); // no write
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE)); //           ...now
+      SingleClock();
+      
+      b = getBIR();
+      if (b != mDL) {
+        panic(0xAA, b);
+      }
+
+      mDL++;
+      if (mDL == 0) {
+        n++;
+        SetDisplay(n);
+      }
+    }
+
+#if 0
     for (n = 0, t = 0; ; t++) {
 
       // (1) write 0xAA55 at 0x10 and 0x11
@@ -608,7 +635,7 @@ namespace PortPrivate {
         SetDisplay(n++);
       }
     }
-
+#endif
 #if 0 // This simpler test works
     for(byte writeval = 0; ; writeval++) {
       WriteByteToK(3, 0xd0); // src1=R3 src2=R2 dst=R0
