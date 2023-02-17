@@ -510,8 +510,8 @@ namespace PortPrivate {
     for (n = 0, t = 0; ; t++) {
 
       // (1) write 0xAA55 at 0x10 and 0x11
-      WriteK(0xFF, 0xFF, 0xBF, 0xBF);
-      mAH = 0; mAL = 0x10; mDH = 0xAA; mDL = 0x55;
+      WriteK(0xFF, 0xFF, 0xBF, 0xBF); // 16-bit memory access
+      mAH = 0; mAL = 0x10; mDH = 0xAA; mDL = 0x55; // mAH == 0 => write
       SetADHL(mAH, mAL, mDH, mDL);
       SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
@@ -534,9 +534,32 @@ namespace PortPrivate {
         panic(0x04, b);
       }
 
-      // TODO FIXME clear location 0x20/0x21 to a different pattern and check it.
+      // (3) preset 0xF00D at 0x20 and 0x21
+      WriteK(0xFF, 0xFF, 0xBF, 0xBF);
+      mAH = 0; mAL = 0x20; mDH = 0xF0; mDL = 0x0D;
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
 
-      // 16-bit move 0x10 and 0x11 to register 3
+      // (4) check it, low byte first
+      mAH |= 0x80; // read
+      SetAH(mAH);
+      SingleClock(); // read 16 bits but BIR is only 8
+      if ((b = GetBIR()) != mDL) {
+        panic(0x41, b);
+      }
+
+      WriteByteToK(0, 0xFF);  // switch to 8-bit read
+      mAL |= 0x01;            // of the upper byte (0x21)
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
+      b = GetBIR();
+      if ((b = GetBIR()) != mDH) {
+        panic(0x14, b);
+      }
+
+      // Step (5) 16-bit move 0x10 and 0x11 to register 3
       WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
       WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
       WriteByteToK(1, 0xbe); // sysdata_src=mem reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
@@ -550,7 +573,7 @@ namespace PortPrivate {
       SetADHL(mAH, mAL, mDH, mDL);
       SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
       SingleClock();
-      SetMCR(MCR_SAFE); // freeze the registers
+      SetMCR(MCR_SAFE); // freeze the registers and the bus
 
       // Now clock register R3 into memory location 0x20/0x21.
       WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
@@ -560,10 +583,26 @@ namespace PortPrivate {
       mAH = 0x00; mAL = 0x20; mDH = 0x33; mDL = 0x44;
       SetADHL(mAH, mAL, mDH, mDL);
       SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
+      for (;;) {
+        SingleClock();
+      }
 
       // Finally read 0x20 and 0x21 and verify they are now 0xAA55
-      // TODO FIXME
+      WriteK(0xFF, 0xFF, 0xBF, 0xBF); // 16-bit memory access
+      mAH = 0x80; mAL = 0x20; mDH = 0x35; mDL = 0x45; // mAH == 80 => read; data registers not used
+      SetADHL(mAH, mAL, mDH, mDL);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
+      if ((b = GetBIR()) != 0x55) {
+        panic(0x54, b); // <== FAIL
+      }
+
+      mAL |= 1;
+      SetAL(mAL);
+      SingleClock();
+      if ((b = GetBIR()) != 0x55) {
+        panic(0x56, b);
+      }
 
       if (t == 255) {
         SetDisplay(n++);
