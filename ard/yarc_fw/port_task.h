@@ -504,163 +504,129 @@ namespace PortPrivate {
     MakeSafe();
     SetDisplay(0x00);
     byte mAH, mAL, mDH, mDL, b, n, t;
+    byte save_mDH, save_mDL;
 
-    // Write one byte to main memory at 0x14 and verify it.
-    mAH = 0; mAL = 0x14; mDH = 0x00; mDL = 0x00; n = 0;
-    for (;;) {
-      SetMCR(MCR_SAFE);
-      WriteByteToK(1, 0xFF); // no read
-      WriteByteToK(0, 0x7F); // write
-      SetADHL(mAH, mAL, mDH, mDL);
-      SingleClock();
-
-      SetMCR(MCR_SAFE); // disable writes
-      WriteByteToK(1, 0x9F); // Enable memory to bus (soon...)
-      WriteByteToK(0, 0xFF); // no write
-      SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(McrEnableSysbus(MCR_SAFE)); //           ...now
-      SingleClock();
-      
-      b = getBIR();
-      if (b != mDL) {
-        panic(0xAA, b);
-      }
-
-      mDL++;
-      if (mDL == 0) {
-        n++;
-        SetDisplay(n);
-      }
-    }
-
-#if 0
     for (n = 0, t = 0; ; t++) {
+      save_mDH = random(0, 255);
+      save_mDL = random(0, 255);
 
       // (1) write 0xAA55 at 0x10 and 0x11
-      WriteK(0xFF, 0xFF, 0xBF, 0xBF); // 16-bit memory access
-      mAH = 0; mAL = 0x10; mDH = 0xAA; mDL = 0x55; // mAH == 0 => write
+      SetADHL(0x7F, 0xFE, 0x00, 0x00); // See comment below
+      WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
+      mAH = 0; mAL = 0x10; mDH = save_mDH; mDL = save_mDL;
       SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
 
-      // (2) Check it, low byte first
-      mAH |= 0x80; // read
-      SetAH(mAH);
-      SingleClock(); // read 16 bits but BIR is only 8
+      // After a write by the Nano, we need to change K to disable writes.
+      // But writing K is highly non-atomic and requires clocks. So it's
+      // likely to overwrite the memory data with e.g. the value intended
+      // for the instruction register, etc. The only way currently to avoid
+      // this is to point the Nano's address registers at an unused I/O
+      // address (the Nano's address registers are on the Nano's I/O bus
+      // and do not require system clocks to write). Also, we need to
+      // preserve mDH and mDL here for checking purposes, but we want to
+      // set the registers to some value different from what we wrote.     
+      // (2) Now write K and do a byte memory read
+      SetADHL(0x7F, 0xFE, 0x00, 0x00);
+      WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+      SetADHL(mAH, mAL, 0x00, 0x00);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
       if ((b = GetBIR()) != mDL) {
         panic(0x40, b);
       }
 
-      WriteByteToK(0, 0xFF);  // switch to 8-bit read
       mAL |= 0x01;            // of the upper byte (0x11)
-      SetADHL(mAH, mAL, mDH, mDL);
+      SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
-      b = GetBIR();
       if ((b = GetBIR()) != mDH) {
         panic(0x04, b);
       }
 
       // (3) preset 0xF00D at 0x20 and 0x21
-      WriteK(0xFF, 0xFF, 0xBF, 0xBF);
+      SetADHL(0x7F, 0xFE, 0x00, 0x00);
+      WriteK(0xFF, 0xFF, 0xFF, 0x3F); // write memory, 16-bit access
       mAH = 0; mAL = 0x20; mDH = 0xF0; mDL = 0x0D;
       SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SetMCR(MCR_SAFE);
       SingleClock();
 
-      // (4) check it, low byte first
-      mAH |= 0x80; // read
-      SetAH(mAH);
-      SingleClock(); // read 16 bits but BIR is only 8
+      // (4) check it, low byte first, byte at a time
+      SetADHL(0x7F, 0xFE, 0x00, 0x00);
+      WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+      SetADHL(mAH, mAL, 0x00, 0x00);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
       if ((b = GetBIR()) != mDL) {
         panic(0x41, b);
       }
+      SetMCR(MCR_SAFE);
 
-      WriteByteToK(0, 0xFF);  // switch to 8-bit read
       mAL |= 0x01;            // of the upper byte (0x21)
-      SetADHL(mAH, mAL, mDH, mDL);
+      SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
-      b = GetBIR();
       if ((b = GetBIR()) != mDH) {
         panic(0x14, b);
       }
-
+      SetMCR(MCR_SAFE);
+      
       // Step (5) 16-bit move 0x10 and 0x11 to register 3
+      SetADHL(0x7F, 0xFE, 0xFF, 0xFF);
       WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
       WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
-      WriteByteToK(1, 0xbe); // sysdata_src=mem reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
+      WriteByteToK(1, 0x9e); // sysdata_src=TBD4 reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
       WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
 
-      // Set the address bus for a memory read of 0x10. The data
-      // registers should not be used on the read; put values in
-      // them that will be recognizable if they propagate by mistake.
-      // Clock 0x10/0x11 into dst=R3.
-      mAH = 0x80; mAL = 0x10; mDH = 0x33; mDL = 0x44;
+      // Now we need to set AH to 0x80 (SYSADDR:15 high) because this
+      // will cause the Nano's data bus drivers to believe the bus cycle
+      // is a read so it won't try to drive the bus; otherwise, it will.
+      mAH = 0x80; mAL = 0x10; mDH = 0xFF; mDL = 0xFF;
       SetADHL(mAH, mAL, mDH, mDL);
       SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
       SingleClock();
       SetMCR(MCR_SAFE); // freeze the registers and the bus
-
-      // Now clock register R3 into memory location 0x20/0x21.
+ 
+      // (6) Clock register R3 into memory location 0x20/0x21. Note that the Nano
+      // provides the address, always, when it's in control - the Nano's address
+      // bus drivers are enabled by YARC/NANO# low. But again, we'll set the high
+      // order address bit to disable the Nano's data bus drivers.
+      SetADHL(0x7F, 0xFE, 0x00, 0x00);
       WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
       WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
       WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
-      WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
-      mAH = 0x00; mAL = 0x20; mDH = 0x33; mDL = 0x44;
-      SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      for (;;) {
-        SingleClock();
-      }
-
-      // Finally read 0x20 and 0x21 and verify they are now 0xAA55
-      WriteK(0xFF, 0xFF, 0xBF, 0xBF); // 16-bit memory access
-      mAH = 0x80; mAL = 0x20; mDH = 0x35; mDL = 0x45; // mAH == 80 => read; data registers not used
+      WriteByteToK(0, 0x3f); // rw=write m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
+      mAH = 0x80; mAL = 0x20; mDH = 0x33; mDL = 0x44;
       SetADHL(mAH, mAL, mDH, mDL);
       SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
-      if ((b = GetBIR()) != 0x55) {
-        panic(0x54, b); // <== FAIL
-      }
 
-      mAL |= 1;
-      SetAL(mAL);
+      // (7) check it, low byte first, byte at a time
+      SetADHL(0x7F, 0xFE, 0x00, 0x00);
+      WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+      SetADHL(mAH, mAL, 0x00, 0x00);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
-      if ((b = GetBIR()) != 0x55) {
-        panic(0x56, b);
+      if ((b = GetBIR()) != save_mDL) {
+        panic(0x61, b);
       }
+      SetMCR(MCR_SAFE);
+
+      mAL |= 0x01;            // of the upper byte (0x21)
+      SetADHL(mAH, mAL, 0x00, 0x00);
+      SetMCR(McrEnableSysbus(MCR_SAFE));
+      SingleClock();
+      if ((b = GetBIR()) != save_mDH) {
+        panic(0x34, b);
+      }
+      SetMCR(MCR_SAFE);
 
       if (t == 255) {
         SetDisplay(n++);
       }
     }
-#endif
-#if 0 // This simpler test works
-    for(byte writeval = 0; ; writeval++) {
-      WriteByteToK(3, 0xd0); // src1=R3 src2=R2 dst=R0
-      WriteByteToK(2, 0xfb); // alu_op=alu_0x0F alu_ctl=alu_in alu_load_hold=no alu_load_flgs=no
-      WriteByteToK(1, 0xff); // sysdata_src=none reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
-      WriteByteToK(0, 0xff); // rw=read m16_en=8-bit ir_clk=no load rsw_ir_uc=RSW from UC
-      SetADHL(0x7F, 0xFF, 0xFF, writeval); // WRITE
-      SetMCR(McrEnableRegisterWrite(MCR_SAFE));
-      SingleClock();    
-      SetMCR(MCR_SAFE);
 
-      WriteByteToK(3, 0x42); // src1=R1 src2=R0 dst=R2
-      WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
-      SetADHL(0xFF, 0xFF, 0x00, 0x00); // READ
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      byte b = GetBIR();
-      SetMCR(MCR_SAFE);
-      if (b == writeval) {
-        SetDisplay(0x3C);
-      } else {
-        SetDisplay(b);
-      }
-    }
-#endif
   }
 }
 
