@@ -289,7 +289,7 @@ namespace PortPrivate {
     if (getMCR() != byte(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
       panic(PANIC_POST, 3);
     }
-  
+  #if 0 // ============================================================== NEEDS MAJOR UPDATE ===========
     setAH(0xFF); setAL(0xFF);
 
     // Now in order to read and write main memory, we need to set the
@@ -359,7 +359,7 @@ namespace PortPrivate {
         panic(PANIC_POST, 10);
       }
     }
-
+#endif // ============================================================== END OF NEEDS MAJOR UPDATE ===
     kRegMakeSafe();
     ucrMakeSafe();
     McrMakeSafe();
@@ -517,10 +517,9 @@ namespace PortPrivate {
       SetADHL(mAH, mAL, mDH, mDL);
       SingleClock();
 
-      // (2) Now write K and do a byte memory read
-      // We need to preserve mDH and mDL here for checking purposes,
-      // but we want to set the data registers to some value (0x00)
-      // different from what we wrote.     
+      // (2) Check the low byte. Set the data registers to
+      // some arbitrary value different than what we wrote
+      // (here 0, 0) make sure we're not reading from them.    
       WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
       SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
@@ -563,7 +562,8 @@ namespace PortPrivate {
       }
       SetMCR(MCR_SAFE);
       
-      // Step (5) 16-bit move 0x10 and 0x11 to register 3
+      // Step (5) 16-bit move 0x10 and 0x11 to register 3. Write the
+      // microcode setting "the long way" so we can keep all the comments.
       WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
       WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
       WriteByteToK(1, 0x9e); // sysdata_src=TBD4 reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
@@ -572,6 +572,7 @@ namespace PortPrivate {
       // Now we need to set AH to 0x80 (SYSADDR:15 high) because this
       // will cause the Nano's data bus drivers to believe the bus cycle
       // is a read so it won't try to drive the bus; otherwise, it will.
+      // Again, set the data registers to something "different".
       mAH = 0x80; mAL = 0x10; mDH = 0xFF; mDL = 0xFF;
       SetADHL(mAH, mAL, mDH, mDL);
       SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));

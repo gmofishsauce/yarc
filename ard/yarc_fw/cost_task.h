@@ -53,9 +53,9 @@ namespace CostPrivate {
     struct memoryBasicData {
       byte AH;
       byte AL;
-      byte data[64];
-      byte result[64];
+      byte DH;
       byte DL;
+      byte readValue;
     } mbData;
     struct memory16Data {
       byte AH;
@@ -83,8 +83,8 @@ namespace CostPrivate {
   bool regTestBody(void);
   void ucodeTestInit(void);
   bool ucodeBasicTest(void);
-  void memoryTestInit(void);
-  bool memoryBasicTest(void);
+  void memBasicTestInit(void);
+  bool memBasicTest(void);
 
   typedef struct tr {
     TestInit init;
@@ -93,11 +93,11 @@ namespace CostPrivate {
   } TestRef;
 
   const PROGMEM TestRef Tests[] = {
-    { delayTaskInit,    delayTaskBody,   "delay"  },
-    { m16TestInit,      m16TestBody,     "mem16"  },
-    { regTestInit,      regTestBody,     "reg"    },
-    { ucodeTestInit,    ucodeBasicTest,  "ucode"  },
-    { memoryTestInit,   memoryBasicTest, "memory" }  
+    { delayTaskInit,    delayTaskBody,  "delay"    },
+    { m16TestInit,      m16TestBody,    "mem16"    },
+    { regTestInit,      regTestBody,    "reg"      },
+    { ucodeTestInit,    ucodeBasicTest, "ucode"    },
+    { memBasicTestInit, memBasicTest,   "membasic" }  
   };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
@@ -302,13 +302,13 @@ namespace CostPrivate {
       logQueueCallback(m16LowByteCallback);
       return false; // only detect 1 failure
     }
-//#if 0
+
     if (!readStep8()) {
       queuedLogMessageCount++;
       logQueueCallback(m16HighByteCallback);
       return false; // only detect 1 failure
     }
-//#endif
+
     m16Data.AH++;
     m16Data.DL += 7;
     m16Data.DH += 17;
@@ -395,71 +395,56 @@ namespace CostPrivate {
 
   // === memory (main system memory) basic test ===
 
-  // Solve the usual problem of closing over an address rather than a value:
-  static byte savedResult;
-
-  // Callback for the executive's single log line per cycle
-  byte memoryBasicMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
-      PSTR("  memoryBasic: test failed at 0x%02X 0x%02X exp 0x%02X got 0x%02X"),
-      mbData.AH, mbData.AL, mbData.DL, savedResult);
+  byte memBasicMessageCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("  memBasicData: fail at 0x%02X 0x%02X data 0x%02X 0x%02X read 0x%02X"),
+      mbData.AH, mbData.AL, mbData.DH, mbData.DL, mbData.readValue);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
   }
 
-  // In order to read and write main memory, we need to set the sysdata_src
-  // field of the microcode control register K to the value MEM. This is a
-  // value of 5 in the three MS bits of K byte 1. Then we need to enable
-  // other things than the Nano to drive sysdata.
-  void prepMemoryWrite() {    
-    SetAH(0xFF);
-    SetAL(0xFF);
-    WriteK(0xFF, 0xFF, 0xBF, 0xFF); // K1 = 0B1011_1111 (sysdata_src = mem)
+  void memBasicTestInit() {
+    mbData.AH = random(0, 0x78);
+    mbData.AL = random(0, 256);
+    mbData.DH = random(0, 256);
+    mbData.DL = random(0, 256);
+  }
+
+  bool memBasicTest() {
+    WriteK(0xFF, 0xFF, 0xFF, 0x7F);  // write memory, 8-bit access
+    SetADHL(mbData.AH, mbData.AL, mbData.DH, mbData.DL);
+    SetMCR(MCR_SAFE);
+    SingleClock();
+
+    // Now write some nearby locations with different data
+    // We don't worry about carries out of AL
+    SetDL(~mbData.DL);
+    for (byte i = 1; i < 64; i = i << 1) {
+      SetAL(mbData.AL + i);
+      SingleClock();
+      SetAL(mbData.AL - i);
+      SingleClock();
+    }
+
+    // Check the original location. Set the data registers
+    // to some arbitrary value.
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF);  // read memory, 8-bit access
+    SetADHL(mbData.AH | 0x80, mbData.AL, 0x55, 0x55); // 0x80 = nano read
     SetMCR(McrEnableSysbus(MCR_SAFE));
-    SetDH(0xFF);  // Not relevant since we only do 8-bit memory cycles
-  }
-
-  void doMemoryWrite(byte ah, byte al, byte n) {
-      SetAL(mbData.AL);
-      SetAH(mbData.AH & ~0x80); // write
-      SetDL(n);
-      SingleClock();
-  }
-
-  // Prepare for a single pass over memory
-  void memoryTestInit() {
-    prepMemoryWrite();
-
-    mbData.AH = 0;
-    mbData.AL = 0;
-    mbData.DL = 0;
-  }
-  
-  // Do a single pass over memory, 256 bytes per call.  
-  bool memoryBasicTest() {
-    if (mbData.AH >= 0x78) {
-      return false; // done - 0x7800 = 30k RAM
-    }
-    
-    byte n = random(0, 255);
-    for (int i = 0; i < 256; ++i, ++n) {
-      mbData.AL = (byte) i;
-      doMemoryWrite(mbData.AH, mbData.AL, n); // given MCR and K set
-
-      SetAH(mbData.AH | 0x80); // read
-      SingleClock();
-      savedResult = GetBIR();
-      if (savedResult != n) {
-        queuedLogMessageCount++;
-        logQueueCallback(memoryBasicMessageCallback);
-        return false;
-      } 
+    SingleClock();
+    if ((mbData.readValue = GetBIR()) != mbData.DL) {
+      queuedLogMessageCount++;
+      logQueueCallback(memBasicMessageCallback);
+      return false;
     }
 
-    mbData.AH++;
-    return true;   
+    mbData.AL++;
+    if (mbData.AL == 0) {
+      return false; // done
+    }
+    return true;
   }
+
 #endif // COST
 } // End of CostPrivate namespace
 
