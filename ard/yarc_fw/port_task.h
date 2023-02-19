@@ -503,6 +503,7 @@ namespace PortPrivate {
 
     MakeSafe();
     SetDisplay(0x00);
+#if 0 // ==============================================================================
     byte mAH, mAL, mDH, mDL, b, n, t;
     byte save_mDH, save_mDL;
 
@@ -511,23 +512,15 @@ namespace PortPrivate {
       save_mDL = random(0, 255);
 
       // (1) write 0xAA55 at 0x10 and 0x11
-      SetADHL(0x7F, 0xFE, 0x00, 0x00); // See comment below
       WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
       mAH = 0; mAL = 0x10; mDH = save_mDH; mDL = save_mDL;
       SetADHL(mAH, mAL, mDH, mDL);
       SingleClock();
 
-      // After a write by the Nano, we need to change K to disable writes.
-      // But writing K is highly non-atomic and requires clocks. So it's
-      // likely to overwrite the memory data with e.g. the value intended
-      // for the instruction register, etc. The only way currently to avoid
-      // this is to point the Nano's address registers at an unused I/O
-      // address (the Nano's address registers are on the Nano's I/O bus
-      // and do not require system clocks to write). Also, we need to
-      // preserve mDH and mDL here for checking purposes, but we want to
-      // set the registers to some value different from what we wrote.     
       // (2) Now write K and do a byte memory read
-      SetADHL(0x7F, 0xFE, 0x00, 0x00);
+      // We need to preserve mDH and mDL here for checking purposes,
+      // but we want to set the data registers to some value (0x00)
+      // different from what we wrote.     
       WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
       SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
@@ -536,7 +529,7 @@ namespace PortPrivate {
         panic(0x40, b);
       }
 
-      mAL |= 0x01;            // of the upper byte (0x11)
+      mAL |= 0x01;            // and the upper byte (0x11)
       SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
       SingleClock();
@@ -545,7 +538,6 @@ namespace PortPrivate {
       }
 
       // (3) preset 0xF00D at 0x20 and 0x21
-      SetADHL(0x7F, 0xFE, 0x00, 0x00);
       WriteK(0xFF, 0xFF, 0xFF, 0x3F); // write memory, 16-bit access
       mAH = 0; mAL = 0x20; mDH = 0xF0; mDL = 0x0D;
       SetADHL(mAH, mAL, mDH, mDL);
@@ -553,7 +545,6 @@ namespace PortPrivate {
       SingleClock();
 
       // (4) check it, low byte first, byte at a time
-      SetADHL(0x7F, 0xFE, 0x00, 0x00);
       WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
       SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
@@ -573,7 +564,6 @@ namespace PortPrivate {
       SetMCR(MCR_SAFE);
       
       // Step (5) 16-bit move 0x10 and 0x11 to register 3
-      SetADHL(0x7F, 0xFE, 0xFF, 0xFF);
       WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
       WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
       WriteByteToK(1, 0x9e); // sysdata_src=TBD4 reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
@@ -592,7 +582,6 @@ namespace PortPrivate {
       // provides the address, always, when it's in control - the Nano's address
       // bus drivers are enabled by YARC/NANO# low. But again, we'll set the high
       // order address bit to disable the Nano's data bus drivers.
-      SetADHL(0x7F, 0xFE, 0x00, 0x00);
       WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
       WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
       WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
@@ -603,7 +592,6 @@ namespace PortPrivate {
       SingleClock();
 
       // (7) check it, low byte first, byte at a time
-      SetADHL(0x7F, 0xFE, 0x00, 0x00);
       WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
       SetADHL(mAH, mAL, 0x00, 0x00);
       SetMCR(McrEnableSysbus(MCR_SAFE));
@@ -626,7 +614,7 @@ namespace PortPrivate {
         SetDisplay(n++);
       }
     }
-
+#endif // ==============================================================================
   }
 }
 

@@ -230,17 +230,12 @@ namespace CostPrivate {
     m16Data.AL = 0x00;
     m16Data.DH = random(0, 255);
     m16Data.DL = random(0, 255);
-
-    // These three bytes from the K register will not change
-    WriteByteToK(3, 0xFF);
-    WriteByteToK(2, 0xFF);
-    WriteByteToK(1, 0xBF); // MEM_EN (101 in the high order bits)
   }
 
   // Write 256 bytes memory with 16-bit cycles. All
   // arguments are passed through the anonymous union.
   void writeStep16() {
-    WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
+    WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
     SetMCR(McrEnableSysbus(MCR_SAFE)); // YARC/NANO# low, SYSBUS_EN# low
 
     do {
@@ -256,18 +251,17 @@ namespace CostPrivate {
   // Verify 256 bytes memory using 16-bit cycles. For each cycle, check
   // just the low-order 8 bits of the value. The Nano only has an
   // 8-bit bus read register (a holdover of the previous 8-bit design)
-  // so it cannot see the high byte of a 16-bit transfer. All arguments
+  // so it cannot see the high byte of a 16-bit read. All arguments
   // are passed through the anonymous union.
   bool readStep16() {
-    WriteByteToK(0, 0xBF); // m16 bit low - enable 16 bit memory cycles
-    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN# low, all other high
+    WriteK(0xFF, 0xFF, 0x9F, 0xBF); // read memory word (16-bit reads)      
+    SetMCR(McrEnableSysbus(MCR_SAFE));
 
     do {
       SetAH(m16Data.AH | 0x80); // 0x80 => read
       SetAL(m16Data.AL);
       SingleClock();
-      m16Data.readValue = GetBIR();
-      if (m16Data.readValue != m16Data.DL) {
+      if ((m16Data.readValue = GetBIR()) != m16Data.DL) {
         return false; // just detect one failure
       }
       m16Data.AL += 2;       
@@ -282,19 +276,18 @@ namespace CostPrivate {
   // triggering a byte transfer, which engagesthe "cross" transceiver to
   // return the high byte on the low-order bits of sysdata.
   bool readStep8() {
-    WriteByteToK(0, 0xFF); // m16 bit high - byte memory cycles
-    SetMCR(0xDB); // YARC/NANO# low, SYSBUS_EN# low, all other high
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory word (byte read)      
+    SetMCR(McrEnableSysbus(MCR_SAFE));
 
     do {
       SetAH(m16Data.AH | 0x80); // 0x80 => read
       SetAL(m16Data.AL | 0x01); // the high byte
       SingleClock();
-      m16Data.readValue = GetBIR();
-      if (m16Data.readValue != m16Data.DH) {
+      if ((m16Data.readValue = GetBIR()) != m16Data.DH) {
         return false; // just detect one failure
       }
       m16Data.AL += 2;       
-    }   while (m16Data.AL != 0);
+    } while (m16Data.AL != 0);
     return true;
   }
 
@@ -309,12 +302,13 @@ namespace CostPrivate {
       logQueueCallback(m16LowByteCallback);
       return false; // only detect 1 failure
     }
+//#if 0
     if (!readStep8()) {
       queuedLogMessageCount++;
       logQueueCallback(m16HighByteCallback);
       return false; // only detect 1 failure
     }
-
+//#endif
     m16Data.AH++;
     m16Data.DL += 7;
     m16Data.DH += 17;
