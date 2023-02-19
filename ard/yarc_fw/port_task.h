@@ -289,56 +289,41 @@ namespace PortPrivate {
     if (getMCR() != byte(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
       panic(PANIC_POST, 3);
     }
-  #if 0 // ============================================================== NEEDS MAJOR UPDATE ===========
-    setAH(0xFF); setAL(0xFF);
 
-    // Now in order to read and write main memory, we need to set the
-    // the sysdata_src field of the microcode control register K to the
-    // value MEM. This is a value of 5 in the three MS bits of K byte 1.
+    byte mAH, mAL, mDH, mDL, b;
 
-    setAH(0xFF); setAL(0xFF);
-    writeByteToK(1, 0xBF); // 0B1011_1111 (101 in the high order bits)
+    // (1) write random values at 0x10 and 0x11
+    WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
+    mAH = 0; mAL = 0x10; mDH = random(0, 256); mDL = random(0, 256);
+    SetADHL(mAH, mAL, mDH, mDL);
+    SingleClock();
+
+    // (2) Check the low byte. Set the data registers to
+    // some arbitrary value different than what we wrote
+    // (here 0, 0) make sure we're not reading from them.    
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+    SetADHL(mAH, mAL, 0x00, 0x00);
     SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != mDL) {
+      panic(PANIC_POST, 4);
+    }
 
-    // Write and read the first 4 bytes
-    setAH(0x00);
-    setAL(0x00); setDL('j' & 0x7F); singleClock();
-    setAL(0x01); setDL('e' & 0x7F); singleClock();
-    setAL(0x02); setDL('f' & 0x7F); singleClock();
-    setAL(0x03); setDL('f' & 0x7F); singleClock();
-  
-    setAH(0x80); setAL(0x00); singleClock();
-    if (getBIR() != ('j')) { panic(PANIC_POST, 4); }
-    
-    setAL(0x01); singleClock();
-    if (getBIR() != ('e')) { panic(PANIC_POST, 5); }
-    
-    setAL(0x02); singleClock();
-    if (getBIR() != ('f')) { panic(PANIC_POST, 6); }
-    
-    setAL(0x03); singleClock();
-    if (getBIR() != ('f')) { panic(PANIC_POST, 7); }
-  
-    // Write and read the first 256 bytes
-    setAH(0x00);
-    for (int j = 0; j < 256; ++j) {
-      setAL(j); setDL(256 - j); singleClock();
+    mAL |= 0x01;            // and the upper byte (0x11)
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != mDH) {
+      panic(PANIC_POST, 5);
     }
-    
-    setAH(0x80);
-    for (int j = 0; j < 256; ++j) {
-      setAL(j); singleClock();
-      if (getBIR() != byte(256 - j)) {
-        panic(PANIC_POST, 8);
-      }
-    }
-  
+    SetMCR(MCR_SAFE);
+
     // And now we'd better still in the /POR
     // state, or we're screwed.
   
      if (!YarcIsPowerOnReset()) {
       // Trouble, /POR should be low right now.
-      panic(PANIC_POST, 9);
+      panic(PANIC_POST, 6);
     }
     
     // Wait for POR# to go high here, then test RAM:
@@ -348,18 +333,22 @@ namespace PortPrivate {
     }
     
     // Write and read the entire 30k space
+    WriteK(0xFF, 0xFF, 0xFF, 0x7F);  // write memory, byte access
     for (int i = 0; i < 0x7800; i++) {
       setAH(i >> 8); setAL(i & 0xFF);
       setDL(i & 0xFF); singleClock();
     }
+
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte    
+    SetMCR(McrEnableSysbus(MCR_SAFE));  
     for (int i = 0; i < 0x7800; i++) {
       setAH((i >> 8) | 0x80); setAL(i & 0xFF);
       singleClock();
       if (getBIR() != byte(i & 0xFF)) {
-        panic(PANIC_POST, 10);
+        panic(PANIC_POST, 7);
       }
     }
-#endif // ============================================================== END OF NEEDS MAJOR UPDATE ===
+
     kRegMakeSafe();
     ucrMakeSafe();
     McrMakeSafe();
@@ -503,119 +492,6 @@ namespace PortPrivate {
 
     MakeSafe();
     SetDisplay(0x00);
-#if 0 // ==============================================================================
-    byte mAH, mAL, mDH, mDL, b, n, t;
-    byte save_mDH, save_mDL;
-
-    for (n = 0, t = 0; ; t++) {
-      save_mDH = random(0, 255);
-      save_mDL = random(0, 255);
-
-      // (1) write 0xAA55 at 0x10 and 0x11
-      WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
-      mAH = 0; mAL = 0x10; mDH = save_mDH; mDL = save_mDL;
-      SetADHL(mAH, mAL, mDH, mDL);
-      SingleClock();
-
-      // (2) Check the low byte. Set the data registers to
-      // some arbitrary value different than what we wrote
-      // (here 0, 0) make sure we're not reading from them.    
-      WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-      SetADHL(mAH, mAL, 0x00, 0x00);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      if ((b = GetBIR()) != mDL) {
-        panic(0x40, b);
-      }
-
-      mAL |= 0x01;            // and the upper byte (0x11)
-      SetADHL(mAH, mAL, 0x00, 0x00);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      if ((b = GetBIR()) != mDH) {
-        panic(0x04, b);
-      }
-
-      // (3) preset 0xF00D at 0x20 and 0x21
-      WriteK(0xFF, 0xFF, 0xFF, 0x3F); // write memory, 16-bit access
-      mAH = 0; mAL = 0x20; mDH = 0xF0; mDL = 0x0D;
-      SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(MCR_SAFE);
-      SingleClock();
-
-      // (4) check it, low byte first, byte at a time
-      WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-      SetADHL(mAH, mAL, 0x00, 0x00);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      if ((b = GetBIR()) != mDL) {
-        panic(0x41, b);
-      }
-      SetMCR(MCR_SAFE);
-
-      mAL |= 0x01;            // of the upper byte (0x21)
-      SetADHL(mAH, mAL, 0x00, 0x00);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      if ((b = GetBIR()) != mDH) {
-        panic(0x14, b);
-      }
-      SetMCR(MCR_SAFE);
-      
-      // Step (5) 16-bit move 0x10 and 0x11 to register 3. Write the
-      // microcode setting "the long way" so we can keep all the comments.
-      WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
-      WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
-      WriteByteToK(1, 0x9e); // sysdata_src=TBD4 reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
-      WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
-
-      // Now we need to set AH to 0x80 (SYSADDR:15 high) because this
-      // will cause the Nano's data bus drivers to believe the bus cycle
-      // is a read so it won't try to drive the bus; otherwise, it will.
-      // Again, set the data registers to something "different".
-      mAH = 0x80; mAL = 0x10; mDH = 0xFF; mDL = 0xFF;
-      SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
-      SingleClock();
-      SetMCR(MCR_SAFE); // freeze the registers and the bus
- 
-      // (6) Clock register R3 into memory location 0x20/0x21. Note that the Nano
-      // provides the address, always, when it's in control - the Nano's address
-      // bus drivers are enabled by YARC/NANO# low. But again, we'll set the high
-      // order address bit to disable the Nano's data bus drivers.
-      WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
-      WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
-      WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
-      WriteByteToK(0, 0x3f); // rw=write m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
-      mAH = 0x80; mAL = 0x20; mDH = 0x33; mDL = 0x44;
-      SetADHL(mAH, mAL, mDH, mDL);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-
-      // (7) check it, low byte first, byte at a time
-      WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-      SetADHL(mAH, mAL, 0x00, 0x00);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      if ((b = GetBIR()) != save_mDL) {
-        panic(0x61, b);
-      }
-      SetMCR(MCR_SAFE);
-
-      mAL |= 0x01;            // of the upper byte (0x21)
-      SetADHL(mAH, mAL, 0x00, 0x00);
-      SetMCR(McrEnableSysbus(MCR_SAFE));
-      SingleClock();
-      if ((b = GetBIR()) != save_mDH) {
-        panic(0x34, b);
-      }
-      SetMCR(MCR_SAFE);
-
-      if (t == 255) {
-        SetDisplay(n++);
-      }
-    }
-#endif // ==============================================================================
   }
 }
 

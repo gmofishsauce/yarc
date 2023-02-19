@@ -327,12 +327,113 @@ namespace CostPrivate {
   // memory locations (in the Nano, using byte reads and writes) and report
   // if the data transfers were all successful.
   bool regTestBody() {
-    WriteByteToK(3, 0xF8);  // LS bits are dst (target) = unconditional R0
-    WriteByteToK(2, 0xFF);  // no ALU activity
-    WriteByteToK(1, 0xFE);  // LS bit enables write to register
-    WriteByteToK(0, 0xFF);  // Don't clock IR; RSW from microcode
+    byte mAH, mAL, mDH, mDL, b, n;
+    byte save_mDH, save_mDL;
+
+    save_mDH = random(0, 256);
+    save_mDL = random(0, 256);
+
+    // (1) write random values at 0x10 and 0x11
+    WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
+    mAH = 0; mAL = 0x10; mDH = save_mDH; mDL = save_mDL;
+    SetADHL(mAH, mAL, mDH, mDL);
     SingleClock();
-    return false;
+
+    // (2) Check the low byte. Set the data registers to
+    // some arbitrary value different than what we wrote
+    // (here 0, 0) make sure we're not reading from them.    
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != mDL) {
+      panic(0x40, b);
+    }
+
+    mAL |= 0x01;            // and the upper byte (0x11)
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != mDH) {
+      panic(0x04, b);
+    }
+
+    // (3) preset 0xF00D at 0x20 and 0x21
+    WriteK(0xFF, 0xFF, 0xFF, 0x3F); // write memory, 16-bit access
+    mAH = 0; mAL = 0x20; mDH = 0xF0; mDL = 0x0D;
+    SetADHL(mAH, mAL, mDH, mDL);
+    SetMCR(MCR_SAFE);
+    SingleClock();
+
+    // (4) check it, low byte first, byte at a time
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != mDL) {
+      panic(0x41, b);
+    }
+    SetMCR(MCR_SAFE);
+
+    mAL |= 0x01;            // of the upper byte (0x21)
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != mDH) {
+      panic(0x14, b);
+    }
+    SetMCR(MCR_SAFE);
+    
+    // Step (5) 16-bit move 0x10 and 0x11 to register 3. Write the
+    // microcode setting "the long way" so we can keep all the comments.
+    WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
+    WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
+    WriteByteToK(1, 0x9e); // sysdata_src=TBD4 reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
+    WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
+
+    // Now we need to set AH to 0x80 (SYSADDR:15 high) because this
+    // will cause the Nano's data bus drivers to believe the bus cycle
+    // is a read so it won't try to drive the bus; otherwise, it will.
+    // Again, set the data registers to something "different".
+    mAH = 0x80; mAL = 0x10; mDH = 0xFF; mDL = 0xFF;
+    SetADHL(mAH, mAL, mDH, mDL);
+    SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
+    SingleClock();
+    SetMCR(MCR_SAFE); // freeze the registers and the bus
+
+    // (6) Clock register R3 into memory location 0x20/0x21. Note that the Nano
+    // provides the address, always, when it's in control - the Nano's address
+    // bus drivers are enabled by YARC/NANO# low. But again, we'll set the high
+    // order address bit to disable the Nano's data bus drivers.
+    WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
+    WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
+    WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
+    WriteByteToK(0, 0x3f); // rw=write m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
+    mAH = 0x80; mAL = 0x20; mDH = 0x33; mDL = 0x44;
+    SetADHL(mAH, mAL, mDH, mDL);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+
+    // (7) check it, low byte first, byte at a time
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != save_mDL) {
+      panic(0x61, b);
+    }
+    SetMCR(MCR_SAFE);
+
+    mAL |= 0x01;            // of the upper byte (0x21)
+    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    if ((b = GetBIR()) != save_mDH) {
+      panic(0x34, b);
+    }
+    SetMCR(MCR_SAFE);
+
+    return false; // done
   }
   
   // === ucode (Microcode RAM) basic test ===
