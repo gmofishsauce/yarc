@@ -65,6 +65,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 // (4 bytes). Bytes in the binary output file not specified by source code
 // are set to semimagical section-dependent "no-op" values by this tool.
 
+// TODO: exit codes (for all yarc subcommands)
+
 package asm
 
 import (
@@ -72,10 +74,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
 	"strings"
 )
 
+// Assembler: open the source file, process it, and
+// write some output (if there weren't any errors.)
 func Assemble(sourceFile string) {
 	log.SetFlags(log.Lmsgprefix | log.Lmicroseconds)
 	log.SetPrefix("asm: ")
@@ -89,7 +92,8 @@ func Assemble(sourceFile string) {
 	gs := newGlobalState(bufio.NewReader(f), sourceFile)
 	numErrors := process(gs)
 	if numErrors == 0 {
-		dump(gs)
+		generateALUcontent(gs);
+		WriteResults(gs)
 		fmt.Println("yasm: success")
 	} else {
 		s := "s"
@@ -109,7 +113,7 @@ func process(gs *globalState) int {
 		//log.Printf("process: token %s\n", t)
 
 		// The main loop of the assembler serves only to identify a symbol
-		// at the start or a line and turn processing over to that symbol's
+		// at the start of a line and turn processing over to that symbol's
 		// action function. When the action function is called, the tokenizer
 		// is between the key symbol and whatever comes next. The action func
 		// then defines the sequences of tokens it will accept, consumes them,
@@ -154,83 +158,6 @@ func process(gs *globalState) int {
 		default:
 			errMsg(gs, "unexpected: %s", t)
 			inError = true
-		}
-	}
-}
-
-func dump(gs *globalState) {
-	fmt.Println()
-	dumpSymbols(gs)
-	fmt.Println()
-	dumpMem(gs)
-	fmt.Println()
-	dumpWCS(gs)
-}
-
-func dumpSymbols(gs *globalState) {
-	sym := &gs.symbols
-	names := make([]string, 0, len(*sym))
-	for n := range *sym {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	fmt.Printf("%-16s %s\n", "SYMBOL", "VALUE")
-	for _, n := range names {
-		if !strings.HasPrefix(n, ".") {
-			fmt.Printf("%-16s %v\n", n, (*sym)[n].symbolData)
-		}
-	}
-}
-
-const MEM_BYTES = 0x7800
-const BYTES_PER_LINE = 16
-
-func dumpMem(gs *globalState) {
-	fmt.Println("ADDR   DATA")
-	for m := 0; m < MEM_BYTES; m += BYTES_PER_LINE {
-		printThisLine := false
-		for n := 0; n < BYTES_PER_LINE; n++ {
-			if gs.mem[m+n] != 0 {
-				printThisLine = true
-				break
-			}
-		}
-		if printThisLine {
-			fmt.Printf("0x%04X ", m)
-			for n := 0; n < BYTES_PER_LINE; n++ {
-				fmt.Printf("%02X", gs.mem[m+n])
-				if n != 15 {
-					fmt.Printf(" ")
-				}
-			}
-			fmt.Println()
-		}
-	}
-}
-
-const WCS_SLOTS_PER_OPCODE = 64
-const WCS_SIZE = 0x2000                             // in uint32
-const WCS_OPCODES = WCS_SIZE / WCS_SLOTS_PER_OPCODE // 128
-const SLOT_NOOP = 0xFFFFFFFF
-
-func dumpWCS(gs *globalState) {
-	fmt.Println("SLOT DATA")
-	for opcode := 0; opcode < WCS_OPCODES; opcode++ {
-		printThisOpcode := false
-		for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-			if gs.wcs[WCS_SLOTS_PER_OPCODE*opcode+slot] != SLOT_NOOP {
-				printThisOpcode = true
-				break
-			}
-		}
-		if printThisOpcode {
-			fmt.Printf("Opcode 0x%02X\n", opcode+0x80) // should disassemble, add is a hack, etc.
-			for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
-				fmt.Printf("%08X ", gs.wcs[WCS_SLOTS_PER_OPCODE*opcode+slot])
-				if slot & 0x07 == 0x07 {
-					fmt.Println()
-				}
-			}
 		}
 	}
 }

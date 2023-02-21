@@ -259,10 +259,11 @@ type globalState struct {
 	inOpcode    bool
 	opcodeValue byte
 	symbols     symbolTable
-	mem         []byte // memory, 0x0000 .. 0x77FF
+	mem         []byte   // memory, 0x0000 .. 0x77FF
 	memNext     int
 	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
 	wcsNext     int		 // index of "next" slot in wcs
+	alu			[]byte   // ALU chip contents, 0..8k
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
@@ -275,6 +276,7 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 		gs.wcs[i] = SLOT_NOOP;
 	}
 	gs.wcsNext = -1
+	gs.alu = make([]byte, 0x2000, 0x2000)
 	gs.reader = new(stackingNameLineByteReader)
 	gs.symbols = make(symbolTable)
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))
