@@ -1,0 +1,15 @@
+(kicad_sch (version 20211123) (generator eeschema)
+
+  (uuid ea679e13-4ca9-417d-b5ab-5364b458c434)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "YARC ALU Controls")
+    (comment 1 "All ICs are HC series regardless of P/N shown")
+  )
+
+  (lib_symbols
+  )
+
+)

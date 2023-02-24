@@ -133,7 +133,7 @@ func dumpBytes(label string, bytes []byte) {
 }
 
 func writeWCS(yarcbin *bufio.Writer, gs *globalState) error {
-	err := binary.Write(yarcbin, binary.BigEndian, gs.wcs)
+	err := binary.Write(yarcbin, binary.LittleEndian, gs.wcs)
 	fmt.Printf("Wrote %d bytes to wcs section\n", 4 * len(gs.wcs));
 	return err
 }
