@@ -1042,10 +1042,16 @@
     (path "/feebb92e-360c-455c-a141-048b807a0420/41dd0363-fa25-4756-96ac-1dde458934a1"
       (reference "#PWR0200") (unit 1) (value "VCC") (footprint "")
     )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/485a9a23-2e1c-4fe1-b5ae-ff0575eb7b4d"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+    )
     (path "/feebb92e-360c-455c-a141-048b807a0420/749765b0-6c44-4895-ab6d-561fe7b820fc"
       (reference "#PWR?") (unit 1) (value "GND") (footprint "")
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/7935e27b-3861-4d13-b8a0-bfe0d22c805e"
+      (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/7d9d3162-e5d2-4b99-b060-3cd13b2a17e7"
       (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/87eadf74-b7b6-4303-a606-176bf5cf6c2b"
@@ -1056,6 +1062,9 @@
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/be484554-e105-45d2-91bd-0a67529a45ae"
       (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/c0ed6637-9bd4-474d-932b-3a4dbdc8060c"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
     )
     (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/ab26a42e-b7f6-4a80-b26c-c01085e448c7"
       (reference "A1") (unit 1) (value "Arduino_Nano_v3.x") (footprint "Module:Arduino_Nano")
@@ -1789,6 +1798,9 @@
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/1d562211-0db7-46e8-8da1-bc5a1be976b6"
       (reference "U?") (unit 1) (value "74LS32") (footprint "")
     )
+    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/2a54a6e7-bb36-43ca-a6f6-78eff0b07673"
+      (reference "U?") (unit 1) (value "74AHC374") (footprint "")
+    )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/35d6a75f-a1b5-485b-81b8-8d2f737c1599"
       (reference "U?") (unit 1) (value "74LS00") (footprint "")
     )
@@ -1797,6 +1809,9 @@
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/a2e12e98-68d7-4272-b679-1d37b42c32e1"
       (reference "U?") (unit 1) (value "74LS08") (footprint "")
+    )
+    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/be827f8f-7aca-4a0a-a9cf-cddaf922aa7c"
+      (reference "U?") (unit 1) (value "74LS157") (footprint "")
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/c5d7f873-b7a0-4d59-b552-ee5dfeb6356b"
       (reference "U?") (unit 1) (value "74LS08") (footprint "")
