@@ -119,24 +119,24 @@ namespace PortPrivate {
   typedef byte REGISTER_ID;
 
   // Addresses on low decoder
-  constexpr byte DATA_INPUT = 0;
-  constexpr byte DATAHI = 1;
-  constexpr byte DATALO = 2;
-  constexpr byte ADDRHI = 3;
-  constexpr byte ADDRLO = 4;
-  constexpr byte MCR_INPUT = 5;
+  constexpr byte DATA_INPUT = 0;              // Read the data (bus) input register, the BIR
+  constexpr byte DATAHI = 1;                  // Clock the high data output register
+  constexpr byte DATALO = 2;                  // Clock the low data output register
+  constexpr byte ADDRHI = 3;                  // Clock the high address register
+  constexpr byte ADDRLO = 4;                  // Clock the low address register
+  constexpr byte MCR_INPUT = 5;               // Read the MCR
   constexpr byte LOW_UNUSED_6 = 6;
   constexpr byte LOW_UNUSED_7 = 7;
 
   // Addresses on high decoder
-  constexpr byte WCS_CLK = 0;                 // Clock the microcode control register; bussed as below
-  constexpr byte O1_UNCOMMITTED = 1;          // Bussed north of RAM to 6-pin connector; unused 
+  constexpr byte WCS_CLK = 0;                 // Clock the microcode control register
+  constexpr byte ACR_CLK = 1;                 // Clock the ALU control register (ACR)
   constexpr byte HIGH_UNUSED_2 = 2;
-  constexpr byte HIGH_UNUSED_OFFBOARD_3 = 3; // Unused;                     PULSE_EXT connector pin 1
-  constexpr byte RESET_SERVICE = 4;          // Reset service request bit;  PULSE_EXT connector pin 2
-  constexpr byte RAW_NANO_CLK = 5;           // Generate one YARC clock;    PULSE_EXT connector pin 3
-  constexpr byte DISP_CLK = 6;               // Clock the display register; PULSE_EXT connector pin 4
-  constexpr byte MCR_OUTPUT = 7;
+  constexpr byte ALU_RAM_WE = 3;              // Clock data into the ALU RAMs
+  constexpr byte RESET_SERVICE = 4;           // Reset service request bit;  PULSE_EXT connector pin 2
+  constexpr byte RAW_NANO_CLK = 5;            // Generate one YARC clock;    PULSE_EXT connector pin 3
+  constexpr byte DISP_CLK = 6;                // Clock the display register; PULSE_EXT connector pin 4
+  constexpr byte MCR_OUTPUT = 7;              // Clock the MCR
 
   // Register IDs on low decoder are just their address
   constexpr REGISTER_ID BusInputRegister      = DATA_INPUT;
