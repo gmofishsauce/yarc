@@ -1564,9 +1564,6 @@
     (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/0500234b-8955-41bd-86d9-11f52115ebd0"
       (reference "U88") (unit 3) (value "74HC00") (footprint "")
     )
-    (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/8980997b-7b86-4da4-b771-bf86589fc9c1"
-      (reference "U88") (unit 4) (value "74HC00") (footprint "")
-    )
     (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/ccff3b88-fb8c-4e75-a673-9cd93e328bbe"
       (reference "U88") (unit 5) (value "74HC00") (footprint "")
     )

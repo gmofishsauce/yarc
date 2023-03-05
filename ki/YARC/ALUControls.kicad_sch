@@ -2994,8 +2994,7 @@
     (uuid fdf3305f-b3e1-451f-ae5b-751215c1cb3b)
   )
 
-  (text "THE FLAGS REGISTER\nIS IN THE GENERAL\nREGISTERS AREA."
-    (at 236.22 132.08 0)
+  (text "U130 AND U131 ARE\nIN THE GENERAL\nREGISTERS AREA." (at 236.22 132.08 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 35946513-6c78-4489-a66d-3fddde743baa)
   )
@@ -3824,7 +3823,7 @@
   (symbol (lib_id "74xx:74LS157") (at 210.82 58.42 0) (mirror y) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid d11e7e04-2c91-47be-a816-113800d349ad)
-    (property "Reference" "U130" (id 0) (at 215.9 38.1 0)
+    (property "Reference" "U130" (id 0) (at 208.28 38.1 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Value" "74LS157" (id 1) (at 213.36 71.12 0)
