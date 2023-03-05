@@ -69,6 +69,10 @@ namespace CostPrivate {
       byte AL;
       byte DH;
       byte DL;
+      byte save_DH;
+      byte save_DL;
+      byte readValue;
+      byte location;
     } regData;
   };
 
@@ -321,66 +325,118 @@ namespace CostPrivate {
   void regTestInit() {
   }
 
+  byte regCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  reg: (%d): A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X save 0x%02X 0x%02X"),
+      regData.location, regData.AH, regData.AL, regData.DH, regData.DL, regData.readValue, regData.save_DH, regData.save_DL);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+// Convert two bytes to short, being careful about sign extension
+#define BtoS(bh, bl) (((unsigned short)(bh) << 8) | (unsigned char)(bl))
+
+// Convert the high byte of a short to byte, careful about sign extension
+#define StoHB(s) ((unsigned char)(((s) >> 8)))
+
+// Similarly for the low byte
+#define StoLB(s) ((unsigned char)(s))
+
+  // Write 16 bits of data at addr. Changes AH, AL, DH, DL.
+  void WriteMem16(unsigned int addr, unsigned int data) {
+    WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
+    SetADHL(StoHB(addr & 0x7F00), StoLB(addr), StoHB(data), StoLB(data));
+    SingleClock();
+  }
+  
+  // Read 8 bites of data at addr with the noise pattern in DH/DL.
+  // Changes AH, AL, DH, DL.
+  byte ReadMem8(unsigned int addr, unsigned int noise) {
+    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte     
+    SetADHL(StoHB(addr | 0x8000), StoLB(addr), StoHB(noise), StoLB(noise));
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SingleClock();
+    return GetBIR();
+  }
+  
   // Write 16 bits to main memory as a single write. Move the 16 bits to 
   // a register in a single operation. Read the register to a second memory
   // location with a single register read/memory write. Compare the two
   // memory locations (in the Nano, using byte reads and writes) and report
   // if the data transfers were all successful.
   bool regTestBody() {
-    byte mAH, mAL, mDH, mDL, b, n;
     byte save_mDH, save_mDL;
 
-    save_mDH = random(0, 256);
-    save_mDL = random(0, 256);
+    regData.save_DH = random(0, 256);
+    regData.save_DL = random(0, 256);
+    regData.AH = 0;
+    regData.AL = 0x10;
+    regData.DH = regData.save_DH;
+    regData.DL = regData.save_DL;
 
-    // (1) write random values at 0x10 and 0x11
-    WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
-    mAH = 0; mAL = 0x10; mDH = save_mDH; mDL = save_mDL;
-    SetADHL(mAH, mAL, mDH, mDL);
-    SingleClock();
 
-    // (2) Check the low byte. Set the data registers to
+    // (1) write the random values at 0x10 and 0x11
+    WriteMem16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
+
+    // (2) Check the both bytes. Set the data registers to
     // some arbitrary value different than what we wrote
-    // (here 0, 0) make sure we're not reading from them.    
-    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-    SetADHL(mAH, mAL, 0x00, 0x00);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((b = GetBIR()) != mDL) {
-      panic(0x40, b);
+    // (here AA, 55) make sure we're not reading from them.
+    regData.AH = 0x80;
+    regData.AL = 0x10; 
+    regData.DH = 0xAA;
+    regData.DL = 0x55;       
+    regData.readValue = ReadMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
+    if (regData.readValue != regData.save_DL) {
+      regData.location = 1;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
     }
 
-    mAL |= 0x01;            // and the upper byte (0x11)
-    SetADHL(mAH, mAL, 0x00, 0x00);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((b = GetBIR()) != mDH) {
-      panic(0x04, b);
+    regData.AL = 0x11;
+    regData.readValue = ReadMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
+    if (regData.readValue != regData.save_DH) {
+      regData.location = 2;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
     }
 
     // (3) preset 0xF00D at 0x20 and 0x21
     WriteK(0xFF, 0xFF, 0xFF, 0x3F); // write memory, 16-bit access
-    mAH = 0; mAL = 0x20; mDH = 0xF0; mDL = 0x0D;
-    SetADHL(mAH, mAL, mDH, mDL);
-    SetMCR(MCR_SAFE);
-    SingleClock();
+    regData.AH = 0x00;
+    regData.AL = 0x20; 
+    regData.DH = 0xF0; 
+    regData.DL = 0x0D;
+    WriteMem16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
 
     // (4) check it, low byte first, byte at a time
+    regData.DH = 0x77;
+    regData.DL = 0xEE;    
+    regData.AH = 0x80;
+    regData.AL = 0x20;   
     WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
-    if ((b = GetBIR()) != mDL) {
-      panic(0x41, b);
+    if ((regData.readValue = GetBIR()) != 0x0D) {
+      regData.location = 3;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
     }
     SetMCR(MCR_SAFE);
 
-    mAL |= 0x01;            // of the upper byte (0x21)
-    SetADHL(mAH, mAL, 0x00, 0x00);
+    regData.AL = 0x21;
+    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
-    if ((b = GetBIR()) != mDH) {
-      panic(0x14, b);
+    if ((regData.readValue = GetBIR()) != 0xF0) { // XXX can't log 0xF0
+      regData.location = 4;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
     }
     SetMCR(MCR_SAFE);
     
@@ -395,8 +451,8 @@ namespace CostPrivate {
     // will cause the Nano's data bus drivers to believe the bus cycle
     // is a read so it won't try to drive the bus; otherwise, it will.
     // Again, set the data registers to something "different".
-    mAH = 0x80; mAL = 0x10; mDH = 0xFF; mDL = 0xFF;
-    SetADHL(mAH, mAL, mDH, mDL);
+    regData.AH = 0x80; regData.AL = 0x10; regData.DH = 0xFF; regData.DL = 0xFF;
+    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
     SingleClock();
     SetMCR(MCR_SAFE); // freeze the registers and the bus
@@ -409,27 +465,33 @@ namespace CostPrivate {
     WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
     WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
     WriteByteToK(0, 0x3f); // rw=write m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
-    mAH = 0x80; mAL = 0x20; mDH = 0x33; mDL = 0x44;
-    SetADHL(mAH, mAL, mDH, mDL);
+    regData.AH = 0x80; regData.AL = 0x20; regData.DH = 0x33; regData.DL = 0x44;
+    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
 
     // (7) check it, low byte first, byte at a time
     WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-    SetADHL(mAH, mAL, 0x00, 0x00);
+    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
-    if ((b = GetBIR()) != save_mDL) {
-      panic(0x61, b);
+    if ((regData.readValue = GetBIR()) != regData.save_DL) {
+      regData.location = 5;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
     }
     SetMCR(MCR_SAFE);
 
-    mAL |= 0x01;            // of the upper byte (0x21)
-    SetADHL(mAH, mAL, 0x00, 0x00);
+    regData.AL = 0x21;
+    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
-    if ((b = GetBIR()) != save_mDH) {
-      panic(0x34, b);
+    if ((regData.readValue = GetBIR()) != regData.save_DH) {
+      regData.location = 6;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
     }
     SetMCR(MCR_SAFE);
 
