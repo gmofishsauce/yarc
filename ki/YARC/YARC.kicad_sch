@@ -1825,18 +1825,6 @@
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/3ccb35d9-5777-4d42-9739-aa0e32625c5a"
       (reference "U124") (unit 5) (value "74LS08") (footprint "")
     )
-    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/c5d7f873-b7a0-4d59-b552-ee5dfeb6356b"
-      (reference "U125") (unit 1) (value "74LS08") (footprint "")
-    )
-    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/f22267fa-a401-4db6-a4bf-dda0a4ecbfb4"
-      (reference "U125") (unit 2) (value "74LS08") (footprint "")
-    )
-    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/d0952a13-c378-419c-ad61-4f85e2361162"
-      (reference "U125") (unit 3) (value "74LS08") (footprint "")
-    )
-    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/6245cd02-23d3-4b62-821c-fc94036c9276"
-      (reference "U125") (unit 4) (value "74LS08") (footprint "")
-    )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/c7cb5420-b2af-4940-8a66-54106c71c0b5"
       (reference "U125") (unit 5) (value "74LS08") (footprint "")
     )
@@ -1845,12 +1833,6 @@
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/0f50432b-0409-4bae-8f5e-8f93e69e345d"
       (reference "U126") (unit 2) (value "74LS00") (footprint "")
-    )
-    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/b9f13ded-2a04-4931-a528-1f7250e887ab"
-      (reference "U126") (unit 3) (value "74LS00") (footprint "")
-    )
-    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/3fd1af4d-7374-4e0a-9498-80f5b92c5a69"
-      (reference "U126") (unit 4) (value "74LS00") (footprint "")
     )
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/39f82b3f-9ca9-4279-9156-bba18ce1b003"
       (reference "U126") (unit 5) (value "74LS00") (footprint "")
@@ -1881,6 +1863,12 @@
     )
     (path "/feebb92e-360c-455c-a141-048b807a0420/92e561a8-5355-4f42-901e-71d7363124fe"
       (reference "U?") (unit 1) (value "74LS157") (footprint "")
+    )
+    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/dc93f268-3369-4f02-be4d-fa5affcd9b5a"
+      (reference "U?") (unit 3) (value "74LS00") (footprint "")
+    )
+    (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/d5b2548b-47a1-4955-9fd0-539694997838"
+      (reference "U?") (unit 4) (value "74LS00") (footprint "")
     )
     (path "/4512e1de-1ae8-4271-aab5-cfad75ab4cbf/f8ebbe10-0751-4bba-bb4f-21bf35b8e2ef"
       (reference "X1") (unit 1) (value "CXO_DIP8") (footprint "Oscillator:Oscillator_DIP-8")

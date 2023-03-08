@@ -88,5 +88,8 @@
         <instance moduleIdRef="74HC153_d41566f74157273c15c02d7df7d9d660_1" modelIndex="177307" path="/Users/jeff/Documents/Fritzing/parts/user/74HC153_d41566f74157273c15c02d7df7d9d660_1.fzp">
             <views/>
         </instance>
+        <instance moduleIdRef="74HC02_d6a28164d9023047093ba1a07b7e9906_1" modelIndex="228739" path="/Users/jeff/Documents/Fritzing/parts/user/74HC02_d6a28164d9023047093ba1a07b7e9906_1.fzp">
+            <views/>
+        </instance>
     </instances>
 </module>
