@@ -134,7 +134,7 @@
 .bitfield rsw_ir_uc     32    4:4   # RSW from LS byte of microcode when low else from IRL
 .bitfield carry_en		32	  3:3   # Force carry-in low when low
 .bitfield ld_flgs_mux	32	  2:2	# From sysdata when high else from fmuxin
-.bitfield ctl_TBD_10    32    3:0   # unassigned:2
+.bitfield ctl_TBD_10    32    1:0   # unassigned:2
 
 # When alu_ctl = 3, the alu_op field can be repurposed, say for I/O operations. When alu_ctl = 3,
 # dst_wr_en is high, and alu_load_hold is high, the RSW (K register 31:24) can be similarly repurposed.
