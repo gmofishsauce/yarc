@@ -344,14 +344,17 @@ namespace CostPrivate {
 #define StoLB(s) ((unsigned char)(s))
 
   // Write 16 bits of data at addr. Changes AH, AL, DH, DL.
+  //  This function acts only on its arguments and the hardware,
+  // so it's portable to other parts of the code.
   void WriteMem16(unsigned int addr, unsigned int data) {
     WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
     SetADHL(StoHB(addr & 0x7F00), StoLB(addr), StoHB(data), StoLB(data));
     SingleClock();
   }
   
-  // Read 8 bites of data at addr with the noise pattern in DH/DL.
-  // Changes AH, AL, DH, DL.
+  // Read 8 bits of data at addr with the noise pattern in DH/DL.
+  // Changes AH, AL, DH, DL. This function acts only on its arguments
+  // and the hardware, so it's portable to other parts of the code.
   byte ReadMem8(unsigned int addr, unsigned int noise) {
     WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte     
     SetADHL(StoHB(addr | 0x8000), StoLB(addr), StoHB(noise), StoLB(noise));
@@ -360,6 +363,22 @@ namespace CostPrivate {
     return GetBIR();
   }
   
+  // Read 8 bits of data at addr with the noise pattern in DH/DL.
+  // Check it against the expected value and issue a log message
+  // labeled with the location of the test if it's mismatched.
+  // Return true if OK and false if read doesn't match expected.
+  // This function uses the regData union so it's not portable.
+  bool checkMem8(unsigned int addr, unsigned int noise, byte expected, byte loc) {
+    regData.readValue = ReadMem8(addr, noise);
+    if (regData.readValue != expected) {
+      regData.location = loc;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
+    }
+    return true;
+  }
+
   // Write 16 bits to main memory as a single write. Move the 16 bits to 
   // a register in a single operation. Read the register to a second memory
   // location with a single register read/memory write. Compare the two
@@ -385,21 +404,13 @@ namespace CostPrivate {
     regData.AH = 0x80;
     regData.AL = 0x10; 
     regData.DH = 0xAA;
-    regData.DL = 0x55;       
-    regData.readValue = ReadMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
-    if (regData.readValue != regData.save_DL) {
-      regData.location = 1;
-      queuedLogMessageCount++;
-      logQueueCallback(regCallback);
+    regData.DL = 0x55;
+    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DL, 1)) {
       return false;
     }
 
     regData.AL = 0x11;
-    regData.readValue = ReadMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
-    if (regData.readValue != regData.save_DH) {
-      regData.location = 2;
-      queuedLogMessageCount++;
-      logQueueCallback(regCallback);
+    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DH, 2)) {
       return false;
     }
 
@@ -415,29 +426,16 @@ namespace CostPrivate {
     regData.DH = 0x77;
     regData.DL = 0xEE;    
     regData.AH = 0x80;
-    regData.AL = 0x20;   
-    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((regData.readValue = GetBIR()) != 0x0D) {
-      regData.location = 3;
-      queuedLogMessageCount++;
-      logQueueCallback(regCallback);
+    regData.AL = 0x20; 
+    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), 0x0D, 3)) {
       return false;
-    }
+    }  
     SetMCR(MCR_SAFE);
 
     regData.AL = 0x21;
-    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((regData.readValue = GetBIR()) != 0xF0) { // XXX can't log 0xF0
-      regData.location = 4;
-      queuedLogMessageCount++;
-      logQueueCallback(regCallback);
+    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), 0xF0, 4)) {
       return false;
-    }
+    }  
     SetMCR(MCR_SAFE);
     
     // Step (5) 16-bit move 0x10 and 0x11 to register 3. Write the
@@ -471,28 +469,15 @@ namespace CostPrivate {
     SingleClock();
 
     // (7) check it, low byte first, byte at a time
-    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
-    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((regData.readValue = GetBIR()) != regData.save_DL) {
-      regData.location = 5;
-      queuedLogMessageCount++;
-      logQueueCallback(regCallback);
+    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DL, 5)) {
       return false;
-    }
+    }  
     SetMCR(MCR_SAFE);
 
     regData.AL = 0x21;
-    SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((regData.readValue = GetBIR()) != regData.save_DH) {
-      regData.location = 6;
-      queuedLogMessageCount++;
-      logQueueCallback(regCallback);
+    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DH, 6)) {
       return false;
-    }
+    }  
     SetMCR(MCR_SAFE);
 
     return false; // done
