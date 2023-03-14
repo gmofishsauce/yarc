@@ -132,7 +132,7 @@ namespace PortPrivate {
   constexpr byte WCS_CLK = 0;                 // Clock the microcode control register
   constexpr byte ACR_CLK = 1;                 // Clock the ALU control register (ACR)
   constexpr byte HIGH_UNUSED_2 = 2;
-  constexpr byte ALU_RAM_WE = 3;              // Clock data into the ALU RAMs
+  constexpr byte HIGH_UNUSED_3 = 3;           // Proposed for writing to ALU RAMs, but later decided not.
   constexpr byte RESET_SERVICE = 4;           // Reset service request bit;  PULSE_EXT connector pin 2
   constexpr byte RAW_NANO_CLK = 5;            // Generate one YARC clock;    PULSE_EXT connector pin 3
   constexpr byte DISP_CLK = 6;                // Clock the display register; PULSE_EXT connector pin 4
