@@ -76,3 +76,14 @@ func (input *Input) get() string {
 	return ""
 }
 
+func (input *Input) CheckFor() (string, error) {
+	line := input.get()
+	if len(line) > 0 {
+		if line == "EOF" {
+			return "", io.EOF
+		}
+		return line, nil
+	}
+	return "", nil // no input
+}
+

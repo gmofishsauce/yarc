@@ -54,14 +54,16 @@ func Main() {
 		log.Fatal("opening Nano.log: ", err)
 	}
 	nanoLog := log.New(nanoLogFile, "", log.Lmsgprefix|log.Lmicroseconds)
+	input := NewInput()
 
 	for {
 		log.Println("starting a session")
 		nano, err := arduino.New(arduinoNanoDevice, baudRate)
 		if (err == nil) {
-			err = session(nano, nanoLog)
+			err = session(input, nano, nanoLog)
 			if err == io.EOF {
-				break
+				log.Printf("user quit\n")
+				os.Exit(0)
 			}
 		}
 
@@ -69,7 +71,33 @@ func Main() {
 		if nano != nil {
 			nano.Close()
 		}
-		time.Sleep(interSessionDelay)
+
+		// The original design was to sleep for a few seconds here
+		// and then iterate. This reopens the serial port, which
+		// resets the Nano. But this design has the effect of losing
+		// panic codes (because of the reset), which makes
+		// troubleshooting occasional problems more difficult. So
+		// now, we spin here waiting for user input. The check for
+		// input sleeps for 50mS so this only executes 20 times per
+		// second, which is little enough to avoid heat issues.
+
+		log.Printf("Return to continue...\n");
+		var line string
+		for {
+			line, err = input.CheckFor()
+			if err != nil {
+				break
+			}
+			if len(line) > 0 {
+				break
+			}
+		}
+		// To be nice, we do an EOF check here, although ^C works fine.
+		if err == io.EOF {
+			log.Printf("user quit\n")
+			os.Exit(0)
+		}
+		log.Printf("Continuing...\n")
 	}
 }
 
@@ -82,7 +110,7 @@ func Main() {
 //
 // Connection not established: device open, but protocol broke down
 //
-func session (nano *arduino.Arduino, nanoLog *log.Logger) error {
+func session (input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
 	var err error
 	tries := 3
 	for i := 0; i < tries; i++ {
@@ -99,7 +127,6 @@ func session (nano *arduino.Arduino, nanoLog *log.Logger) error {
 	}
 
 	log.Println("session in progress")
-	input := NewInput()
 
 	for {
 		// Poll the Nano
@@ -118,12 +145,11 @@ func session (nano *arduino.Arduino, nanoLog *log.Logger) error {
 			}
 		}
 
-		// Check for user input
-		line := input.get()
-		if len(line) > 0 {
-			if line == "EOF" {
-				return io.EOF
-			}
+		var line string
+		if line, err = input.CheckFor(); err != nil {
+			return err
+		}
+		if (len(line) > 0) {
 			if err := process(line[:len(line)-1], nano); err != nil {
 				return err
 			}
