@@ -500,6 +500,13 @@ namespace CostPrivate {
   // Write the entire 64-byte slice of data for the given opcode with
   // values derived from the opcode. Read the data back from the slice
   // and check it.
+  //
+  // The original version of this code returned true for success or
+  // false if verification failed. This more recent version calls the
+  // newer WriteMicrocode() function, which always verifies and panics
+  // if the verification fails. This in turn became possible when I
+  // fixed the host software not to blindly clear away panic events
+  //  by reopening the port (which resets the Nano).
   bool validateOpcodeForSlice(byte opcode, byte slice) {
     constexpr int SIZE = sizeof(ubData.data);
 
@@ -507,14 +514,7 @@ namespace CostPrivate {
       ubData.data[i] = opcode + i;
     }
     
-    WriteBytesToSlice(opcode | 0x80, slice, ubData.data, SIZE);
-    ReadBytesFromSlice(opcode | 0x80, slice, ubData.result, SIZE);
-    
-    for (int i = 0; i < SIZE; ++i) {
-      if (ubData.data[i] != ubData.result[i]) {
-        return false;
-      }
-    }
+    WriteMicrocode(opcode, slice, ubData.data, SIZE);
 
     return true;
   }

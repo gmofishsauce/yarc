@@ -424,18 +424,6 @@ void MakeSafe() {
   PortPrivate::internalMakeSafe();
 }
 
-// Write up to 64 bytes to the slice for the given opcode, which must be
-// in the range 128 ... 255.
-void WriteBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
-  PortPrivate::writeBytesToSlice(opcode, slice, data, n);
-}
-
-// Read up to 64 bytes from the slice for the given opcode, which must be
-// in the range 128 ... 255.
-void ReadBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
-  PortPrivate::readBytesFromSlice(opcode, slice, data, n);
-}
-
 // Set the bus registers (AH, AL, DH, DL)
 void SetADHL(byte ah, byte al, byte dh, byte dl) {
   SetAH(ah);
@@ -460,10 +448,10 @@ namespace PortPrivate {
 
     for (byte n = 0, b = 0x80; b != 0; b++, n++) {
       SetDisplay(n);
-      writeBytesToSlice(b, 0, ucodeNoops, sizeof(ucodeNoops)); 
-      writeBytesToSlice(b, 1, ucodeNoops, sizeof(ucodeNoops)); 
-      writeBytesToSlice(b, 2, ucodeNoops, sizeof(ucodeNoops)); 
-      writeBytesToSlice(b, 3, ucodeNoops, sizeof(ucodeNoops)); 
+      WriteMicrocode(b, 0, ucodeNoops, sizeof(ucodeNoops)); 
+      WriteMicrocode(b, 1, ucodeNoops, sizeof(ucodeNoops)); 
+      WriteMicrocode(b, 2, ucodeNoops, sizeof(ucodeNoops)); 
+      WriteMicrocode(b, 3, ucodeNoops, sizeof(ucodeNoops)); 
     }
 
     MakeSafe();
