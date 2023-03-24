@@ -44,12 +44,14 @@
 #include "port_decls.h"
 #include "small_task_decls.h"
 #include "cost_decls.h"
+#include "yarc_decls.h"
 
 #include "port_utils.h"
 #include "small_tasks.h"
 #include "serial_task.h"
 #include "port_task.h"
 #include "cost_task.h"
+#include "yarc_utils.h"
 
 #include "task_runner.h"
 

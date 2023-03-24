@@ -11,15 +11,6 @@ namespace PortPrivate {
   void callWhenAnyReset(void);
   void callWhenPowerOnReset(void);
   
-  // Write a 16-bit value to the instruction register
-  void writeIR(byte high, byte low) {
-    setAH(0x7F); setAL(0xFF);
-    setDH(high); setDL(low);
-    SetMCR(McrEnableIRwrite(MCR_SAFE));
-    singleClock();
-    SetMCR(McrDisableIRwrite(MCR_SAFE));
-  }
-
   // Ahem. The internal bus that connects the system data bus to the
   // four slice busses is wired backwards. So all the bits written to
   // the K register or to microcode memory are reversed, LSB for MSB,
@@ -89,7 +80,7 @@ namespace PortPrivate {
     // This sets the RAM location that will be overwritten;
 	  // currently it's set to 0xFC, which is not used; we could
 	  // carefully write the RAM "last" if necessary.
-    writeIR(0xFC, 0x00);
+    WriteIR(0xFC, 0x00);
     for (int i = 0; i < 64; ++i) {
       singleClock();
     }
@@ -118,7 +109,7 @@ namespace PortPrivate {
 
     McrMakeSafe();
     ucrMakeSafe();
-    writeIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
+    WriteIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
     setAH(0xFF); 
   }
 
@@ -127,7 +118,7 @@ namespace PortPrivate {
   void writeBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
     // Write the opcode to the IR. This sets the upper address bits to the
     // opcode and resets the state counter (setting lower address bits to 0)
-    writeIR(opcode, 0);
+    WriteIR(opcode, 0);
 
     // write block trick
     // BEFORE setting the UCR to write, generate 64 clock pulses
@@ -156,7 +147,7 @@ namespace PortPrivate {
     }
 
     ucrMakeSafe();
-    writeIR(opcode, 0); // re-enable RAM outputs (no longer in the "write block")
+    WriteIR(opcode, 0); // re-enable RAM outputs (no longer in the "write block")
   }
 
   // Read up to 64 bytes from the slice for the given opcode, which must be
@@ -164,7 +155,7 @@ namespace PortPrivate {
   void readBytesFromSlice(byte opcode, byte slice, byte *data, byte n) {
     // Write the opcode to the IR. This sets the upper address bits to the
     // opcode and resets the state counter (setting lower address bits to 0)
-    writeIR(opcode, 0);
+    WriteIR(opcode, 0);
     
     // Set up the UCR for reads.
     ucrSetSlice(slice);
@@ -229,7 +220,7 @@ namespace PortPrivate {
   void internalMakeSafe() {
     kRegMakeSafe();
     ucrMakeSafe();
-    writeIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
+    WriteIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
     setAH(0xFF); 
     setAL(0xFF);
     McrMakeSafe();
@@ -411,21 +402,6 @@ bool WriteByteToK(byte kReg, byte kVal) {
   }
   PortPrivate::writeByteToK(kReg, kVal);
   return true;
-}
-
-// This could be made far more efficient by implementing it in
-// the PortPrivate section. Each call to PortPrivate:writeByteToK()
-// currently does 64 clocks in order to disable the microcode RAM
-// outputs. It could then do four writes, but each call only does
-// one. This isn't (currently?) important enough to worry about.
-//
-// This function alters essentially all external registers under
-// the Nano's control and does not restore them.
-void WriteK(byte k3, byte k2, byte k1, byte k0) {
-  PortPrivate::writeByteToK(3, k3);
-  PortPrivate::writeByteToK(2, k2);
-  PortPrivate::writeByteToK(1, k1);
-  PortPrivate::writeByteToK(0, k0);
 }
 
 // Change of philosophy: direct set of MCR

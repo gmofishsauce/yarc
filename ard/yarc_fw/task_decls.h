@@ -27,6 +27,7 @@ enum : byte { // including panic codes
   
   PANIC_SERIAL_NUMBERED       = 0xEF, // subcode is a code location
   PANIC_SERIAL_BAD_BYTE       = 0xEE, // subcode is a "bad" byte value
+  PANIC_UCODE_VERIFY          = 0xED, // microcode write failure; subcode is opcode
 
   // 0xD0 through 0xDF are power-on self test (POST)
   // failures. Low order bits are defined in the POST
