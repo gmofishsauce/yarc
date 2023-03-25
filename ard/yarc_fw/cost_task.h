@@ -48,7 +48,7 @@ namespace CostPrivate {
       byte opcode;
       byte slice;
       byte data[64];
-      byte result[64];
+      byte failOffset;
     } ubData;
     struct memoryBasicData {
       byte AH;
@@ -214,16 +214,19 @@ namespace CostPrivate {
   }
 
   // === m16 (16 bit memory cycles) test ===
-
   byte m16LowByteCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  m16: low: got 0x%02X"), m16Data.readValue);
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F m16 lo: A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X"),
+      m16Data.AH, m16Data.AL, m16Data.DH, m16Data.DL, m16Data.readValue);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
   }
 
   byte m16HighByteCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  m16: high: got 0x%02X"), m16Data.readValue);
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F m16 hi: A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X"),
+      m16Data.AH, m16Data.AL, m16Data.DH, m16Data.DL, m16Data.readValue);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
@@ -327,7 +330,7 @@ namespace CostPrivate {
 
   byte regCallback(byte *bp, byte bmax) {
     int result = snprintf_P((char *)bp, bmax,
-      PSTR("  reg: (%d): A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X save 0x%02X 0x%02X"),
+      PSTR("  F reg: (%d): A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X save 0x%02X 0x%02X"),
       regData.location, regData.AH, regData.AL, regData.DH, regData.DL, regData.readValue, regData.save_DH, regData.save_DL);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
@@ -490,8 +493,9 @@ namespace CostPrivate {
   // log message queue to clear each time we queue a message: the test after ucode
   // would overwrite the opcode and slice, causing nonsense values to be logged.
   byte ucodeBasicMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  ucodeBasic: fail op 0x%02X sl 0x%02X"),
-      ubData.opcode, ubData.slice);
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F ucodeBasic: fail op 0x%02X sl 0x%02X offset %d data 0x%02X"),
+      ubData.opcode, ubData.slice, ubData.failOffset, ubData.data[ubData.failOffset]);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
@@ -500,13 +504,6 @@ namespace CostPrivate {
   // Write the entire 64-byte slice of data for the given opcode with
   // values derived from the opcode. Read the data back from the slice
   // and check it.
-  //
-  // The original version of this code returned true for success or
-  // false if verification failed. This more recent version calls the
-  // newer WriteMicrocode() function, which always verifies and panics
-  // if the verification fails. This in turn became possible when I
-  // fixed the host software not to blindly clear away panic events
-  //  by reopening the port (which resets the Nano).
   bool validateOpcodeForSlice(byte opcode, byte slice) {
     constexpr int SIZE = sizeof(ubData.data);
 
@@ -514,7 +511,10 @@ namespace CostPrivate {
       ubData.data[i] = opcode + i;
     }
     
-    WriteMicrocode(opcode, slice, ubData.data, SIZE);
+    ubData.failOffset = WriteMicrocode(opcode, slice, ubData.data, SIZE, false);
+    if (ubData.failOffset != SIZE) {
+      return false;      
+    }
 
     return true;
   }

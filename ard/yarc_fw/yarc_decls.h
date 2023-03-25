@@ -9,4 +9,4 @@
 //
 void WriteIR(byte high, byte low);
 void WriteK(byte k3, byte k2, byte k1, byte k0);
-void WriteMicrocode(byte opcode, byte slice, byte *data, byte n);
+int WriteMicrocode(byte opcode, byte slice, byte *data, byte n, bool panicOnFail);

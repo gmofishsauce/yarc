@@ -448,10 +448,10 @@ namespace PortPrivate {
 
     for (byte n = 0, b = 0x80; b != 0; b++, n++) {
       SetDisplay(n);
-      WriteMicrocode(b, 0, ucodeNoops, sizeof(ucodeNoops)); 
-      WriteMicrocode(b, 1, ucodeNoops, sizeof(ucodeNoops)); 
-      WriteMicrocode(b, 2, ucodeNoops, sizeof(ucodeNoops)); 
-      WriteMicrocode(b, 3, ucodeNoops, sizeof(ucodeNoops)); 
+      WriteMicrocode(b, 0, ucodeNoops, sizeof(ucodeNoops), true); 
+      WriteMicrocode(b, 1, ucodeNoops, sizeof(ucodeNoops), true); 
+      WriteMicrocode(b, 2, ucodeNoops, sizeof(ucodeNoops), true); 
+      WriteMicrocode(b, 3, ucodeNoops, sizeof(ucodeNoops), true); 
     }
 
     MakeSafe();

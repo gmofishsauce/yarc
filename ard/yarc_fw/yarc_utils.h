@@ -35,17 +35,24 @@ void WriteK(byte k3, byte k2, byte k1, byte k0) {
 }
 
 // Write the microcode RAM for slice s [0..3] of opcode n [0x80..0xFF]
-// with up to n [usefully, 1 to 64] bytes at *data and verify them.
-// panic: UCODE_VERIFY with subcode = the failed opcode
-void WriteMicrocode(byte opcode, byte slice, byte *data, byte n) {
-  PortPrivate::writeBytesToSlice(opcode, slice, data, n);
+// with up to n [usefully, 1 to 64] bytes at *data and verify them. If
+// the panic argument is true and verification fails, panic with UCODE_VERIFY
+// and subcode = the failed opcode. If the panic argument is false and
+// verification fails, return the offset of the failed byte 0..n-1 within
+// the data array. Return n for success.
+int WriteMicrocode(byte opcode, byte slice, byte *data, byte n, bool panicOnFail) {
+  PortPrivate::writeBytesToSlice(opcode | 0x80, slice, data, n);
   byte written[64];
-  PortPrivate::readBytesFromSlice(opcode, slice, written, n);
+  PortPrivate::readBytesFromSlice(opcode | 0x80, slice, written, n);
   for (int i = 0; i < n; ++i) {
     if (data[i] != written[i]) {
-      panic(PANIC_UCODE_VERIFY, opcode);
+      if (panicOnFail) {
+        panic(PANIC_UCODE_VERIFY, opcode);
+      }
+      return i;
     }
   }
+  return n;
 }
 
 
