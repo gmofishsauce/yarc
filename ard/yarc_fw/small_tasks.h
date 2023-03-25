@@ -195,6 +195,15 @@ namespace LogPrivate {
 
 // public interface
 
+byte logInitCallback(byte *bp, byte bmax) {
+  int n = snprintf_P(bp, bmax, PSTR("=== RESET ==="));
+  return (n > bmax) ? bmax : n;
+}
+
+void logInit() {
+  logQueueCallback(logInitCallback);
+}
+
 byte logQueueCallback(logCallback callback) {
   return LogPrivate::internalLogQueueCallback(callback);
 }
