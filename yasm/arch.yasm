@@ -117,7 +117,7 @@
 .bitfield alu_op        32  23:20   # 1 of 16 alu operations
 .bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = sysdata inbound, 3 = none
 .bitfield alu_load_hold 32  17:17   # when low, clock the port 2 ALU holding register
-.bitfield alu_load_flgs 32  16:16   # when low, clock the flags (ALU phi2 or write to flags)
+.bitfield alu_load_flgs 32  16:16   # when low, clock the flags (most ALU phi2 or write to flags)
 
 # busses and stack 15:8
 .bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd none)

@@ -169,8 +169,8 @@
 	    <option value="1">sp</option>
 	    <option value="2">ir</option>
 	    <option value="3">f</option>
-	    <option value="4">TBD4</option>
-	    <option value="5">mem</option>
+	    <option value="4">mem</option>
+	    <option value="5">TBD5</option>
 	    <option value="6">TBD6</option>
 	    <option value="7" selected>none</option>
 	  </select> &nbsp;
@@ -211,10 +211,19 @@
 		<option value="1" selected>no load</option>
 	  </select> &nbsp;
 	  rsw_ir_uc: <select id="k0-rsw_ir_uc-1-4" onchange="collect()">
-		<option value="0">RSW from IR</option>
-		<option value="1" selected>RSW from UC</option>
+		<option value="0">RCW from IR</option>
+		<option value="1" selected>RCW from UC</option>
 	  </select> &nbsp;
-	  (four bits unassigned)
+	  carry_en: <select id="k0-carry_en-1-3" onchange="collect()">
+		<option value="0">Force Cin=0</option>
+		<option value="1" selected>Cin=Cflag</option>
+	  </select>
+	  ld_flgs_mux: <select id="k0-ld_flags_mux-1-2" onchange="collect()">
+		<option value="0">flags</option>
+		<option value="1" selected>sysdata</option>
+	  </select>
+
+	  (two bits unassigned)
 	  </p>
 	</form>
 	<p>
