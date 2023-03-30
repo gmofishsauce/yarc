@@ -131,10 +131,11 @@
 .bitfield rw            32    7:7   # read/write# line
 .bitfield m16_en        32    6:6   # enable 16-bit memory cycle
 .bitfield ir_clk        32    5:5   # clock the IR
-.bitfield rsw_ir_uc     32    4:4   # RSW from LS byte of microcode when low else from IRL
+.bitfield rcw_ir_uc     32    4:4   # RCW from IRL7:0 when low, from K31:24 when high
 .bitfield carry_en		32	  3:3   # Force carry-in low when low
-.bitfield ld_flgs_mux	32	  2:2	# From sysdata when high else from fmuxin
-.bitfield ctl_TBD_10    32    1:0   # unassigned:2
+.bitfield ld_flgs_mux	32	  2:2	# From sysdata when high else from ALU result flags
+.bitfield acn_ir_uc		32    1:1   # ACN from IRH11:8 when low, from K23:30 when high
+.bitfield ctl_TBD_0     32    0:0   # unassigned:1
 
 # When alu_ctl = 3, the alu_op field can be repurposed, say for I/O operations. When alu_ctl = 3,
 # dst_wr_en is high, and alu_load_hold is high, the RSW (K register 31:24) can be similarly repurposed.
@@ -143,7 +144,7 @@
 .set IDLE_3 "src1=src1_none src2=src2_none dst=dst_none" # 0xFF
 .set IDLE_2 "alu_op=0xF alu_ctl=alu_none alu_load_hold=1 alu_load_flgs=1" # 0xFF
 .set IDLE_1 "sysdata_src=bus_none reg_in_mux=1 stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1" # 0xFF
-.set IDLE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=1 ctl_TBD_30=0xF" # 0xFF
+.set IDLE_0 "rw=1 m16_en=1 ir_clk=1 rcw_ir_uc=1 ctl_TBD_30=0xF" # 0xFF
 
 # Microcode for an IDLE cycle
 .set IDLE "IDLE_0 IDLE_1 IDLE_2 IDLE_3"
@@ -152,7 +153,7 @@
 .set FETCH_3 "src1=PC src2=const_p2 dst=dst_none"
 .set FETCH_2 "alu_op=alu_add alu_ctl=alu_phi1 alu_load_hold=0 alu_load_flgs=1"
 .set FETCH_1 "sysdata_src=bus_mem reg_in_mux=from_bus stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
-.set FETCH_0 "rw=1 rsw_ir_uc=1 m16_en=0 ir_clk=0 rsw_ir_uc=0"
+.set FETCH_0 "rw=1 rcw_ir_uc=1 m16_en=0 ir_clk=0 rcw_ir_uc=0"
 
 # Microcode for a FETCH (and start PC increment) cycle
 .set FETCH "FETCH_0 FETCH_1 FETCH_2 FETCH_3"
@@ -162,6 +163,6 @@
 .set DECODE_3 "src1=src1_none src2=src2_none dst=PC"
 .set DECODE_2 "alu_op=alu_add alu_ctl=alu_phi2 alu_load_hold=1 alu_load_flgs=1"
 .set DECODE_1 "sysdata_src=bus_none reg_in_mux=0 stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=0"
-.set DECODE_0 "rw=1 m16_en=1 ir_clk=1 rsw_ir_uc=0"
+.set DECODE_0 "rw=1 m16_en=1 ir_clk=1 rcw_ir_uc=0"
 
 .set DECODE "DECODE_0 DECODE_1 DECODE_2 DECODE_3"
