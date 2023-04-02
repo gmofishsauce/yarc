@@ -1720,10 +1720,10 @@
     (path "/2ffac34c-e3cb-492f-a745-89749c95e306/a3d1f9d6-cb20-48de-9e6a-2b09166327ef"
       (reference "U109") (unit 5) (value "74LS32") (footprint "")
     )
-    (path "/2ffac34c-e3cb-492f-a745-89749c95e306/4ef856c3-efdc-423b-ab0e-07d85302ca39"
+    (path "/2ffac34c-e3cb-492f-a745-89749c95e306/4d39adb5-125b-452c-8856-78c7ee6ea6b4"
       (reference "U110") (unit 1) (value "74LS21") (footprint "")
     )
-    (path "/2ffac34c-e3cb-492f-a745-89749c95e306/4d39adb5-125b-452c-8856-78c7ee6ea6b4"
+    (path "/2ffac34c-e3cb-492f-a745-89749c95e306/4ef856c3-efdc-423b-ab0e-07d85302ca39"
       (reference "U110") (unit 2) (value "74LS21") (footprint "")
     )
     (path "/2ffac34c-e3cb-492f-a745-89749c95e306/f26c547f-64fe-48e9-9a7a-ca54d2f4eea1"
