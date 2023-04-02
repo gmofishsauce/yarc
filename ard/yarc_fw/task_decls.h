@@ -28,6 +28,8 @@ enum : byte { // including panic codes
   PANIC_SERIAL_NUMBERED       = 0xEF, // subcode is a code location
   PANIC_SERIAL_BAD_BYTE       = 0xEE, // subcode is a "bad" byte value
   PANIC_UCODE_VERIFY          = 0xED, // microcode write failure; subcode is opcode
+  PANIC_ALIGNMENT             = 0xEC, // unaligned write request: subcode is code location
+  PANIC_ARGUMENT              = 0xEB, // invalid argument: subcode is code location
 
   // 0xD0 through 0xDF are power-on self test (POST)
   // failures. Low order bits are defined in the POST
@@ -49,3 +51,15 @@ enum : byte { // including panic codes
 // increasing the already large number of tabs in the IDE.
 
 void panic(byte panicCode, byte subcode);
+
+// TODO reimplement these as inline functions:
+
+// Convert two bytes to short, being careful about sign extension
+#define BtoS(bh, bl) (((unsigned short)(bh) << 8) | (unsigned char)(bl))
+
+// Convert the high byte of a short to byte, careful about sign extension
+#define StoHB(s) ((unsigned char)(((s) >> 8)))
+
+// Similarly for the low byte
+#define StoLB(s) ((unsigned char)(s))
+

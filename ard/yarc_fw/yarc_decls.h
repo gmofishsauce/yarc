@@ -10,3 +10,7 @@
 void WriteIR(byte high, byte low);
 void WriteK(byte k3, byte k2, byte k1, byte k0);
 int WriteMicrocode(byte opcode, byte slice, byte *data, byte n, bool panicOnFail);
+void WriteMem16(unsigned short addr, unsigned short *data, short nWords);
+void ReadMem16(unsigned short addr, unsigned short *data, short nWords);
+void WriteMem8(unsigned short addr, unsigned char *data, short nBytes);
+void ReadMem8(unsigned short addr, unsigned char *data, short nBytes);

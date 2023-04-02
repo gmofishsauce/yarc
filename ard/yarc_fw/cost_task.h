@@ -50,7 +50,7 @@ namespace CostPrivate {
       byte data[64];
       byte failOffset;
     } ubData;
-    struct memoryBasicData {
+    struct memoryBasicData { // reused by memHammer test
       byte AH;
       byte AL;
       byte DH;
@@ -89,6 +89,8 @@ namespace CostPrivate {
   bool ucodeBasicTest(void);
   void memBasicTestInit(void);
   bool memBasicTest(void);
+  void memHammerInit(void);
+  bool memHammerTest(void);
 
   typedef struct tr {
     TestInit init;
@@ -97,11 +99,12 @@ namespace CostPrivate {
   } TestRef;
 
   const PROGMEM TestRef Tests[] = {
-    { delayTaskInit,    delayTaskBody,  "delay"    },
-    { m16TestInit,      m16TestBody,    "mem16"    },
-    { regTestInit,      regTestBody,    "reg"      },
-    { ucodeTestInit,    ucodeBasicTest, "ucode"    },
-    { memBasicTestInit, memBasicTest,   "membasic" }  
+    { delayTaskInit,    delayTaskBody,  "delay"     },
+    { m16TestInit,      m16TestBody,    "mem16"     },
+    { regTestInit,      regTestBody,    "reg"       },
+    { ucodeTestInit,    ucodeBasicTest, "ucode"     },
+    { memBasicTestInit, memBasicTest,   "membasic"  },
+    { memHammerInit,    memHammerTest,  "memhammer" }
   };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
@@ -198,9 +201,11 @@ namespace CostPrivate {
     return result;
   }
 
-  void delayTaskInit() { 
-    // about 30 calls per millisecond
-    delayData.delay = 30L * 1000L * 11L;   
+  void delayTaskInit() {
+    constexpr long callsPerMillisecond = 12L; // estimate
+    constexpr long delaySeconds = 5L;         // arbitrary
+    constexpr long millisPerSecond = 1000L;    
+    delayData.delay = callsPerMillisecond * delaySeconds * millisPerSecond; 
   }
 
   bool delayTaskBody() {
@@ -337,19 +342,10 @@ namespace CostPrivate {
     return result;
   }
 
-// Convert two bytes to short, being careful about sign extension
-#define BtoS(bh, bl) (((unsigned short)(bh) << 8) | (unsigned char)(bl))
-
-// Convert the high byte of a short to byte, careful about sign extension
-#define StoHB(s) ((unsigned char)(((s) >> 8)))
-
-// Similarly for the low byte
-#define StoLB(s) ((unsigned char)(s))
-
   // Write 16 bits of data at addr. Changes AH, AL, DH, DL.
   //  This function acts only on its arguments and the hardware,
   // so it's portable to other parts of the code.
-  void WriteMem16(unsigned int addr, unsigned int data) {
+  void Write16(unsigned int addr, unsigned int data) {
     WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
     SetADHL(StoHB(addr & 0x7F00), StoLB(addr), StoHB(data), StoLB(data));
     SingleClock();
@@ -358,11 +354,12 @@ namespace CostPrivate {
   // Read 8 bits of data at addr with the noise pattern in DH/DL.
   // Changes AH, AL, DH, DL. This function acts only on its arguments
   // and the hardware, so it's portable to other parts of the code.
-  byte ReadMem8(unsigned int addr, unsigned int noise) {
+  byte Read8(unsigned int addr, unsigned int noise) {
     WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte     
     SetADHL(StoHB(addr | 0x8000), StoLB(addr), StoHB(noise), StoLB(noise));
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
+    SetMCR(MCR_SAFE);
     return GetBIR();
   }
   
@@ -371,8 +368,8 @@ namespace CostPrivate {
   // labeled with the location of the test if it's mismatched.
   // Return true if OK and false if read doesn't match expected.
   // This function uses the regData union so it's not portable.
-  bool checkMem8(unsigned int addr, unsigned int noise, byte expected, byte loc) {
-    regData.readValue = ReadMem8(addr, noise);
+  bool check8(unsigned int addr, unsigned int noise, byte expected, byte loc) {
+    regData.readValue = Read8(addr, noise);
     if (regData.readValue != expected) {
       regData.location = loc;
       queuedLogMessageCount++;
@@ -399,7 +396,7 @@ namespace CostPrivate {
 
 
     // (1) write the random values at 0x10 and 0x11
-    WriteMem16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
+    Write16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
 
     // (2) Check the both bytes. Set the data registers to
     // some arbitrary value different than what we wrote
@@ -408,12 +405,12 @@ namespace CostPrivate {
     regData.AL = 0x10; 
     regData.DH = 0xAA;
     regData.DL = 0x55;
-    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DL, 1)) {
+    if (!check8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DL, 1)) {
       return false;
     }
 
     regData.AL = 0x11;
-    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DH, 2)) {
+    if (!check8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DH, 2)) {
       return false;
     }
 
@@ -423,20 +420,20 @@ namespace CostPrivate {
     regData.AL = 0x20; 
     regData.DH = 0xF0; 
     regData.DL = 0x0D;
-    WriteMem16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
+    Write16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
 
     // (4) check it, low byte first, byte at a time
     regData.DH = 0x77;
     regData.DL = 0xEE;    
     regData.AH = 0x80;
     regData.AL = 0x20; 
-    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), 0x0D, 3)) {
+    if (!check8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), 0x0D, 3)) {
       return false;
     }  
     SetMCR(MCR_SAFE);
 
     regData.AL = 0x21;
-    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), 0xF0, 4)) {
+    if (!check8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), 0xF0, 4)) {
       return false;
     }  
     SetMCR(MCR_SAFE);
@@ -472,13 +469,13 @@ namespace CostPrivate {
     SingleClock();
 
     // (7) check it, low byte first, byte at a time
-    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DL, 5)) {
+    if (!check8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DL, 5)) {
       return false;
     }  
     SetMCR(MCR_SAFE);
 
     regData.AL = 0x21;
-    if (!checkMem8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DH, 6)) {
+    if (!check8(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL), regData.save_DH, 6)) {
       return false;
     }  
     SetMCR(MCR_SAFE);
@@ -544,7 +541,8 @@ namespace CostPrivate {
   // === memory (main system memory) basic test ===
 
   byte memBasicMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  memBasicData: fail at 0x%02X 0x%02X data 0x%02X 0x%02X read 0x%02X"),
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F memBasic: at 0x%02X 0x%02X data 0x%02X 0x%02X read 0x%02X"),
       mbData.AH, mbData.AL, mbData.DH, mbData.DL, mbData.readValue);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
@@ -593,6 +591,57 @@ namespace CostPrivate {
     return true;
   }
 
+  // === memhammer test using the more recent functions in yarc_utils.h
+  // This test reuses the memory basic chunk of the union (mbData)
+
+  byte memHammerCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F memHammer: at 0x%02X 0x%02X data 0x%02X 0x%02X read 0x%02X"),
+      mbData.AH, mbData.AL, mbData.DH, mbData.DL, mbData.readValue);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  void memHammerInit() {
+  }
+
+  bool memHammerTest() {
+    constexpr short N = 16;
+    unsigned short writeData[N];
+    unsigned short readData[N];
+
+    mbData.AH = random(0x10, 0x78 - 0x11);
+    mbData.AL = 2 * random(0, 0x70);
+    mbData.DH = 0;
+    mbData.DL = 0;
+    const unsigned short addr = BtoS(mbData.AH, mbData.AL);
+        
+    // We use the misnamed "read data" for all the noise writes
+    for (short i = 0, s = random(0, 0x8000); i < N; ++i, s += 137) {
+      writeData[i] = s;
+      readData[i] = 37 + s;
+    }    
+    WriteMem16(addr, writeData, N);
+    for (short i = 1; i < 0x07; ++i) {
+      unsigned short a = addr + (i << 5);
+      WriteMem16(a, readData, N);
+      a = addr - (i << 5);
+      WriteMem16(a, readData, N);
+    }
+
+    ReadMem16(addr, readData, N);
+    for (short i = 0; i < N; ++i) {
+      if (writeData[i] != readData[i]) {
+        mbData.readValue = readData[i]; // truncates
+        queuedLogMessageCount++;
+        logQueueCallback(memHammerCallback);
+        return false;
+      }
+    }
+    return false;
+  }
+
 #endif // COST
 } // End of CostPrivate namespace
 
@@ -623,7 +672,7 @@ int costTask() {
   // Do the next step in some test
   return CostPrivate::internalCostTask();
 #else
-  return 29023;
+  return 29023; // milliseconds
 #endif  
 }
 

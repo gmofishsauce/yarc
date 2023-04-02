@@ -55,4 +55,86 @@ int WriteMicrocode(byte opcode, byte slice, byte *data, byte n, bool panicOnFail
   return n;
 }
 
+// Write nWords 16-bit words at *data into contiguous addresses starting
+// at addr. Addr must be aligned (even). All Nano machine state and the
+// K register are altered. The write is not verified.
+void WriteMem16(unsigned short addr, unsigned short *data, short nWords) {
+  if (addr & 1) {
+    panic(PANIC_ALIGNMENT, 1);
+  }
+  if (nWords < 0) {
+    panic(PANIC_ARGUMENT, 1);
+  }
+  WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
+  SetMCR(MCR_SAFE);
+  for (short i = 0; i < nWords; ++i) {
+    SetADHL(StoHB(addr & 0x7F00), StoLB(addr), StoHB(*data), StoLB(*data));
+    SingleClock();
+    addr += 2;
+    data++;      
+  }
+  SetMCR(MCR_SAFE);
+}
+
+// Read nWords 16-bit words into *data from contiguous addresses starting
+// at addr. All Nano machine state and the K register are altered.
+void ReadMem16(unsigned short addr, unsigned short *data, short nWords) {
+  if (addr & 1) {
+    panic(PANIC_ALIGNMENT, 2);
+  }
+  if (nWords < 0) {
+    panic(PANIC_ARGUMENT, 2);
+  }
+
+  WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte
+  SetMCR(McrEnableSysbus(MCR_SAFE));
+
+  // The Nano can only read bytes from the data bus
+  unsigned char *bytes = (unsigned char *)data;
+  for (int i = 0; i < 2 * nWords; ++i) {
+    // The data values are noise that's not supposed to matter
+    SetADHL(StoHB(addr | 0x8000), StoLB(addr), 0xAA, 0x55);
+    SingleClock();
+    *bytes++ = GetBIR();
+    addr++;
+  }
+  SetMCR(MCR_SAFE);
+}
+
+// Write nBytes from *data at contiguous addresses starting at addr. All
+// Nano machine state and the K register are altered.
+void WriteMem8(unsigned short addr, unsigned char *data, short nBytes) {
+  if (nBytes < 0) {
+    panic(PANIC_ARGUMENT, 3);
+  }
+  WriteK(0xFF, 0xFF, 0xFF, 0x7F);  // write memory, 8-bit access
+  SetMCR(MCR_SAFE);
+  for (int i = 0; i < nBytes; ++i) {
+    // The high data byte is a noise value that is not supposed to matter.
+    SetADHL(StoHB(addr & 0x7F00), StoLB(addr), 0x99, StoLB(*data));
+    SingleClock();
+    addr++;
+    data++;
+  }  
+  SetMCR(MCR_SAFE);
+}
+
+// Read nBytes into *data from contiguous addresses starting at addr.
+// All Nano machine state and the K register are altered.
+void ReadMem8(unsigned short addr, unsigned char *data, short nBytes) {
+  if (nBytes < 0) {
+    panic(PANIC_ARGUMENT, 4);
+  }
+  WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte
+  SetMCR(McrEnableSysbus(MCR_SAFE));
+
+  for (int i = 0; i < nBytes; ++i) {
+    // The data values are noise that's not supposed to matter
+    SetADHL(StoHB(addr | 0x8000), StoLB(addr), 0xAA, 0x55);
+    SingleClock();
+    *data++ = GetBIR();
+    addr++;
+  }
+  SetMCR(MCR_SAFE);
+}
 
