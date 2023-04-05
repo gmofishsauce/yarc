@@ -508,7 +508,7 @@ namespace CostPrivate {
       ubData.data[i] = opcode + i;
     }
     
-    ubData.failOffset = WriteMicrocode(opcode, slice, ubData.data, SIZE, false);
+    ubData.failOffset = WriteSlice(opcode, slice, ubData.data, SIZE, false);
     if (ubData.failOffset != SIZE) {
       return false;      
     }

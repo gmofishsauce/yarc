@@ -47,12 +47,13 @@
 // Physical pins 22 and 23 (PORTC:3 and PORTC:4) are used to "strobe" the
 // decoder line select by the select port, which is bussed to two decoders.
 //
-// Writing to an external register requires coordinating three ports. First,
+// Writing to an external register requires coordinating both ports. First,
 // the data port must be switched to output and a value set on its pins.
 // Next, the select port must be set the index of 1 of 8 output strobes on
 // the decoders (their three A-lines are bus-connected). Finally, one of the
-// two decoders must be enabled, then disabled, producing a low-going pulse
-// that ends with a rising edge to clock one of the output registers.
+// two decoders must be enabled, then disabled, via physical pins 22 or 23,
+// producing a low-going pulse that ends with a rising edge to clock one of
+// the output registers.
 //
 // Read is similar, except the port must be set to input and the actual read
 // of the port must occur while the enable line is low, since the enable line
@@ -148,6 +149,7 @@ namespace PortPrivate {
 
   // Register IDs on high decoder need bit 3 set
   constexpr REGISTER_ID WcsControlClock = (DECODER_SELECT_MASK|WCS_CLK);
+  constexpr REGISTER_ID AcrControlClock = (DECODER_SELECT_MASK|ACR_CLK);
   constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_2);
   constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
   constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
@@ -561,4 +563,50 @@ namespace PortPrivate {
     ucrShadow = UCR_SAFE;
     syncUCR();
   }
+}
+
+// ACR (ALU control register) support
+
+constexpr byte ACR_SAFE = 0xFF;
+
+inline byte AcrEnable(byte acr) {
+  return acr | 0x01;
+}
+
+inline byte AcrWrite(byte acr) {
+  return acr | (0x03 << 1);
+}
+
+inline byte AcrReadLow(byte acr) {
+  return acr | (0x00 << 1);
+}
+
+inline byte AcrReadHiC0(byte acr) {
+  return acr | (0x01 << 1);
+}
+
+inline byte AcrReadHiC1(byte acr) {
+  return acr | (0x02 << 1);
+}
+
+inline byte AcrSetA8(byte acr) {
+  return acr | 0x08;
+}
+
+inline byte AcrClearA8(byte acr) {
+  return acr & ~0x08;
+}
+
+// Set the ALU control register. It's on the same back bus
+// with the UCR. There is no shadow value for the ACR (I
+// keep going back and forth on this design question.)
+void SetACR(byte acr) {
+  SetADHL(0x7F, 0xFF, 0x00, acr);
+  SetMCR(McrEnableWcs(MCR_SAFE));
+  PortPrivate::nanoTogglePulse(PortPrivate::AcrControlClock);
+  SetMCR(McrDisableWcs(MCR_SAFE));
+}
+
+void AcrMakeSafe() {
+  SetACR(ACR_SAFE);
 }

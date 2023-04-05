@@ -30,6 +30,7 @@ enum : byte { // including panic codes
   PANIC_UCODE_VERIFY          = 0xED, // microcode write failure; subcode is opcode
   PANIC_ALIGNMENT             = 0xEC, // unaligned write request: subcode is code location
   PANIC_ARGUMENT              = 0xEB, // invalid argument: subcode is code location
+  PANIC_MEM_VERIFY            = 0xEA, // memory write failure; subcode is value read back
 
   // 0xD0 through 0xDF are power-on self test (POST)
   // failures. Low order bits are defined in the POST
