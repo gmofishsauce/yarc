@@ -61,24 +61,38 @@ int WriteSlice(byte opcode, byte slice, byte *data, byte n, bool panicOnFail) {
 // poll buffer in the serial task, which can only hold 255 data bytes; thus,
 // the largest value of nWords in practice is 63 and the last microcode slot
 // of every instruction is unavailable.)
+//
+// IMPORTANT: the YARC is 16-bit big-endian, meaning the byte with the most
+// significant bits of a 16-bit value comes first in memory followed by the
+// byte with the less significant bits. The only place we ever have to deal
+// with 32-bit quantities is the microcode, that is here. So we maintain the
+// big-endian convention. Each microcode word takes 4 bytes in the data array,
+// and the bytes are ordered 3, 2, 1, 0. This puts bits 31:24 of the microcode
+// word in byte 0, bits 23:16 in byte 1, etc., and so on for each 4-byte
+// microcode word. The implementation of this is commented below.
 void WriteMicrocode(byte opcode, byte *data, byte nWords) {
   constexpr byte SIZE = 64;
-  byte buffer[SIZE];
+  constexpr byte nSlices = 4;
+  byte sliceBuffer[SIZE];
 
   if (nWords > SIZE) {
     panic(PANIC_ARGUMENT, 5);
   }
 
+  unsigned short nBytes = nSlices * nWords;
+  byte bytesPerSlice = nWords;
   byte packed;
-  for (byte slice = 0; slice < 4; ++slice) {
+
+  for (byte slice = 0; slice < nSlices; ++slice) {
     packed = 0;
-    for (byte i = 0; i < nWords; i += 4) {
-      buffer[packed] = data[slice + i];
+    for (unsigned short i = 0; i < nBytes; i += nSlices) {
+      sliceBuffer[packed] = data[slice + i];
       packed++;
     }
-    // Now since we call WriteSlice 4 times and the argument *data has 4 * nWords
-    // bytes, the value of nWords is the number of bytes in the slice buffer.
-    WriteSlice(opcode, slice, buffer, nWords, true);
+
+    // Here is the implementation of the big-endian microcode: the slice
+    // number we pass goes 3, 2, 1, 0 as the variable slice goes 0, 1, 2, 3.
+    WriteSlice(opcode, (nSlices - 1) - slice, sliceBuffer, bytesPerSlice, true);
   }
 }
 
@@ -173,7 +187,7 @@ void WriteReg(unsigned char reg, unsigned short value) {
     WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
     WriteByteToK(1, 0xfe); // sysdata_src=none reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
     WriteByteToK(0, 0x3f); // rw=write m16_en=16-bit ir_clk=no load rsw_ir_uc=RCW from UC carry_en=Cin=Cflag ld_flags_mux=sysdata
-
+    
     // Enable writing to a general register
     SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
 
@@ -184,6 +198,7 @@ void WriteReg(unsigned char reg, unsigned short value) {
     // Do the write and make all shipshape again
     SingleClock();
     SetMCR(MCR_SAFE); // freeze the registers and the bus
+
     MakeSafe(); // and turn off everything
 }
 
@@ -200,19 +215,17 @@ constexpr unsigned short SCRATCH = 0x7700; // start of scratch space, end of mem
 // first time the YARC ever "did anything" under microcode control.)
 void WriteFlags(byte flags) {
   WriteMem8(SCRATCH, &flags, 1);
-
   byte validFlags;
   ReadMem8(SCRATCH, &validFlags, 1);
   if (flags != validFlags) {
     panic(PANIC_MEM_VERIFY, validFlags); // I guess they're "invalid flags" now ;-)    
   }
-
   WriteReg(3, SCRATCH);
 
   constexpr byte SCRATCH_OPCODE = 0x80;
   byte microcode[] = {
-    0xFF, 0xFE, 0x9F, 0xFF, // src1 = R3, load_flags = yes, 8-bit cycle, flags from sysdata
-    0xFF, 0xFF, 0xFF, 0xFF  // and then disable everything
+    0xFF, 0xFE, 0x9F, 0xFF, // word 0: src1 = R3, load_flags = yes, 8-bit cycle, flags from sysdata
+    0xFF, 0xFF, 0xFF, 0xFF  // word 1: ...and then disable everything
   };
   WriteMicrocode(SCRATCH_OPCODE, microcode, 2);
 
