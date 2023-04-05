@@ -63,17 +63,9 @@ namespace PortPrivate {
       return pgm_read_ptr_near(&table[b]);
   }
 
-  // Write the value to the given K register. The RAM byte
-  // addressed by the IR, the state counter, and the selected
-  // slice is also overwritten (there is no alternative that
-  // doesn't involve additional logic and wiring).
-  //
-  // This function updates the hardware and alters the WCS
-  // RAM address. Starting conditions: Clock is high, UCR
-  // is 0xFF (everything disabled), WCS/sysdata transceiver
-  // disabled (MCR bit), and sysaddr:15 is high (read).
-  void writeByteToK(byte kRegister, byte value) {
-
+  // Write the K register. The arguments follow the big-endian
+  // convention we have for microcode.
+  void internalWriteK(byte k3, byte k2, byte k1, byte k0) {
     // "write block trick"
     // BEFORE setting the UCR to write, load the IR and then
     // clock it 64 times to raise the OE# signal on the RAMs.
@@ -85,32 +77,46 @@ namespace PortPrivate {
       singleClock();
     }
 
-    // The RAM output enable (OE#) line, which is connected
-    // to the 64-weight bit of the microcode state counter,
-    // should now be high, disabling the RAM outputs.
-    
-    // Set up the UCR for writes.
-    ucrSetSlice(kRegister);
     ucrSetDirectionWrite();
     ucrEnableSliceTransceiver();
     ucrSetKRegWrite();
+
+    ucrSetSlice(3);
     syncUCR();
-
-    // Enable the sysdata to microcode transceiver
-    // and clock the data.
     SetMCR(McrEnableWcs(MCR_SAFE));
-    
-    // Set the data and address. The write line matters to
-    // the WCS transceiver which we enable later, but doesn't
-    // affect the inner, per-slice transceiver.
     setAH(0x7F); setAL(0xFF);
-    setDH(0x00); setDL(reverse_byte(value));
+    setDH(0x00); setDL(reverse_byte(k3));
     singleClock();
+    SetMCR(MCR_SAFE);
 
-    McrMakeSafe();
+    ucrSetSlice(2);
+    syncUCR();
+    SetMCR(McrEnableWcs(MCR_SAFE));
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00); setDL(reverse_byte(k2));
+    singleClock();
+    SetMCR(MCR_SAFE);
+
+    ucrSetSlice(1);
+    syncUCR();
+    SetMCR(McrEnableWcs(MCR_SAFE));
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00); setDL(reverse_byte(k1));
+    singleClock();
+    SetMCR(MCR_SAFE);
+
+    ucrSetSlice(0);
+    syncUCR();
+    SetMCR(McrEnableWcs(MCR_SAFE));
+    setAH(0x7F); setAL(0xFF);
+    setDH(0x00); setDL(reverse_byte(k0));
+    singleClock();
+    SetMCR(MCR_SAFE);
+
     ucrMakeSafe();
     WriteIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
     setAH(0xFF); 
+    McrMakeSafe();
   }
 
   // Write up to 64 bytes to the slice for the given opcode, which must be
@@ -177,10 +183,11 @@ namespace PortPrivate {
 
   // Set the four K (microcode) registers to their "safe" value.
   void kRegMakeSafe() {
-    writeByteToK(0, 0xFF);
-    writeByteToK(1, 0xFF);
-    writeByteToK(2, 0xFF);
-    writeByteToK(3, 0xFF);
+    internalWriteK(0xFF, 0xFF, 0xFF, 0xFF);
+    // writeByteToK(0, 0xFF);
+    // writeByteToK(1, 0xFF);
+    // writeByteToK(2, 0xFF);
+    // writeByteToK(3, 0xFF);
     ucrMakeSafe();
   }
 
@@ -394,16 +401,6 @@ byte GetMCR() {
   return PortPrivate::getMCR();
 }
 
-// This function alters the state of all registers under Nano
-// software control. It does not restore them.
-bool WriteByteToK(byte kReg, byte kVal) {
-  if (kReg > 3) {
-    return false;
-  }
-  PortPrivate::writeByteToK(kReg, kVal);
-  return true;
-}
-
 // Change of philosophy: direct set of MCR
 
 void SetMCR(byte b) {
@@ -455,12 +452,12 @@ namespace PortPrivate {
     }
 
     MakeSafe();
-    for (;;) {
-      SetDisplay(0xAA);
-      WriteFlags(0x05);
-      SetDisplay(0x55);
-      WriteFlags(0x0A);
-    }
+    // for (;;) {
+    //   SetDisplay(0x55);
+    //   WriteFlags(0x05);
+    //   SetDisplay(0xAA);
+    //   WriteFlags(0x0A);
+    // }
   }
 }
 

@@ -438,13 +438,9 @@ namespace CostPrivate {
     }  
     SetMCR(MCR_SAFE);
     
-    // Step (5) 16-bit move 0x10 and 0x11 to register 3. Write the
-    // microcode setting "the long way" so we can keep all the comments.
-    WriteByteToK(3, 0xfb); // src1=R3 src2=-1 dst=R3
-    WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
-    WriteByteToK(1, 0x9e); // sysdata_src=TBD4 reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=write
-    WriteByteToK(0, 0xbf); // rw=read m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
-
+    // Step (5) 16-bit move 0x10 and 0x11 to register 3.
+    WriteK(0xFB, 0xFF, 0x9E, 0xBF);
+    
     // Now we need to set AH to 0x80 (SYSADDR:15 high) because this
     // will cause the Nano's data bus drivers to believe the bus cycle
     // is a read so it won't try to drive the bus; otherwise, it will.
@@ -459,10 +455,7 @@ namespace CostPrivate {
     // provides the address, always, when it's in control - the Nano's address
     // bus drivers are enabled by YARC/NANO# low. But again, we'll set the high
     // order address bit to disable the Nano's data bus drivers.
-    WriteByteToK(3, 0xdf); // src1=R3 src2=R3 dst=?R3
-    WriteByteToK(2, 0xff); // alu_op=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no
-    WriteByteToK(1, 0x1f); // sysdata_src=gr reg_in_mux=sysdata stack_up_clk=no stack_dn_clk=no psp_rsp=psp dst_wr_en=no write
-    WriteByteToK(0, 0x3f); // rw=write m16_en=16-bit ir_clk=no load rsw_ir_uc=RSW from UC
+    WriteK(0xDF, 0xFF, 0x1F, 0x3F);
     regData.AH = 0x80; regData.AL = 0x20; regData.DH = 0x33; regData.DL = 0x44;
     SetADHL(regData.AH, regData.AL, regData.DH, regData.DL);
     SetMCR(McrEnableSysbus(MCR_SAFE));

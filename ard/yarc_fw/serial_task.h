@@ -414,10 +414,10 @@ namespace SerialPrivate {
   }
 
   // SetK has a count byte which may be 2 or 4 followed by either
-  // 2 or 4 argument bytes. If 2, the bytes are a K register in
-  // 0..3 and a value. If 4, the bytes are all four K register
-  // values in order 0..3. The command was designed this way partly
-  // to see what the implementation code would look like.
+  // 2 or 4 argument bytes. If 4, the bytes are all four K register
+  // values in order 3..0. The command was designed this way partly
+  // to see what the implementation code would look like. The 2-arg
+  // form is no longer supported because it was never used.
   State stSetK(RING* const r, byte b) {
     byte cmdBuf[6];
     if (!canSend(1)) {
@@ -427,14 +427,12 @@ namespace SerialPrivate {
     if (copy(rcvBuf, cmdBuf, 2) == 2) {
       // We have the command and the count
       if (cmdBuf[1] == 2 && copy(rcvBuf, cmdBuf, 4) == 4) { // short form
+        // No longer supported
         consume(rcvBuf, 4);
-        WriteByteToK(cmdBuf[2], cmdBuf[3]);
-        sendAck(b);
+        sendNak(b);
       } else if (cmdBuf[1] == 4 && copy(rcvBuf, cmdBuf, 6) == 6) { // long form
         consume(rcvBuf, 6);
-        for (int i = 2; i < 6; ++i) {
-          WriteByteToK(i - 2, cmdBuf[i]);
-        }
+        WriteK(cmdBuf[2], cmdBuf[3], cmdBuf[4], cmdBuf[5]);
         sendAck(b);
       } // else don't consume and don't reply; just wait
     }
