@@ -184,10 +184,6 @@ namespace PortPrivate {
   // Set the four K (microcode) registers to their "safe" value.
   void kRegMakeSafe() {
     internalWriteK(0xFF, 0xFF, 0xFF, 0xFF);
-    // writeByteToK(0, 0xFF);
-    // writeByteToK(1, 0xFF);
-    // writeByteToK(2, 0xFF);
-    // writeByteToK(3, 0xFF);
     ucrMakeSafe();
   }
 
@@ -291,15 +287,15 @@ namespace PortPrivate {
     byte mAH, mAL, mDH, mDL, b;
 
     // (1) write random values at 0x10 and 0x11
-    WriteK(0xFF, 0xFF, 0xFF, 0x3F);  // write memory, 16-bit access
+    WriteK(WRMEM16_FROM_NANO);  // write memory, 16-bit access
     mAH = 0; mAL = 0x10; mDH = random(0, 256); mDL = random(0, 256);
     SetADHL(mAH, mAL, mDH, mDL);
     SingleClock();
 
     // (2) Check the low byte. Set the data registers to
     // some arbitrary value different than what we wrote
-    // (here 0, 0) make sure we're not reading from them.    
-    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte      
+    // (here 0, 0) make sure we're not reading from them.
+    WriteK(RDMEM8_TO_NANO); // read memory byte      
     SetADHL(mAH, mAL, 0x00, 0x00);
     SetMCR(McrEnableSysbus(MCR_SAFE));
     SingleClock();
@@ -331,13 +327,13 @@ namespace PortPrivate {
     }
     
     // Write and read the entire 30k space
-    WriteK(0xFF, 0xFF, 0xFF, 0x7F);  // write memory, byte access
+    WriteK(WRMEM8_FROM_NANO);  // write memory, byte access
     for (int i = 0; i < 0x7800; i++) {
       setAH(i >> 8); setAL(i & 0xFF);
       setDL(i & 0xFF); singleClock();
     }
 
-    WriteK(0xFF, 0xFF, 0x9F, 0xFF); // read memory byte    
+    WriteK(RDMEM8_TO_NANO); // read memory byte    
     SetMCR(McrEnableSysbus(MCR_SAFE));  
     for (int i = 0; i < 0x7800; i++) {
       setAH((i >> 8) | 0x80); setAL(i & 0xFF);

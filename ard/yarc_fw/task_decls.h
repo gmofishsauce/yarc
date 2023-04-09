@@ -53,14 +53,67 @@ enum : byte { // including panic codes
 
 void panic(byte panicCode, byte subcode);
 
-// TODO reimplement these as inline functions:
-
 // Convert two bytes to short, being careful about sign extension
 #define BtoS(bh, bl) (((unsigned short)(bh) << 8) | (unsigned char)(bl))
-
 // Convert the high byte of a short to byte, careful about sign extension
 #define StoHB(s) ((unsigned char)(((s) >> 8)))
-
 // Similarly for the low byte
 #define StoLB(s) ((unsigned char)(s))
+
+// I spent some time considering how to represent small chunks of microcode,
+// especially individual K-register values which are single microcode words.
+// I tried some "modern" ways, such as:
+//
+// constexpr byte WRMEM16_FROM_NANO[] = {0xFF, 0xFF, 0xFF, 0x3F};
+// WriteK(WRMEM16_FROM_NANO);  // write memory, 16-bit access
+//
+// This is with an override of WriteK() that took a single pointer.
+// I found that this generated 38 bytes of code before the call,
+// taking about 18 clocks before the call instruction:
+//
+//  185c:   80 91 0b 01     lds r24, 0x010B ; 0x80010b <next+0x8>
+//  1860:   90 91 0c 01     lds r25, 0x010C ; 0x80010c <next+0x9>
+//  1864:   a0 91 0d 01     lds r26, 0x010D ; 0x80010d <next+0xa>
+//  1868:   b0 91 0e 01     lds r27, 0x010E ; 0x80010e <next+0xb>
+//  186c:   89 83           std Y+1, r24    ; 0x01
+//  186e:   9a 83           std Y+2, r25    ; 0x02
+//  1870:   ab 83           std Y+3, r26    ; 0x03
+//  1872:   bc 83           std Y+4, r27    ; 0x04
+//  1874:   ce 01           movw    r24, r28
+//  1876:   01 96           adiw    r24, 0x01   ; 1
+//  1878:   0e 94 29 0a     call    0x1452  ; 0x1452 <_Z6WriteKPh>
+//
+// And then I tried the "ugly", old-school C language #define solution:
+// #define WRITE_REG_16_FROM_NANO(reg) 0xF8 | (reg & 0x03), 0xFF, 0xFE, 0x3F
+// WriteK(WRITE_REG_16_FROM_NANO(reg));    
+//
+// I found that this "older" solution generated 8 bytes of code before the
+// function call, taking 4 clocks before the call:
+//
+// 19c6:   2f e3           ldi r18, 0x3F   ; 63
+// 19c8:   4e ef           ldi r20, 0xFE   ; 254
+// 19ca:   6f ef           ldi r22, 0xFF   ; 255
+// 19cc:   8b ef           ldi r24, 0xFB   ; 251
+// 19ce:   0e 94 85 09     call    0x130a  ; 0x130a <_ZN11PortPrivate14internalWriteKEhhhh>
+//
+// I went with the ugly old C language solution.
+
+#define WRMEM16_FROM_NANO            0xFF, 0xFF, 0xFF, 0x3F
+#define RDMEM8_TO_NANO               0xFF, 0xFF, 0x9F, 0xFF
+#define WRMEM8_FROM_NANO             0xFF, 0xFF, 0xFF, 0x7F
+#define WRITE_REG_16_FROM_NANO(reg) (0xF8 | (reg & 0x03)), 0xFF, 0xFE, 0x3F
+#define LOAD_FLAGS_INDIRECT_R3       0xFF, 0xFE, 0x9F, 0xFF
+#define MICROCODE_IDLE               0xFF, 0xFF, 0xFF, 0xFF
+
+// For now, at least, the 12 unassigned opcodes from 0xF0 through 0xFB
+// are reserved for use by the Nano in test and initialization sequences.
+#define SCRATCH_OPCODE_F0 ((unsigned byte)0xF0)
+
+// For now, at least, the last 256 bytes of memory are reserved for scratch
+// use by the Nano. This region may also be used for the eventual buffer
+// holding YARC requests to the host (these are transmitted by the Nano).
+#define SCRATCH_MEM ((unsigned short)0x7700)
+
+
+
 

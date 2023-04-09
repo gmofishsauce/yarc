@@ -12,8 +12,6 @@ void SetDisplay(byte b);
 
 // Public functions exposed by the port task
 
-bool WriteByteToK(byte kReg, byte kVal);
-void WriteK(byte k3, byte k2, byte k1, byte k0);
 void SetAH(byte b);
 void SetAL(byte b);
 void SetDH(byte b);

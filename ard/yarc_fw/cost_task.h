@@ -74,6 +74,10 @@ namespace CostPrivate {
       byte readValue;
       byte location;
     } regData;
+    struct flagsData {
+      byte flags;
+      byte condition;
+    } flagsData;
   };
 
   typedef void (*TestInit)();
@@ -212,6 +216,7 @@ namespace CostPrivate {
     if (delayData.delay < 0L) {
       queuedLogMessageCount++;
       logQueueCallback(delayTaskMessageCallback);
+      /* XXX */ if (millis() < 1) WriteFlags(0x01);
       return false; // done
     }
     delayData.delay = delayData.delay - 1L;
@@ -635,6 +640,27 @@ namespace CostPrivate {
     return false;
   }
 
+  // === flagTest verifies the condition code logic.
+  // This is the first test that relies on YARC/Nano# == YARC.
+
+  byte flagCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F flagTest: flags 0x%02X cond 0x%02X"),
+      flagsData.flags, flagsData.condition);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  void flagInit() {
+    flagsData.flags = 0;
+    flagsData.condition = 0;
+  }
+
+  bool flagTest() {
+      WriteFlags(flagsData.flags);
+      return false; // done
+  }  
 #endif // COST
 } // End of CostPrivate namespace
 

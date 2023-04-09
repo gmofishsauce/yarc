@@ -432,7 +432,7 @@ namespace SerialPrivate {
         sendNak(b);
       } else if (cmdBuf[1] == 4 && copy(rcvBuf, cmdBuf, 6) == 6) { // long form
         consume(rcvBuf, 6);
-        WriteK(cmdBuf[2], cmdBuf[3], cmdBuf[4], cmdBuf[5]);
+        WriteK(&cmdBuf[2], &cmdBuf[3], &cmdBuf[4], &cmdBuf[5]);
         sendAck(b);
       } // else don't consume and don't reply; just wait
     }
