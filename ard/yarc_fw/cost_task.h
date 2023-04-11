@@ -36,7 +36,8 @@
 #define COST 1
 
 namespace CostPrivate {
-	bool running = true;
+	bool running = false;
+  bool stopping = false;
 
 #if COST
 
@@ -113,8 +114,8 @@ namespace CostPrivate {
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
   constexpr byte MAX_TESTS = 0x10;
-  byte currentTestId = N_TESTS;
-  byte lastTestId = N_TESTS - 1;
+  byte currentTestId = 0;
+  byte lastTestId = 0;
 
   // General note about logging: there is a (necessary) issue throughout
   // the Nano firmware caused by the design of the logger. To conserve
@@ -154,18 +155,32 @@ namespace CostPrivate {
     return result;
   }
 
+  // Call back for tests stopped (e.g. due to a command from the Mac;
+  // see serial_task.h)
+  byte costTestsStopped(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax, PSTR("COST stopped"));
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
   // The test executive
   int internalCostTask() {
-    if (!running) {
-      return 257; // come back and check a few times per second
-    }
-
+    constexpr byte TIMEOUT_HOST_NOT_POLLING = 87; // check about 12 times a second
+    constexpr byte TIMEOUT_NOT_RUNNING = 513; // check about twice a second
+    
     // Wait for all previously queued log messages to be formatted and sent
     // to the host. See the block comment above ("General note about...")
     if (queuedLogMessageCount > 0) {
       SetDisplay(0x38);
-      return 87;
+      return TIMEOUT_HOST_NOT_POLLING;
     }
+    
+    if (!running) {
+      return TIMEOUT_NOT_RUNNING; // come back and check once or twice each second
+    }
+
+    // COST tests are running
     SetDisplay(0xC4);
 
     // Is a new test cycle starting? (Including first-time initialization)
@@ -174,11 +189,19 @@ namespace CostPrivate {
       randomSeed(millis());
       queuedLogMessageCount++;
       logQueueCallback(testCycleStarting);
-      return 0;
+      return 0; // come back and check right away
     }
 
     // Is a new test starting within the current cycle?
     if (lastTestId != currentTestId) {
+      if (stopping) {
+        logQueueCallback(costTestsStopped);
+        queuedLogMessageCount++;
+        MakeSafe();
+        running = false;
+        stopping = false;
+        return TIMEOUT_NOT_RUNNING;
+      }
       queuedLogMessageCount++;
       logQueueCallback(testStarting);
       lastTestId = currentTestId;
@@ -668,18 +691,29 @@ namespace CostPrivate {
 
 // This is called from the SerialTask or other executive to enable the
 // tests to run. As always, no special synchronization is required since
-// all activity runs in the foreground. For now, COST runs by default so
-// there are no callers (TBD).
+// all activity runs in the foreground. 
 void costRun() {
   MakeSafe();
+  CostPrivate::currentTestId = CostPrivate::N_TESTS;
+  CostPrivate::lastTestId = CostPrivate::N_TESTS - 1;  
 	CostPrivate::running = true;
 }
 
+byte costTestsStopping(byte *bp, byte bmax) {
+  int result = snprintf_P((char *)bp, bmax, PSTR("COST stopping"));
+  if (result > bmax) result = bmax;
+  return result;
+}
+
 // Called from the SerialTask or other executive to stop the tests from
-// running. For now, COST runs continuously so there are not callers.
+// running. We stop the tests synchronously at the conclusion of the current
+// tests, make all safe, and log a message. This requires a separate state
+// in the state machine, implemented with a second boolean.
 void costStop() {
-	CostPrivate::running = false;
-  MakeSafe(); // ???
+  if (CostPrivate::running) {
+    logQueueCallback(costTestsStopping);
+    CostPrivate::stopping = true;
+  }
 }
 
 void costTaskInit() {

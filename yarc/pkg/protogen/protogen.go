@@ -10,16 +10,20 @@ import (
 	"unicode"
 )
 
+// Protocol version 5. Added the read and write microcode slice commands.
+// Protocol version 6. Change of philosophy: added direct set of MCR.
+// Protocol version 7. Removed clock commands. Added RUN/STOP COST.
+
+const protocolVersion = 7
+
 var names = []struct {
 	name string
 	val int
 }{
 	{ "STCMD_BASE", 0xE0 },
 	{ "STCMD_GET_MCR", 0xE1 },
-	{ "STCMD_EN_FAST", 0xE2 },
-	{ "STCMD_DIS_FAST", 0xE3 },
-	{ "STCMD_EN_SLOW", 0xE4 },
-	{ "STCMD_DIS_SLOW", 0xE5 },
+	{ "STCMD_RUN_COST", 0xE2 },
+	{ "STCMD_STOP_COST", 0xE3 },
 	{ "STCMD_RUN_YARC", 0xE7 },
 	{ "STCMD_STOP_YARC", 0xE8 },
 	{ "STCMD_POLL", 0xE9 },
@@ -54,11 +58,6 @@ var errors = []struct {
 	{ "STERR_INTERNAL", 0x85, "Arduino reported an internal error" },
 	{ "STERR_BADCMD", 0x86, "invalid command byte" },
 }
-
-// Protocol version 5. Added the read and write microcode slice commands.
-// Protocol version 6. Change of philosophy: added direct set of MCR.
-
-const protocolVersion = 6
 
 func Generate() {
 	generateCSymbols("serial_protocol.h")

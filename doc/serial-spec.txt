@@ -34,7 +34,9 @@ One or more of the bytes in the fixed-length arguments may specify a
 variable-length data transfer in either direction. The transfer occurs
 only after the Nano responds with ACK. NAK, when it occurs, always
 terminates command processing.  Argument format, data size (byte count)
-and order of arguments are specific to each command.
+and order of arguments are specific to each command. Note: protocol
+error handling is not sophisticated enough to handle this case without
+a reset occurring.
 
 In order to support logging from the Nano to the host console, the host
 is expected to issue Poll (0xE9, formerly GetMsg) commands frequently.
@@ -97,26 +99,18 @@ host must then continue to issue Poll commands frequently.
 
 State Model
 
-The Nano initializes in ACTIVE mode, which corresponds to the YARC/NANO
+The Nano initializes in ACTIVE mode, which corresponds to the YARC/Nano#
 bit in the Machine Control Register (MCR) being low. This setting locks
 out the YARC from driving the system address and data busses and enables
 the Nano's drivers. PASSIVE mode similarly locks the Nano out from bus
 access. The hardware interlock is designed to prevent a software error
 from causing bus contention that could damage the drivers.
 
-The YARC has two clocks: the "fast clock" which is implemented in
-hardware and the "slow clock" which is implemented by the Nano toggling
-an output pin. When the Nano's state is ACTIVE, neither clock can be
-enabled; the Nano generates its own clock pulses as required to
-implement the commands described here, such as writing to YARC memory
-locations.
-
 When the YARC has been prepared for execution, the host may send the
-RunYARC command (which puts the Nano into the PASSIVE state) followed by
-a command to enable one of the YARC's clocks. When in the PASSIVE state,
-the Nano will reject commands that demand bus cycles. The Nano will,
-however, accept commands to disable or enable YARC clocks and/or single
-step the YARC.
+RunYARC command (which puts the Nano into the PASSIVE state). When in
+the PASSIVE state, commands to perform bus cycles will fail. They may
+be rejected by the Nano (implementation detail).  The Nano will accept
+the command to stop the YARC.
 
 Design Rationale
 
@@ -150,7 +144,9 @@ newlines in Nano string responses (e.g. log messages). When creating a
 log file of Nano interactions, the host should insert newlines as
 required for readability.  Binary data to be passed between YARC and
 host must be suitably encoded (hex ASCII, base64 or the like). This
-protocol does not specify the details.
+protocol does not specify the details. (Note: use of hex ASCII cuts
+the link bandwidth in half and complicates the Nano's implementation;
+I might allow binary downloads.)
 
 Conceptually, the host has to specify the entire 4 bytes of address and
 data for each single read or write on the YARC system bus. In practice,
@@ -184,45 +180,38 @@ MCR is an 8-bit register that controls several YARC features, including
 the hardware clock and the YARC/NANO bit that arbitrates bus ownership
 between the Nano and the YARC.
 
-. Enable Fast Clock - 0xE2
-. Disable Fast Clock - 0xE3
-. Enable Slow Clock - 0xE4
-. Disable Slow Clock - 0xE5
+. Run COST test - 0xE2
+. Stop COST test - 0xE3
+
+These commands stop and start the Continuous Self Test (COST). The
+COST should be stopped before trying to alter any state.
+
+. Unassigned - 0xE4
+. Unassigned - 0xE5
+. Unassigned - 0xE6
 . No argument bytes
 . No result bytes
 
-In ACTIVE mode, the Nano disables the YARC's clock and generates clock
-pulses as required to implement the commands in this spec.  When the
-YARC is running, either clock may be enabled; or both clocks may be
-disabled, freezing the YARC except for Single Step commands (below).
-The Nano will report an error if the host attempts to simultaneously
-enable both clocks or to enable either clock when the Nano is ACTIVE.
-
-Note: the YARC has only one physical clock, the "fast clock". The "slow
-clock" is simulated by the Nano togging an output pin that is wired into
-the YARC's clock circuitry.
-
-. Undefined - 0xE6
-
-This command is not defined.
+These commands are not defined. Note: E2 through E5 were formerly
+assigned to stop and start the conceptual "slow" and "fast" clocks.
+This now seems unnecessary.
 
 . RunYARC - 0xE7
 . No argument byte
 . No result byte
 
-The Nano dsables both clocks, sets its own state to PASSIVE, and sets
-the YARC/NANO bit in the MCR high to enable YARC bus cycles.  When the
-Nano is passive, it cannot initiate bus cycles. As result, 0xF0 - 0xFF
-commands will return an error. Normally, this command is immediately
-followed by a command to enable one of the YARC's clocks.
+The Nano disables both clocks, sets its own state to PASSIVE, sets the
+YARC/Nano# bit in the MCR high to enable YARC bus cycles, and starts
+the hardware clock.  When the Nano is passive, it cannot initiate bus
+cycles. As result, 0xF0 - 0xFF commands will return an error.
 
 . StopYARC - 0xE8
 . No arguments bytes
 . No result bytes
 
-The Nano disables both clocks, invalidates its own shadow registers,
-assigns bus mastership to itself by setting the YARC/NANO bit in the MCR
-to low, and sets its own state to ACTIVE.
+The Nano disables the hardware clock and assigns bus mastership to
+itself by setting the YARC/Nano# bit in the MCR to low. It makes its
+own state ACTIVE.
 
 . Poll - 0xE9
 . No arguments bytes
@@ -294,7 +283,7 @@ does not dictate how the host determines if the firmware’s version is
 The Nano acks the 0xEF (i.e. sends a 0x10 byte). The host should check
 for a 0x8x error response, but no such errors are currently defined for
 Sync. No other actions are taken, so no state is altered either in the
-Nano or the YARC.
+Nano or the YARC. This "ping-like" command is used in connection setup.
 
 Protocol commands - bus transactions (0xF0 - 0xFF) These command will
 fail if issued when the Nano's state is PASSIVE. Issue StopYARC to cause

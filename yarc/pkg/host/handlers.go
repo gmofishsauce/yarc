@@ -57,30 +57,28 @@ func seeInitBelow(notUsed1 *protocolCommand, notUsed2 *arduino.Arduino, notUsed3
 
 var commands = []protocolCommand {
 	{ sp.CmdBase,        "h",  "help",        0, false, seeInitBelow },
-	{ sp.CmdGetMcr,      "gm", "GetMcr",      0, false, getMcr },
-	{ sp.CmdEnFast,      "ef", "EnFast",      0, false, notImpl },
-	{ sp.CmdDisFast,     "df", "DisFast",     0, false, notImpl },
-	{ sp.CmdEnSlow,      "es", "EnSlow",      0, false, notImpl },
-	{ sp.CmdDisSlow,     "ds", "DisSlow",     0, false, notImpl },
-	{ sp.CmdRunYarc,     "rn", "Run",         0, false, notImpl },
-	{ sp.CmdStopYarc,    "st", "Stop",        0, false, notImpl },
-	{ sp.CmdPoll,        "pl", "Poll",        0, false, notImpl },
-	{ sp.CmdSvcResponse, "sr", "SvcResponse", 1, true,  svcResp },
-	{ sp.CmdGetVer,      "gv", "GetVer",      0, false, notImpl },
-	{ sp.CmdSync,        "sn", "Sync",        0, false, notImpl },
-	{ sp.CmdSetArh,      "ah", "SetAddrHigh", 1, false, notImpl },
-	{ sp.CmdSetArl,      "al", "SetAddrLow",  1, false, notImpl },
-	{ sp.CmdSetDrh,      "dh", "SetDataHigh", 1, false, notImpl },
-	{ sp.CmdSetDrl,      "dl", "SetDataLow",  1, false, notImpl },
-	{ sp.CmdDoCycle,     "do", "DoCycle",     4, false, notImpl },
-	{ sp.CmdGetResult,   "gr", "GetResult",   0, false, notImpl },
-	{ sp.CmdWrSlice,     "ws", "WriteSlice",  3, true,  notImpl },
-	{ sp.CmdRdSlice,     "rs", "ReadSlice",   3, false, notImpl },
-	{ sp.CmdXferSingle,  "xs", "XferSingle",  5, false, notImpl },
-	{ sp.CmdWritePage,   "wp", "WritePage",   1, true,  notImpl },
-	{ sp.CmdReadPage,    "rp", "ReadPage",    1, true,  notImpl },
-	{ sp.CmdSetK,        "sk", "SetK",        2, true,  setK    },
-	{ sp.CmdSetMcr,      "sm", "SetMCR",      1, false, setMcr  },
+	{ sp.CmdGetMcr,      "gm", "GetMcr",      0, false, getMcr   },
+	{ sp.CmdRunCost,     "rc", "RunCost",     0, false, runCost  },
+	{ sp.CmdStopCost,    "sc", "StopCost",    0, false, stopCost },
+	{ sp.CmdRunYarc,     "rn", "Run",         0, false, notImpl  },
+	{ sp.CmdStopYarc,    "st", "Stop",        0, false, notImpl  },
+	{ sp.CmdPoll,        "pl", "Poll",        0, false, notImpl  },
+	{ sp.CmdSvcResponse, "sr", "SvcResponse", 1, true,  svcResp  },
+	{ sp.CmdGetVer,      "gv", "GetVer",      0, false, notImpl  },
+	{ sp.CmdSync,        "sn", "Sync",        0, false, notImpl  },
+	{ sp.CmdSetArh,      "ah", "SetAddrHigh", 1, false, notImpl  },
+	{ sp.CmdSetArl,      "al", "SetAddrLow",  1, false, notImpl  },
+	{ sp.CmdSetDrh,      "dh", "SetDataHigh", 1, false, notImpl  },
+	{ sp.CmdSetDrl,      "dl", "SetDataLow",  1, false, notImpl  },
+	{ sp.CmdDoCycle,     "do", "DoCycle",     4, false, notImpl  },
+	{ sp.CmdGetResult,   "gr", "GetResult",   0, false, notImpl  },
+	{ sp.CmdWrSlice,     "ws", "WriteSlice",  3, true,  notImpl  },
+	{ sp.CmdRdSlice,     "rs", "ReadSlice",   3, false, notImpl  },
+	{ sp.CmdXferSingle,  "xs", "XferSingle",  5, false, notImpl  },
+	{ sp.CmdWritePage,   "wp", "WritePage",   1, true,  notImpl  },
+	{ sp.CmdReadPage,    "rp", "ReadPage",    1, true,  notImpl  },
+	{ sp.CmdSetK,        "sk", "SetK",        2, true,  setK     },
+	{ sp.CmdSetMcr,      "sm", "SetMCR",      1, false, setMcr   },
 }
 
 func init() {
@@ -118,30 +116,30 @@ func getMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, e
 	return nostr, nil
 }
 
+func runCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	err := doCommand(nano, sp.CmdRunCost)
+	return nostr, err
+}
+
+func stopCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	err := doCommand(nano, sp.CmdStopCost)
+	return nostr, err
+}
+
 func setK(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	words := strings.Split(line, " ");
-	if len(words) != 3 {
-		return nostr, fmt.Errorf("usage: sk kRegNum kValue");
+	if len(words) != 5 {
+		return nostr, fmt.Errorf("usage: sk k3 k2 k1 k0");
 	}
 
-	args := make([]byte, 2, 2)
-	n, err := strconv.ParseInt(words[1], 0, 16)
-	if err != nil {
-		return nostr, err
+	args := make([]byte, 4, 4)
+	for i := 0; i < 4; i++ {
+		n, err := strconv.ParseInt(words[i+1], 0, 16)
+		if err != nil {
+			return nostr, err
+		}
+		args[i] = byte(n);
 	}
-	if n < 0 || n > 3 {
-		return nostr, fmt.Errorf("k register number must in 0..3");
-	}
-	args[0] = byte(n)
-
-	n, err = strconv.ParseInt(words[2], 0, 16)
-	if err != nil {
-		return nostr, err
-	}
-	if n < 0 || n > 255 {
-		return nostr, fmt.Errorf("k register value must in 0..255");
-	}
-	args[1] = byte(n)
 
 	return nostr, doCommandWithCountedBytes(nano, sp.CmdSetK, args)
 }

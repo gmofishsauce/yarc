@@ -14,6 +14,8 @@ namespace SerialPrivate {
   // include file in the firmware that's not at the top level (in yarc_fw).
   #include "serial_protocol.h"
 
+  // === the "lower layer": ring buffer implementation ===
+
   // Each ring buffer is a typical circular queue - since head == tail means "empty",
   // we can't use the last entry. So the queue can hold (RING_BUF_SIZE - 1) elements.
   // Since the head and tail are byte variables, the RING_BUF_SIZE must be <= 127. I'm
@@ -121,7 +123,9 @@ namespace SerialPrivate {
     r->head = (r->head + 1) % RING_BUF_SIZE;
   }
 
-  // === end of the "lower layer" (ring buffer manipulation) ===
+  // === end of the "lower layer" (ring buffer implementation) ===
+
+  // === the "middle layer": connection state and send/receive ===
 
   typedef byte State;
   
@@ -234,6 +238,8 @@ namespace SerialPrivate {
     pb->inuse = false;
   }
 
+  // === end of the "middle layer" ===
+
   // === Protocol command handlers ===
   // Command handlers must return the "next" state
 
@@ -282,20 +288,26 @@ namespace SerialPrivate {
     return state;
   }
 
-  State stEnFast(RING* const r, byte b) {
-    return stBadCmd(r, b);
+  State stRunCost(RING* const r, byte b) {
+    consume(r, 1);
+    if (state != STATE_READY) {
+      sendNak(b);
+    } else {   
+      costRun();
+      sendAck(b);
+    }
+    return state;
   }
 
-  State stDisFast(RING* const r, byte b) {
-    return stBadCmd(r, b);
-  }
-
-  State stEnSlow(RING* const r, byte b) {
-    return stBadCmd(r, b);
-  }
-
-  State stDisSlow(RING* const r, byte b) {
-    return stBadCmd(r, b);
+  State stStopCost(RING* const r, byte b) {
+    consume(r, 1);
+    if (state != STATE_READY) {
+      sendNak(b);
+    } else {   
+      costStop();
+      sendAck(b);
+    }
+    return state;
   }
 
   State stRun(RING* const r, byte b) {
@@ -432,7 +444,7 @@ namespace SerialPrivate {
         sendNak(b);
       } else if (cmdBuf[1] == 4 && copy(rcvBuf, cmdBuf, 6) == 6) { // long form
         consume(rcvBuf, 6);
-        WriteK(&cmdBuf[2], &cmdBuf[3], &cmdBuf[4], &cmdBuf[5]);
+        WriteK(cmdBuf[2], cmdBuf[3], cmdBuf[4], cmdBuf[5]);
         sendAck(b);
       } // else don't consume and don't reply; just wait
     }
@@ -463,8 +475,8 @@ namespace SerialPrivate {
   // PROGMEM (ROM) so requires special access, below.
   
   const PROGMEM CommandHandler handlers[] = {
-    stBadCmd,   stGetMcr,  stEnFast,   stDisFast,    // 0xE0 ...
-    stEnSlow,   stDisSlow, stUndef,    stRun,        // 0xE4 ...
+    stBadCmd,   stGetMcr,  stRunCost,  stStopCost,   // 0xE0 ...
+    stUndef,    stUndef,   stUndef,    stRun,        // 0xE4 ...
     stStop,     stPoll,    stResp,     stUndef,      // 0xE8 ...
     stUndef,    stUndef,   stGetVer,   stSync,       // 0xEC ...
   
