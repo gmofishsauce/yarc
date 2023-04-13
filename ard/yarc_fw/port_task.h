@@ -448,6 +448,14 @@ namespace PortPrivate {
     }
 
     MakeSafe();
+    
+    // WriteK(RD_FLAGS_TO_NANO); // read flags byte
+    // SetMCR(McrEnableSysbus(MCR_SAFE));
+    // for (;;) {
+    //   SingleClock();
+    // }
+    // SetMCR(MCR_SAFE);
+
     // for (;;) {
     //   SetDisplay(0x55);
     //   WriteFlags(0x05);

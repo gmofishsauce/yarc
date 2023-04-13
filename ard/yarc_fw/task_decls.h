@@ -84,7 +84,7 @@ void panic(byte panicCode, byte subcode);
 //  1878:   0e 94 29 0a     call    0x1452  ; 0x1452 <_Z6WriteKPh>
 //
 // And then I tried the "ugly", old-school C language #define solution:
-// #define WRITE_REG_16_FROM_NANO(reg) 0xF8 | (reg & 0x03), 0xFF, 0xFE, 0x3F
+// #define WRITE_REG_16_FROM_NANO(reg) (0xF8 | (reg & 0x03)), 0xFF, 0xFE, 0x3F
 // WriteK(WRITE_REG_16_FROM_NANO(reg));    
 //
 // I found that this "older" solution generated 8 bytes of code before the
@@ -98,16 +98,21 @@ void panic(byte panicCode, byte subcode);
 //
 // I went with the ugly old C language solution.
 
-#define WRMEM16_FROM_NANO            0xFF, 0xFF, 0xFF, 0x3F
-#define RDMEM8_TO_NANO               0xFF, 0xFF, 0x9F, 0xFF
-#define WRMEM8_FROM_NANO             0xFF, 0xFF, 0xFF, 0x7F
-#define WRITE_REG_16_FROM_NANO(reg) (0xF8 | (reg & 0x03)), 0xFF, 0xFE, 0x3F
-#define LOAD_FLAGS_INDIRECT_R3       0xFF, 0xFE, 0x9F, 0xFF
-#define MICROCODE_IDLE               0xFF, 0xFF, 0xFF, 0xFF
+#define WRMEM16_FROM_NANO                     0xFF, 0xFF, 0xFF, 0x3F
+#define RDMEM8_TO_NANO                        0xFF, 0xFF, 0x9F, 0xFF
+#define WRMEM8_FROM_NANO                      0xFF, 0xFF, 0xFF, 0x7F
+#define WRITE_REG_16_FROM_NANO(reg)          (0xF8 | (reg & 0x03)), 0xFF, 0xFE, 0x3F
+#define STORE_REG_INDIRECT(aReg, dReg)       (0x07 | ((aReg&3) << 6) | ((dReg&3) << 3)), 0xFF, 0x1F, 0x3F
+#define CONDITIONAL_MOVE_INDIRECT(a, d, c)   ((0x3C | (a&3) << 6) | (d&3)), (0x0F | (c&0xF) << 4), 0x9E, 0xBF
+#define LOAD_FLAGS_INDIRECT_R3                0xFF, 0xFE, 0x9F, 0xFF
+#define RD_FLAGS_TO_NANO                      0xFF, 0xFF, 0x7F, 0xFF
+#define MICROCODE_IDLE                        0xFF, 0xFF, 0xFF, 0xFF
 
 // For now, at least, the 12 unassigned opcodes from 0xF0 through 0xFB
 // are reserved for use by the Nano in test and initialization sequences.
-#define SCRATCH_OPCODE_F0 ((unsigned byte)0xF0)
+#define SCRATCH_OPCODE_F0 ((unsigned byte)0xF0) // write flags
+#define SCRATCH_OPCODE_F1 ((unsigned byte)0xF1) // read value of register
+#define SCRATCH_OPCODE_F2 ((unsigned byte)0xF2) // conditional move indirect memory to register
 
 // For now, at least, the last 256 bytes of memory are reserved for scratch
 // use by the Nano. This region may also be used for the eventual buffer

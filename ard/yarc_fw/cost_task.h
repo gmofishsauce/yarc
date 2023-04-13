@@ -78,6 +78,8 @@ namespace CostPrivate {
     struct flagsData {
       byte flags;
       byte condition;
+      byte location;
+      byte actual;
     } flagsData;
   };
 
@@ -96,6 +98,8 @@ namespace CostPrivate {
   bool memBasicTest(void);
   void memHammerInit(void);
   bool memHammerTest(void);
+  void flagsInit(void);
+  bool flagsTest(void);
 
   typedef struct tr {
     TestInit init;
@@ -109,8 +113,9 @@ namespace CostPrivate {
     { regTestInit,      regTestBody,    "reg"       },
     { ucodeTestInit,    ucodeBasicTest, "ucode"     },
     { memBasicTestInit, memBasicTest,   "membasic"  },
-    { memHammerInit,    memHammerTest,  "memhammer" }
-  };
+    { memHammerInit,    memHammerTest,  "memhammer" },
+    { flagsInit,        flagsTest,      "flags"     }    
+   };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
   constexpr byte MAX_TESTS = 0x10;
@@ -412,6 +417,9 @@ namespace CostPrivate {
   // location with a single register read/memory write. Compare the two
   // memory locations (in the Nano, using byte reads and writes) and report
   // if the data transfers were all successful.
+  //
+  // NOTE: this was the most complicated test ever when I first wrote it,
+  // but now there are much easier ways to do this.
   bool regTestBody() {
     byte save_mDH, save_mDL;
 
@@ -421,7 +429,6 @@ namespace CostPrivate {
     regData.AL = 0x10;
     regData.DH = regData.save_DH;
     regData.DL = regData.save_DL;
-
 
     // (1) write the random values at 0x10 and 0x11
     Write16(BtoS(regData.AH, regData.AL), BtoS(regData.DH, regData.DL));
@@ -664,25 +671,78 @@ namespace CostPrivate {
   }
 
   // === flagTest verifies the condition code logic.
-  // This is the first test that relies on YARC/Nano# == YARC.
 
-  byte flagCallback(byte *bp, byte bmax) {
+  byte flagsCallback(byte *bp, byte bmax) {
     int result = snprintf_P((char *)bp, bmax,
-      PSTR("  F flagTest: flags 0x%02X cond 0x%02X"),
-      flagsData.flags, flagsData.condition);
+      PSTR("  F flagTest: (%d) flags 0x%02X cond 0x%02X actual 0x%02X"),
+      flagsData.location, flagsData.flags, flagsData.condition, flagsData.actual);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
   }
 
-  void flagInit() {
+  void flagsInit() {
     flagsData.flags = 0;
     flagsData.condition = 0;
+    flagsData.location = 0;
+    flagsData.actual = 0xFF;
   }
 
-  bool flagTest() {
-      WriteFlags(flagsData.flags);
-      return false; // done
+  // This function does two unrelated tests that use the same callback.
+  // They are distinguished by the location value.
+  bool flagsTest() {
+    // First test: just read and write the flags register
+    WriteFlags(flagsData.flags);
+    flagsData.actual = ReadFlags() & 0x0F;
+    if (flagsData.flags != flagsData.actual) {
+      flagsData.location = 1;
+      queuedLogMessageCount++;
+      logQueueCallback(flagsCallback);
+      return false;
+    }
+
+    // Second test: do a conditional move on carry
+    // Either 0xAAAA or 0x5555 should end up in R0
+    constexpr unsigned short CONDITION_MET = 0x5555;
+    constexpr unsigned short COND_NOT_MET  = 0xAAAA;
+    constexpr byte TEST_CARRY = 0;
+
+    unsigned short memval = CONDITION_MET;
+    WriteReg(0, COND_NOT_MET);
+    WriteMem16(SCRATCH_MEM, &memval, 1);
+    WriteReg(1, SCRATCH_MEM);
+    byte microcode[] = {
+      CONDITIONAL_MOVE_INDIRECT(1, 0, TEST_CARRY),
+      MICROCODE_IDLE
+    };
+    WriteMicrocode(SCRATCH_OPCODE_F2, microcode, 2);
+
+    // Now execute the conditional move microcode,
+    // which should move the contents of SCRATCH_MEM
+    // (0x5555) to R0 if and only if carry is set.
+    WriteIR(SCRATCH_OPCODE_F2, 0x00);
+    SetMCR(McrEnableYarc(MCR_SAFE));
+    SingleClock();
+    SingleClock();
+    SetMCR(MCR_SAFE);
+
+    // Finally if carry is set, R0 should contain the value
+    // from memory, 0x5555. Otherwise, it should hold 0xAAAA.
+    #define CARRY_SET(f) ((f) & 0x01)
+    unsigned short regval = ReadReg(0, SCRATCH_MEM + 2);
+
+    unsigned short expected = (CARRY_SET(flagsData.flags)) ? 0x5555 : 0xAAAA;
+    if (regval != expected) {
+      flagsData.location = 2;
+      ReadMem8(SCRATCH_MEM + 3, &flagsData.actual, 1);
+      flagsData.condition = expected & 0xFF;
+      queuedLogMessageCount++;
+      logQueueCallback(flagsCallback);
+      return false;
+    }
+
+    flagsData.flags++;
+    return (flagsData.flags > 0x0F) ? false : true;
   }  
 #endif // COST
 } // End of CostPrivate namespace
