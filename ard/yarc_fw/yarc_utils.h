@@ -179,50 +179,34 @@ void ReadMem8(unsigned short addr, unsigned char *data, short nBytes) {
 // This does not require running the YARC; the Nano can do it.
 void WriteReg(unsigned char reg, unsigned short value) {
   // Set the microcode for a write from sysdata to reg
-  WriteK(WRITE_REG_16_FROM_NANO(reg));    
+  WriteK(LOAD_REG_16_FROM_NANO(reg));    
   
   // Enable writing to a general register
-  SetMCR(McrEnableRegisterWrite(McrEnableSysbus(MCR_SAFE)));
-
-  // Set a write to an arbitrary address not in system RAM in the Nano's address register
-  // Set the value 0x7700 (= end of memory - 256) in the Nano's data register
+  SetMCR(McrEnableRegisterWrite(MCR_SAFE));
   SetADHL(0x7F, 0xFE, StoHB(value), StoLB(value));
-
-  // Do the write and make all shipshape again
   SingleClock();
-  SetMCR(MCR_SAFE); // freeze the registers and the bus
-
-  MakeSafe(); // and turn off everything
+  SetMCR(MCR_SAFE);
 }
 
 // Read the value of given general register. This function moves the register contents
-// to the given location in memory (typically in the scratch space) and then does two
-// byte cycles because the Nano can only capture the low byte of the data bus for input.
-unsigned short ReadReg(unsigned char dataReg, unsigned short memAddr) {
-  // We need a register to hold the address and of course it needs to be distinct from
-  // the register with the value we want to save. We take the RCW from microcode; should
-  // try taking it from the opcode, sometime.
-  byte addrReg = (dataReg + 1) & 0x03;
-  WriteReg(addrReg, memAddr);
-
-  byte microcode[] = {
-    STORE_REG_INDIRECT(addrReg, dataReg),
-    MICROCODE_IDLE
-  };
-  WriteMicrocode(SCRATCH_OPCODE_F1, microcode, 2);
-
-  // Run the YARC to clock the value into F
-  WriteIR(SCRATCH_OPCODE_F1, 0x00);
-  SetMCR(McrEnableYarc(MCR_SAFE));
-  SingleClock();
+// to the given location in memory (typically in the scratch space). The Nano never
+// disables its address bus drivers as long as it has control, so the write is rather
+// odd - the Nano supplies the address, but thinks it is doing a read cycle; the YARC
+// general registers supply the data, and the YARC thinks it's doing a write cycle;
+// the memory controller "listens" to the YARC's signals and does the write.
+unsigned short ReadReg(unsigned char reg, unsigned short memAddr) {
+  WriteK(STORE_REG_16_TO_MEMORY(reg));
+  SetMCR(McrEnableSysbus(MCR_SAFE));
+  SetADHL(0x80 | StoHB(memAddr), StoLB(memAddr), 0xAA, 0x55);
   SingleClock();
   SetMCR(MCR_SAFE);
 
-  // The contents of the data register should now be at memAddr
-  byte hi, lo;
-  ReadMem8(memAddr, &hi, 1);
-  ReadMem8(1 + memAddr, &lo, 1);
-  return BtoS(hi, lo);
+  // Now since the bus input register is clocked on every clock, it holds the low
+  // byte of whatever was transferred to memory, i.e. the low byte of the register.
+  byte low = GetBIR();
+  byte high;
+  ReadMem8(memAddr + 1, &high, 1);
+  return BtoS(high, low);
 }
 
 // The Nano doesn't have a write enable bit for the flags register the way it does

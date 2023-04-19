@@ -432,6 +432,48 @@ namespace PortPrivate {
   void callWhenPowerOnReset() {
   }
 
+  // Write the argument value into general register reg, 0..3
+  // This does not require running the YARC; the Nano can do it.
+  void XWriteReg(unsigned char reg, unsigned short value) {
+    // Set the microcode for a write from sysdata to reg
+    WriteK(LOAD_REG_16_FROM_NANO(reg));    
+    
+    // Enable writing to a general register
+    SetMCR(McrEnableRegisterWrite(MCR_SAFE));
+
+    SetADHL(0x7F, 0xFE, StoHB(value), StoLB(value));
+    SingleClock();
+    SetMCR(MCR_SAFE);
+  }
+
+  // This seems to work, except for the endianness problem.
+  unsigned short XReadReg0() {
+    SetDisplay(0xF6);
+    
+    WriteK(0xC7, 0xFF, 0x1F, 0x3F);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SetADHL(0x80, 0x00, 0xAA, 0x55);
+    SingleClock();
+    SetMCR(MCR_SAFE);
+
+    byte lo;
+    byte hi;
+    ReadMem8(0x0001, &lo, 1);
+    ReadMem8(0x0000, &hi, 1);
+    return BtoS(hi, lo);
+  }
+
+  // This seems to work
+  byte XReadByteFromReg0() {
+    WriteK(0xC7, 0xFF, 0x1F, 0xBF);
+    SetMCR(McrEnableSysbus(MCR_SAFE));
+    SetADHL(0xFF, 0xFF, 0xFF, 0xFF);
+    SingleClock();
+    byte b = GetBIR(); 
+    SetMCR(MCR_SAFE);
+    return b;
+  }
+
   void callWhenAnyReset() {
     byte ucodeNoops[64];
 
@@ -448,19 +490,20 @@ namespace PortPrivate {
     }
 
     MakeSafe();
-    
-    // WriteK(RD_FLAGS_TO_NANO); // read flags byte
-    // SetMCR(McrEnableSysbus(MCR_SAFE));
-    // for (;;) {
-    //   SingleClock();
-    // }
-    // SetMCR(MCR_SAFE);
+
+    WriteReg(3, 0x3216);
+    unsigned short s = ReadReg(3, 0x7700);
+    panic(StoHB(s), StoLB(s));
 
     // for (;;) {
-    //   SetDisplay(0x55);
-    //   WriteFlags(0x05);
-    //   SetDisplay(0xAA);
-    //   WriteFlags(0x0A);
+    //   SetDisplay(0xC8);
+    //   delay(1500);
+    //   SetDisplay(StoHB(r0)); // 0x16
+    //   delay(3500);
+    //   SetDisplay(0x13);
+    //   delay(1500);
+    //   SetDisplay(StoLB(r0)); // 0x32
+    //   delay(3500);
     // }
   }
 }

@@ -405,6 +405,18 @@ namespace PortPrivate {
     PORTC = PORTC & ~decoderEnablePin;
   }
   
+  // This function is only for use during debugging. It causes a toggle
+  // to instead go low and stay that way.
+  void nanoStartToggle(REGISTER_ID reg) {
+    PORTC &= ~BOTH_DECODERS;
+    
+    byte decoderAddress = getAddressFromRegisterID(reg);
+    nanoPutPort(portSelect, decoderAddress);
+    
+    byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
+    PORTC = PORTC | decoderEnablePin;    
+  }
+  
   // Enable the specified register for input and call getPort() to read
   // the value. We cannot use nanoTogglePulse() here because we have to
   // read the value after setting the enable line low and before setting

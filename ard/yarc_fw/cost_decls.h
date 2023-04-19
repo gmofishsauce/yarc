@@ -4,3 +4,8 @@
 
 void costRun();
 void costStop();
+
+namespace CostPrivate {
+  void flagsInit(void);
+  bool flagsTest(void);
+}

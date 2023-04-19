@@ -79,7 +79,6 @@ namespace CostPrivate {
       byte flags;
       byte condition;
       byte location;
-      byte actual;
     } flagsData;
   };
 
@@ -673,33 +672,40 @@ namespace CostPrivate {
   // === flagTest verifies the condition code logic.
 
   byte flagsCallback(byte *bp, byte bmax) {
+    unsigned short memvalues[2];
+    ReadMem16(SCRATCH_MEM, memvalues, 2);
     int result = snprintf_P((char *)bp, bmax,
-      PSTR("  F flagTest: (%d) flags 0x%02X cond 0x%02X actual 0x%02X"),
-      flagsData.location, flagsData.flags, flagsData.condition, flagsData.actual);
+      PSTR("  F flagTest: (%d) flags 0x%02X cond 0x%02X SCRATCH 0x%04X 0x%04X"),
+      flagsData.location, flagsData.flags, flagsData.condition, memvalues[0], memvalues[1]);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
   }
 
   void flagsInit() {
+    flagsData.location = 0;
     flagsData.flags = 0;
     flagsData.condition = 0;
-    flagsData.location = 0;
-    flagsData.actual = 0xFF;
+    unsigned short memval = 0x3C3C;
+    WriteMem16(SCRATCH_MEM, &memval, 1);
+    WriteMem16(SCRATCH_MEM + 2, &memval, 1);
   }
 
   // This function does two unrelated tests that use the same callback.
   // They are distinguished by the location value.
   bool flagsTest() {
     // First test: just read and write the flags register
-    WriteFlags(flagsData.flags);
-    flagsData.actual = ReadFlags() & 0x0F;
-    if (flagsData.flags != flagsData.actual) {
-      flagsData.location = 1;
-      queuedLogMessageCount++;
-      logQueueCallback(flagsCallback);
-      return false;
-    }
+    for (flagsData.flags = 0; flagsData.flags <= 0x0F; ++flagsData.flags) {
+      WriteFlags(flagsData.flags);
+      flagsData.condition = ReadFlags() & 0x0F;
+      if (flagsData.flags != flagsData.condition) {
+        flagsData.location = 1;
+        queuedLogMessageCount++;
+        logQueueCallback(flagsCallback);
+        return false;
+      }
+    }    
+    flagsData.flags = 0;
 
     // Second test: do a conditional move on carry
     // Either 0xAAAA or 0x5555 should end up in R0
@@ -711,6 +717,7 @@ namespace CostPrivate {
     WriteReg(0, COND_NOT_MET);
     WriteMem16(SCRATCH_MEM, &memval, 1);
     WriteReg(1, SCRATCH_MEM);
+    
     byte microcode[] = {
       CONDITIONAL_MOVE_INDIRECT(1, 0, TEST_CARRY),
       MICROCODE_IDLE
@@ -721,7 +728,7 @@ namespace CostPrivate {
     // which should move the contents of SCRATCH_MEM
     // (0x5555) to R0 if and only if carry is set.
     WriteIR(SCRATCH_OPCODE_F2, 0x00);
-    SetMCR(McrEnableYarc(MCR_SAFE));
+    SetMCR(McrEnableSysbus(McrEnableYarc(MCR_SAFE)));
     SingleClock();
     SingleClock();
     SetMCR(MCR_SAFE);
@@ -734,8 +741,7 @@ namespace CostPrivate {
     unsigned short expected = (CARRY_SET(flagsData.flags)) ? 0x5555 : 0xAAAA;
     if (regval != expected) {
       flagsData.location = 2;
-      ReadMem8(SCRATCH_MEM + 3, &flagsData.actual, 1);
-      flagsData.condition = expected & 0xFF;
+      flagsData.condition = TEST_CARRY;
       queuedLogMessageCount++;
       logQueueCallback(flagsCallback);
       return false;
