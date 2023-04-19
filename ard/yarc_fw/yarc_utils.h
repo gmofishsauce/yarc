@@ -180,7 +180,6 @@ void ReadMem8(unsigned short addr, unsigned char *data, short nBytes) {
 void WriteReg(unsigned char reg, unsigned short value) {
   // Set the microcode for a write from sysdata to reg
   WriteK(LOAD_REG_16_FROM_NANO(reg));    
-  
   // Enable writing to a general register
   SetMCR(McrEnableRegisterWrite(MCR_SAFE));
   SetADHL(0x7F, 0xFE, StoHB(value), StoLB(value));
@@ -235,7 +234,7 @@ void WriteFlags(byte flags) {
 
   // Finally run the YARC to clock the value into F
   WriteIR(SCRATCH_OPCODE_F0, 0x00);
-  SetMCR(McrEnableYarc(MCR_SAFE));
+  SetMCR(McrEnableYarc(McrEnableSysbus((MCR_SAFE))));
   SingleClock();
   SingleClock();
   SetMCR(MCR_SAFE);

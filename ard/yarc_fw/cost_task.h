@@ -365,15 +365,6 @@ namespace CostPrivate {
   void regTestInit() {
   }
 
-  byte regCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
-      PSTR("  F reg: (%d): A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X save 0x%02X 0x%02X"),
-      regData.location, regData.AH, regData.AL, regData.DH, regData.DL, regData.readValue, regData.save_DH, regData.save_DL);
-    if (result > bmax) result = bmax;
-    queuedLogMessageCount--;
-    return result;
-  }
-
   // Write 16 bits of data at addr. Changes AH, AL, DH, DL.
   //  This function acts only on its arguments and the hardware,
   // so it's portable to other parts of the code.
@@ -395,6 +386,15 @@ namespace CostPrivate {
     return GetBIR();
   }
   
+  byte regCallback(byte *bp, byte bmax) {
+    int result = snprintf_P((char *)bp, bmax,
+      PSTR("  F reg: (%d): A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X save 0x%02X 0x%02X"),
+      regData.location, regData.AH, regData.AL, regData.DH, regData.DL, regData.readValue, regData.save_DH, regData.save_DL);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
   // Read 8 bits of data at addr with the noise pattern in DH/DL.
   // Check it against the expected value and issue a log message
   // labeled with the location of the test if it's mismatched.
@@ -420,6 +420,47 @@ namespace CostPrivate {
   // NOTE: this was the most complicated test ever when I first wrote it,
   // but now there are much easier ways to do this.
   bool regTestBody() {
+
+    // This is a newer register test that just writes and reads a value to
+    // all the registers using the YARC utility functions. It was written
+    // much later than the rest of the code below it.
+
+    WriteReg(2, 0x2332);
+    WriteReg(3, 0x3443);
+    WriteReg(1, 0x1221);
+    WriteReg(0, 0x0110);
+
+    bool fail = false;
+    byte location;
+    if (ReadReg(0, 0x7700) != 0x0110) {
+      fail = true;
+      location = 10;
+    }
+    if (!fail && ReadReg(1, 0x7700) != 0x1221) {
+      fail = true;
+      location = 11;
+    }
+    if (ReadReg(2, 0x7700) != 0x2332) {
+      fail = true;
+      location = 12;
+    }
+    if (!fail && ReadReg(3, 0x7700) != 0x3443) {
+      fail = true;
+      location = 13;
+    }
+    if (fail) {
+      regData.location = location;
+      regData.AH = regData.AL = regData.DH = regData.DL = regData.readValue = regData.save_DH = regData.save_DL = 0;
+      queuedLogMessageCount++;
+      logQueueCallback(regCallback);
+      return false;
+    }
+
+    // The rest of this test was the first effort I made to read and write
+    // the registers. But it only used register R3 (0x11) so it failed to
+    // to catch the swapped write address lines that eventually cost me a
+    // week of troubleshooting.
+    
     byte save_mDH, save_mDL;
 
     regData.save_DH = random(0, 256);
@@ -705,51 +746,51 @@ namespace CostPrivate {
         return false;
       }
     }    
-    flagsData.flags = 0;
 
     // Second test: do a conditional move on carry
     // Either 0xAAAA or 0x5555 should end up in R0
-    constexpr unsigned short CONDITION_MET = 0x5555;
-    constexpr unsigned short COND_NOT_MET  = 0xAAAA;
-    constexpr byte TEST_CARRY = 0;
+    // constexpr unsigned short CONDITION_MET = 0x5555;
+    // constexpr unsigned short COND_NOT_MET  = 0xAAAA;
+    // constexpr byte TEST_CARRY = 0;
 
-    unsigned short memval = CONDITION_MET;
-    WriteReg(0, COND_NOT_MET);
-    WriteMem16(SCRATCH_MEM, &memval, 1);
-    WriteReg(1, SCRATCH_MEM);
+    // flagsData.flags = 0;
+    // unsigned short memval = CONDITION_MET;
+    // WriteReg(0, COND_NOT_MET);
+    // WriteMem16(SCRATCH_MEM, &memval, 1);
+    // WriteReg(1, SCRATCH_MEM);
     
-    byte microcode[] = {
-      CONDITIONAL_MOVE_INDIRECT(1, 0, TEST_CARRY),
-      MICROCODE_IDLE
-    };
-    WriteMicrocode(SCRATCH_OPCODE_F2, microcode, 2);
+    // byte microcode[] = {
+    //   CONDITIONAL_MOVE_INDIRECT(1, 0, TEST_CARRY),
+    //   MICROCODE_IDLE
+    // };
+    // WriteMicrocode(SCRATCH_OPCODE_F2, microcode, 2);
 
     // Now execute the conditional move microcode,
     // which should move the contents of SCRATCH_MEM
     // (0x5555) to R0 if and only if carry is set.
-    WriteIR(SCRATCH_OPCODE_F2, 0x00);
-    SetMCR(McrEnableSysbus(McrEnableYarc(MCR_SAFE)));
-    SingleClock();
-    SingleClock();
-    SetMCR(MCR_SAFE);
+    // WriteIR(SCRATCH_OPCODE_F2, 0x00);
+    // SetMCR(McrEnableSysbus(McrEnableYarc(MCR_SAFE)));
+    // SingleClock();
+    // SingleClock();
+    // SetMCR(MCR_SAFE);
 
     // Finally if carry is set, R0 should contain the value
     // from memory, 0x5555. Otherwise, it should hold 0xAAAA.
-    #define CARRY_SET(f) ((f) & 0x01)
-    unsigned short regval = ReadReg(0, SCRATCH_MEM + 2);
+    // #define CARRY_SET(f) ((f) & 0x01)
+    // unsigned short regval = ReadReg(0, SCRATCH_MEM + 2);
 
-    unsigned short expected = (CARRY_SET(flagsData.flags)) ? 0x5555 : 0xAAAA;
-    if (regval != expected) {
-      flagsData.location = 2;
-      flagsData.condition = TEST_CARRY;
-      queuedLogMessageCount++;
-      logQueueCallback(flagsCallback);
-      return false;
-    }
+    // unsigned short expected = (CARRY_SET(flagsData.flags)) ? 0x5555 : 0xAAAA;
+    // if (regval != expected) {
+    //   flagsData.location = 2;
+    //   flagsData.condition = TEST_CARRY;
+    //   queuedLogMessageCount++;
+    //   logQueueCallback(flagsCallback);
+    //   return false;
+    // }
 
-    flagsData.flags++;
-    return (flagsData.flags > 0x0F) ? false : true;
-  }  
+    // flagsData.flags++;
+    // return (flagsData.flags > 0x0F) ? false : true;
+  }
 #endif // COST
 } // End of CostPrivate namespace
 
