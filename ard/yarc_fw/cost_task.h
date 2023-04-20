@@ -457,12 +457,10 @@ namespace CostPrivate {
     }
 
     // The rest of this test was the first effort I made to read and write
-    // the registers. But it only used register R3 (0x11) so it failed to
+    // the registers. But it only used register R3 (0b11) so it failed to
     // to catch the swapped write address lines that eventually cost me a
     // week of troubleshooting.
     
-    byte save_mDH, save_mDL;
-
     regData.save_DH = random(0, 256);
     regData.save_DL = random(0, 256);
     regData.AH = 0;
