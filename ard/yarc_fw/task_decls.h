@@ -103,7 +103,7 @@ void panic(byte panicCode, byte subcode);
 #define WRMEM8_FROM_NANO                      0xFF, 0xFF, 0xFF, 0x7F
 #define LOAD_REG_16_FROM_NANO(reg)           (0xF8 | ((reg) & 0x03)), 0xFF, 0xFE, 0x3F
 #define STORE_REG_16_TO_MEMORY(reg)           0xC7 | (((reg) & 0x03) << 3), 0xFF, 0x1F, 0x3F
-#define CONDITIONAL_MOVE_INDIRECT(a, d, c)   (((a&3) << 6) | 0x3C | (d&3)), (0x0F | (c&0xF) << 4), 0x9E, 0xBF
+#define CONDITIONAL_MOVE_ALU_R0               0xFC, 0x0F, 0xEE, 0xFF
 #define LOAD_FLAGS_INDIRECT_R3                0xFF, 0xFE, 0x9F, 0xFF
 #define RD_FLAGS_TO_NANO                      0xFF, 0xFF, 0x7F, 0xFF
 #define MICROCODE_IDLE                        0xFF, 0xFF, 0xFF, 0xFF

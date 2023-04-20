@@ -722,7 +722,7 @@ namespace CostPrivate {
   }
 
   void flagsInit() {
-    flagsData.location = 0;
+    flagsData.location = 1; // i.e. do the first test in flagsTest()
     flagsData.flags = 0;
     flagsData.condition = 0;
     unsigned short memval = 0x3C3C;
@@ -730,24 +730,55 @@ namespace CostPrivate {
     WriteMem16(SCRATCH_MEM + 2, &memval, 1);
   }
 
-  // This function does two unrelated tests that use the same callback.
-  // They are distinguished by the location value.
+  // This function does two unrelated tests. They are distinguished by the
+  // location value, which is then used by the callback to log what part of
+  // the test failed.
   bool flagsTest() {
     // First test: just read and write the flags register
-    for (flagsData.flags = 0; flagsData.flags <= 0x0F; ++flagsData.flags) {
-      WriteFlags(flagsData.flags);
-      flagsData.condition = ReadFlags() & 0x0F;
-      if (flagsData.flags != flagsData.condition) {
-        flagsData.location = 1;
-        queuedLogMessageCount++;
-        logQueueCallback(flagsCallback);
-        return false;
+    if (flagsData.location == 1) {
+      for (flagsData.flags = 0; flagsData.flags <= 0x0F; ++flagsData.flags) {
+        WriteFlags(flagsData.flags);
+        flagsData.condition = ReadFlags() & 0x0F;
+        if (flagsData.flags != flagsData.condition) {
+          queuedLogMessageCount++;
+          logQueueCallback(flagsCallback);
+          return false;
+        }
       }
+      flagsData.location = 2;
+      return true; // come back and do the second test
     }
-    return false; // for now:
 
     // Second test: do a conditional move on carry
-    // TODO
+    // Note: the ALU output is currently all zeroes.
+    WriteIR(0xC0, 0);
+    flagsData.flags = 0x01; // carry set
+    WriteFlags(flagsData.flags);
+    WriteReg(0, 0xFFFF);
+    flagsData.condition = 0; // built into CONDITIONAL_MOVE...
+    WriteK(CONDITIONAL_MOVE_ALU_R0);
+    SetMCR(McrEnableYarc((MCR_SAFE)));
+    // When we issue the clock pulse, YARC will act based
+    // on K and clock the microcode word at IR into K.
+    // This should be a noop word with all bits 1.
+    SingleClock();
+    SetMCR(MCR_SAFE);
+    unsigned short u = ReadReg(0, 0x7700);
+    // Now, in theory, R0 should contain 0 because we moved
+    // (conditionally moved) 0 from the ALU to R0. But the
+    // ALU output registers are the only part of the ALU that
+    // exists. One is a 573 and the other is a 574. Both have
+    // their inputs strapped to 0 and pin 11 (their "clock"
+    // or "pulse" inputs) pulled up. As a result the 573 is
+    // always following the inputs low, but the 574 never sees
+    // any edges so its content is random. The 573 is on the
+    // high order bits. So call we can test is that u is 0x00XX,
+    // not that it's 0x0000.
+    if ((u&0xFF00) != 0) {
+      queuedLogMessageCount++;
+      logQueueCallback(flagsCallback);
+    }
+    return false; // done, success or failure
   }
 #endif // COST
 } // End of CostPrivate namespace
