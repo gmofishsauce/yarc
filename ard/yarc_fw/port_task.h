@@ -490,37 +490,6 @@ namespace PortPrivate {
     }
 
     MakeSafe();
-
-    // WriteReg(2, 0x2332);
-    // WriteReg(3, 0x3443);
-    // WriteReg(1, 0x1221);
-    // WriteReg(0, 0x0110);
-
-    // unsigned short s;
-    // s = ReadReg(2, 0x7700);
-    // if (s != 0x2332) {
-    //   SetDisplay(0x70);
-    //   delay(3000);
-    //   panic(StoHB(s), StoLB(s));
-    // }
-    // s = ReadReg(0, 0x7700);
-    // if (s != 0x0110) {
-    //   SetDisplay(0x10);
-    //   delay(3000);
-    //   panic(StoHB(s), StoLB(s));
-    // }
-    // s = ReadReg(1, 0x7700);
-    // if (s != 0x1221) {
-    //   SetDisplay(0x30);
-    //   delay(3000);
-    //   panic(StoHB(s), StoLB(s));
-    // }
-    // s = ReadReg(3, 0x7700);
-    // if (s != 0x3443) {
-    //   SetDisplay(0xF0);
-    //   delay(3000);
-    //   panic(StoHB(s), StoLB(s));
-    // }
   }
 }
 

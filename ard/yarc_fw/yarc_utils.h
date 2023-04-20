@@ -185,6 +185,16 @@ void WriteReg(unsigned char reg, unsigned short value) {
   SetADHL(0x7F, 0xFE, StoHB(value), StoLB(value));
   SingleClock();
   SetMCR(MCR_SAFE);
+
+  // This is absolutely required. I'm not completely sure why,
+  // but it makes sense - the microcode word in K still says
+  // to write the same register on the next clock. This will
+  // not have any effect so long as the Nano has control of
+  // the buses because of the register write enable/disable
+  // bit in the MCR. But as soon as we enable YARC, the next
+  // clock will write garbage into the target register unless
+  // we put the current microcode word back to inactivity.
+  WriteK(0xFF, 0xFF, 0xFF, 0xFF);
 }
 
 // Read the value of given general register. This function moves the register contents
@@ -203,6 +213,8 @@ unsigned short ReadReg(unsigned char reg, unsigned short memAddr) {
   // Now since the bus input register is clocked on every clock, it holds the low
   // byte of whatever was transferred to memory, i.e. the low byte of the register.
   byte low = GetBIR();
+  // Similarly to WriteReg, we should put the microcode word back to inactivity now.
+  WriteK(0xFF, 0xFF, 0xFF, 0xFF);
   byte high;
   ReadMem8(memAddr + 1, &high, 1);
   return BtoS(high, low);
