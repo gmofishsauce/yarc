@@ -15,7 +15,7 @@ namespace HeartbeatPrivate {
   
   // Queued for callback by the heartbeat task, called back from the
   // serial task next time the host requests a message.
-  byte heartbeatMessageCallback(byte *bp, byte bmax) {
+  int heartbeatMessageCallback(char *bp, int bmax) {
     int days = 0, hours = 0, minutes = 0, seconds = 0, ms = 0;
     
     unsigned long now = millis();
@@ -46,7 +46,7 @@ namespace HeartbeatPrivate {
   
     // snprintf_P returns "...the number of characters that would have been written to s if there were enough space."
     // http://www.nongnu.org/avr-libc/user-manual/group__avr__stdio.html#ga53ff61856759709eeceae10aaa10a0a3
-    int result = snprintf_P((char *)bp, bmax, PSTR("Running %02d:%02d:%02d:%02d.%03d, about %ld task loops/ms"),
+    int result = snprintf_P(bp, bmax, PSTR("Running %02d:%02d:%02d:%02d.%03d, about %ld task loops/ms"),
                days, hours, minutes, seconds, ms, hbTaskIterations / elapsed);
     hbTaskIterations = 0;
     if (result > bmax) result = bmax;
@@ -180,7 +180,7 @@ namespace LogPrivate {
     return 1;
   }
   
-  byte internalLogGetPending(byte *next, byte maxCount) {
+  int internalLogGetPending(char *next, int maxCount) {
     if (logHeadIndex == logTailIndex) return 0;
     logCallback callback = logCallbacks[logTailIndex];
     logTailIndex = (logTailIndex + 1) % LOG_QUEUE_SIZE;
@@ -195,7 +195,7 @@ namespace LogPrivate {
 
 // public interface
 
-byte logInitCallback(byte *bp, byte bmax) {
+int logInitCallback(char *bp, int bmax) {
   int n = snprintf_P(bp, bmax, PSTR("=== RESET ==="));
   return (n > bmax) ? bmax : n;
 }
@@ -208,6 +208,6 @@ byte logQueueCallback(logCallback callback) {
   return LogPrivate::internalLogQueueCallback(callback);
 }
 
-byte logGetPending(byte *next, byte maxCount) {
+int logGetPending(char *next, int maxCount) {
   return LogPrivate::internalLogGetPending(next, maxCount);
 }

@@ -275,7 +275,7 @@ namespace SerialPrivate {
 
   State stGetMcr(RING* const r, byte b) {
     if (!canSend(2)) {
-      return;
+      return state;
     }
     consume(r, 1);
 
@@ -340,7 +340,7 @@ namespace SerialPrivate {
       
       inProgress = stPoll;
       allocPollBuffer();
-      byte n = logGetPending(&pb->buf[2], POLL_BUF_MAX_DATA);
+      byte n = logGetPending((char *)&pb->buf[2], POLL_BUF_MAX_DATA);
       pb->buf[0] = ACK(b);
       pb->buf[1] = n; // may be zero (it usually is)
       pb->next = 0;
@@ -357,7 +357,7 @@ namespace SerialPrivate {
   // byte and send the ack and version. Does not change state.
   State stGetVer(RING* const r, byte b) {
     if (!canSend(2)) {
-      return;
+      return state;
     }
     consume(r, 1);
 
@@ -373,7 +373,7 @@ namespace SerialPrivate {
   // Sync command - just ack it and set the display register
   State stSync(RING* const r, byte b) {
     if (!canSend(1)) {
-      return;
+      return state;
     }
     consume(r, 1);
     sendAck(b);
@@ -433,7 +433,7 @@ namespace SerialPrivate {
   State stSetK(RING* const r, byte b) {
     byte cmdBuf[6];
     if (!canSend(1)) {
-      return;
+      return state;
     }
 
     if (copy(rcvBuf, cmdBuf, 2) == 2) {
@@ -454,11 +454,11 @@ namespace SerialPrivate {
   // Set the MCR. This is a change in philosophy added December 2022.
   State stSetMCR(RING* const r, byte b) {
     if (!canSend(1)) {
-      return;
+      return state;
     }
     byte cmdbuf[2];
     if (copy(r, cmdbuf, 2) != 2) {
-      return;
+      return state;
     }
     consume(r, 2);
 

@@ -28,7 +28,7 @@ void ledPlaySos();
  * return (n > bcount) ? bcount : n;
  */
 
-typedef byte (*logCallback)(byte *bp, byte count);
+typedef int (*logCallback)(char *bp, int count);
 
 // Queue a callback. There is a status return, but it's not
 // very useful because there's not much the caller can do if
@@ -38,4 +38,4 @@ byte logQueueCallback(logCallback callback);
 // Pull the next message from the queue. Normally called from
 // the serial task when the host polls it for messages. The
 // next queued callback is called from this function.
-byte logGetPending(byte *next, byte maxCount);
+int logGetPending(char *next, int maxCount);

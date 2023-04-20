@@ -103,7 +103,7 @@ namespace CostPrivate {
   typedef struct tr {
     TestInit init;
     Test test;
-    char* name;
+    const char* name;
   } TestRef;
 
   const PROGMEM TestRef Tests[] = {
@@ -142,8 +142,8 @@ namespace CostPrivate {
   int queuedLogMessageCount = 0;
 
   // Callback for the executive's single log line per cycle
-  byte testCycleStarting(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("cost: test cycle starting"));
+  int testCycleStarting(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR("cost: test cycle starting"));
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
@@ -151,8 +151,8 @@ namespace CostPrivate {
 
   // Callback for test starting within a cycle. This function also doesn't
   // use any variable data.
-  byte testStarting(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  test %s starting"),
+  int testStarting(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR("  test %s starting"),
       pgm_read_ptr_near(&Tests[currentTestId].name));
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
@@ -161,8 +161,8 @@ namespace CostPrivate {
 
   // Call back for tests stopped (e.g. due to a command from the Mac;
   // see serial_task.h)
-  byte costTestsStopped(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("COST stopped"));
+  int costTestsStopped(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR("COST stopped"));
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
@@ -170,8 +170,8 @@ namespace CostPrivate {
 
   // The test executive
   int internalCostTask() {
-    constexpr byte TIMEOUT_HOST_NOT_POLLING = 87; // check about 12 times a second
-    constexpr byte TIMEOUT_NOT_RUNNING = 513; // check about twice a second
+    constexpr int TIMEOUT_HOST_NOT_POLLING = 87; // check about 12 times a second
+    constexpr int TIMEOUT_NOT_RUNNING = 513; // check about twice a second
     
     // Wait for all previously queued log messages to be formatted and sent
     // to the host. See the block comment above ("General note about...")
@@ -225,8 +225,8 @@ namespace CostPrivate {
 
   // === delay task implements the startup and inter-cycle delay ===
 
-  byte delayTaskMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax, PSTR("  delayTask: done"));
+  int delayTaskMessageCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR("  delayTask: done"));
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
@@ -251,8 +251,8 @@ namespace CostPrivate {
   }
 
   // === m16 (16 bit memory cycles) test ===
-  byte m16LowByteCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
+  int m16LowByteCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
       PSTR("  F m16 lo: A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X"),
       m16Data.AH, m16Data.AL, m16Data.DH, m16Data.DL, m16Data.readValue);
     if (result > bmax) result = bmax;
@@ -260,8 +260,8 @@ namespace CostPrivate {
     return result;
   }
 
-  byte m16HighByteCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
+  int m16HighByteCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
       PSTR("  F m16 hi: A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X"),
       m16Data.AH, m16Data.AL, m16Data.DH, m16Data.DL, m16Data.readValue);
     if (result > bmax) result = bmax;
@@ -386,8 +386,8 @@ namespace CostPrivate {
     return GetBIR();
   }
   
-  byte regCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
+  int regCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
       PSTR("  F reg: (%d): A 0x%02X 0x%02X D 0x%02X 0x%02X got 0x%02X save 0x%02X 0x%02X"),
       regData.location, regData.AH, regData.AL, regData.DH, regData.DL, regData.readValue, regData.save_DH, regData.save_DL);
     if (result > bmax) result = bmax;
@@ -557,8 +557,8 @@ namespace CostPrivate {
   // of a place where incorrect values would be logged if we didn't wait for the
   // log message queue to clear each time we queue a message: the test after ucode
   // would overwrite the opcode and slice, causing nonsense values to be logged.
-  byte ucodeBasicMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
+  int ucodeBasicMessageCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
       PSTR("  F ucodeBasic: fail op 0x%02X sl 0x%02X offset %d data 0x%02X"),
       ubData.opcode, ubData.slice, ubData.failOffset, ubData.data[ubData.failOffset]);
     if (result > bmax) result = bmax;
@@ -608,8 +608,8 @@ namespace CostPrivate {
 
   // === memory (main system memory) basic test ===
 
-  byte memBasicMessageCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
+  int memBasicMessageCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
       PSTR("  F memBasic: at 0x%02X 0x%02X data 0x%02X 0x%02X read 0x%02X"),
       mbData.AH, mbData.AL, mbData.DH, mbData.DL, mbData.readValue);
     if (result > bmax) result = bmax;
@@ -662,8 +662,8 @@ namespace CostPrivate {
   // === memhammer test using the more recent functions in yarc_utils.h
   // This test reuses the memory basic chunk of the union (mbData)
 
-  byte memHammerCallback(byte *bp, byte bmax) {
-    int result = snprintf_P((char *)bp, bmax,
+  int memHammerCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
       PSTR("  F memHammer: at 0x%02X 0x%02X data 0x%02X 0x%02X read 0x%02X"),
       mbData.AH, mbData.AL, mbData.DH, mbData.DL, mbData.readValue);
     if (result > bmax) result = bmax;
@@ -712,10 +712,10 @@ namespace CostPrivate {
 
   // === flagTest verifies the condition code logic.
 
-  byte flagsCallback(byte *bp, byte bmax) {
+  int flagsCallback(char* bp, int bmax) {
     unsigned short memvalues[2];
     ReadMem16(SCRATCH_MEM, memvalues, 2);
-    int result = snprintf_P((char *)bp, bmax,
+    int result = snprintf_P(bp, bmax,
       PSTR("  F flagTest: (%d) flags 0x%02X cond 0x%02X SCRATCH 0x%04X 0x%04X"),
       flagsData.location, flagsData.flags, flagsData.condition, memvalues[0], memvalues[1]);
     if (result > bmax) result = bmax;
@@ -766,8 +766,8 @@ void costRun() {
 	CostPrivate::running = true;
 }
 
-byte costTestsStopping(byte *bp, byte bmax) {
-  int result = snprintf_P((char *)bp, bmax, PSTR("COST stopping"));
+int costTestsStopping(char* bp, int bmax) {
+  int result = snprintf_P(bp, bmax, PSTR("COST stopping"));
   if (result > bmax) result = bmax;
   return result;
 }
