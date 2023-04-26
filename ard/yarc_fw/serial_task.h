@@ -413,8 +413,39 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
+  static byte stShadowAH;
+  static byte stShadowAL;
+
+  // Do a bus transfer with the given AH, AL, DH, and DL. Save
+  // the values of AH, AL so that a following WrPage command can
+  // leverage the value. The transfers done by WrPage are always
+  // byte transfers and the host has no control over the K register
+  // so can only transfer bytes to main memory using these commands.
+  // Microcode and ALU memory are written with distinct commands,
+  // and arbitrary registers may (at least in theory) be written
+  // from the host with combinations of SetK, SetMCR, and the four
+  // set bus register commands. N.B. - there's no count byte with
+  // fixed arguments, just the command and the arguments.
   State stOneXfr(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    byte cmdBuf[5];
+    if (!canSend(1)) {
+      return state;
+    }
+    if (copy(rcvBuf, cmdBuf, 5) < 5) {
+      // Entire commmand not available yet
+      return state;
+    }
+    consume(rcvBuf, 5);
+    stShadowAH = cmdBuf[1];
+    stShadowAL = cmdBuf[2];
+    WriteK(0xFF, 0xFF, 0xFF, 0xFF);
+    SetAH(cmdBuf[1]);
+    SetAL(cmdBuf[2]);
+    SetDH(cmdBuf[3]);
+    SetDL(cmdBuf[4]);
+    SingleClock();
+    sendAck(b);
+    return state;
   }
 
   State stWrPage(RING* const r, byte b) {

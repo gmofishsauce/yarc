@@ -28,7 +28,9 @@ import (
 	"github.com/gmofishsauce/yarc/pkg/arduino"
 	sp "github.com/gmofishsauce/yarc/pkg/proto"
 
+	"bufio"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -79,6 +81,7 @@ var commands = []protocolCommand {
 	{ sp.CmdReadPage,    "rp", "ReadPage",    1, true,  notImpl  },
 	{ sp.CmdSetK,        "sk", "SetK",        2, true,  setK     },
 	{ sp.CmdSetMcr,      "sm", "SetMCR",      1, false, setMcr   },
+	{ 0,                 "dn", "Download",    0, false, download },
 }
 
 func init() {
@@ -106,6 +109,22 @@ func process(line string, nano *arduino.Arduino) error {
 }
 
 // Command handlers
+
+func download(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+    yarcbin, err := os.Open("./yarc.bin")
+    if err != nil {
+		yarcbin, err = os.Open("../yarc.bin")
+		if err != nil {
+			return nostr, err;
+		}
+    }
+    defer func() {
+        yarcbin.Close()
+    }()
+
+	fmt.Println("Downloading...")
+    return nostr, doDownload(bufio.NewReader(yarcbin), nano)
+}
 
 func getMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	result, err := doCommandReturningByte(nano, sp.CmdGetMcr)
