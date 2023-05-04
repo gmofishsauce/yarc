@@ -6,6 +6,10 @@
 // "Writing" means writing YARC memory with data from host.
 
 // TODO modify Protogen to use const, or at least to emit #pragma once.
+// TODO All command implementations are supposed to check the state,
+//      which is messy; and none of them currently check for an in-progress
+//      command that isn't themselves, which is impossible, but would be
+//      sensible to check.
 
 namespace SerialPrivate {
   
@@ -202,7 +206,7 @@ namespace SerialPrivate {
   constexpr byte GUARD_BYTE = 0xAA;
 
   typedef struct pollBuffer {
-    int unsent;
+    int remaining;
     int next;
     bool inuse;
     byte buf[POLL_BUF_SIZE];
@@ -218,7 +222,7 @@ namespace SerialPrivate {
       panic(PANIC_SERIAL_NUMBERED, 0xD);
     }
     pb->inuse = true;
-    pb->unsent = 0;
+    pb->remaining = 0;
     pb->next = 0;
     pb->buf[POLL_BUF_LAST] = GUARD_BYTE;
   }
@@ -234,7 +238,7 @@ namespace SerialPrivate {
       panic(PANIC_SERIAL_NUMBERED, 0xA);
     }
     pb->next = 0;
-    pb->unsent = 0;
+    pb->remaining = 0;
     pb->inuse = false;
   }
 
@@ -242,6 +246,9 @@ namespace SerialPrivate {
 
   // === Protocol command handlers ===
   // Command handlers must return the "next" state
+  // When an error occurs, the host responds by ending the session.
+  // This greatly simplifies error handling here - there's no need
+  // to consume the rest of the supposed command after an error.
 
   // A bad command byte was processed (either not a command byte
   // value or an unimplemented command). We cannot directly enter
@@ -322,12 +329,12 @@ namespace SerialPrivate {
   // that maintains its own state, separate from the State enum.
   State stPoll(RING* const r, byte b) {
     if (inProgress) {
-      while (canSend(1) && pb->unsent > 0) {
+      while (canSend(1) && pb->remaining > 0) {
         send(pb->buf[pb->next]);
-        pb->unsent--;
+        pb->remaining--;
         pb->next++;
       }
-      if (pb->unsent == 0) {
+      if (pb->remaining == 0) {
         consume(r, 1);
         freePollBuffer();
         inProgress = 0;              
@@ -344,7 +351,7 @@ namespace SerialPrivate {
       pb->buf[0] = ACK(b);
       pb->buf[1] = n; // may be zero (it usually is)
       pb->next = 0;
-      pb->unsent = 2 + n;
+      pb->remaining = 2 + n;
     }
     return state;
   }
@@ -413,22 +420,29 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
-  static byte stShadowAH;
-  static byte stShadowAL;
+  // This variable is set by stOneXfr() in preparation for a page
+  // read or write. It should be checked against END_MEM before
+  // every use and set back to END_MEM when a page write ends for
+  // any reason.
+  static unsigned short stShadowAHAL = END_MEM;
 
   // Do a bus transfer with the given AH, AL, DH, and DL. Save
-  // the values of AH, AL so that a following WrPage command can
-  // leverage the value. The transfers done by WrPage are always
-  // byte transfers and the host has no control over the K register
+  // the values of AH, AL so that a following WrPage or RdPage
+  // command can use the value. The transfers are always
+  // byte transfers, and the host has no control over the K register
   // so can only transfer bytes to main memory using these commands.
   // Microcode and ALU memory are written with distinct commands,
   // and arbitrary registers may (at least in theory) be written
-  // from the host with combinations of SetK, SetMCR, and the four
-  // set bus register commands. N.B. - there's no count byte with
-  // fixed arguments, just the command and the arguments.
+  // from the host with combinations of SetK, SetMCR, the four set
+  // bus register commands, and single clock cycles. N.B. - there's
+  // no count byte with fixed arguments.
   State stOneXfr(RING* const r, byte b) {
     byte cmdBuf[5];
     if (!canSend(1)) {
+      return state;
+    }
+    if (state != STATE_READY) {
+      sendNak(b);
       return state;
     }
     if (copy(rcvBuf, cmdBuf, 5) < 5) {
@@ -436,24 +450,171 @@ namespace SerialPrivate {
       return state;
     }
     consume(rcvBuf, 5);
-    stShadowAH = cmdBuf[1];
-    stShadowAL = cmdBuf[2];
+    stShadowAHAL = BtoS(cmdBuf[1], cmdBuf[2]);
+    if (stShadowAHAL >= END_MEM) {
+      stShadowAHAL = END_MEM;
+      sendNak(b);
+      return state;
+    }
+
     WriteK(0xFF, 0xFF, 0xFF, 0xFF);
-    SetAH(cmdBuf[1]);
-    SetAL(cmdBuf[2]);
+    SetAH(StoHB(stShadowAHAL));
+    SetAL(StoLB(stShadowAHAL));
     SetDH(cmdBuf[3]);
     SetDL(cmdBuf[4]);
     SingleClock();
+    stShadowAHAL++;
     sendAck(b);
     return state;
   }
 
+  // Write up to 255 bytes at the address set by a previous single
+  // transfer (stOneXfr()) command. We demand through the entire
+  // process that there is space for a response, although we could
+  // check that only at the end. We allocate the poll buffer because
+  // we can use its header fields for tracking the number of bytes
+  // left to read from the connection and write to memory. (We also
+  // stash the command byte there so we can defer the decision about
+  // ack versus nak.)
   State stWrPage(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    byte cmdBuf[2];
+
+    if (!canSend(1)) {
+      return state;
+    }
+    if (state != STATE_READY) {
+      stShadowAHAL = END_MEM;
+      sendNak(b);
+      return state;      
+    }
+
+    // Check for initialization of a page write. If
+    // the length byte isn't here yet, come back later.
+    if (!inProgress) {
+      if (copy(rcvBuf, cmdBuf, 2) < 2) {
+        return state;
+      }
+      consume(rcvBuf, 2);
+
+      if (pb->inuse) {
+        // We need the buffer but it's in use.
+        panic(PANIC_SERIAL_NUMBERED, 0xF);
+      }
+      allocPollBuffer();
+
+      inProgress = stWrPage;
+      pb->buf[0] = b; // for later ack or nak
+      pb->next = 1;   // keep sanity, but not used
+      pb->remaining = cmdBuf[1];
+      // fall into...
+    }
+
+    // In progress consuming bytes from the host link and
+    // writing them to main memory. Loop while we're not done,
+    // there are bytes available in the receive buffer, and
+    // we're still in the same millisecond. When the millisecond
+    // clicks over, we remain in progress, but we return and give
+    // the rest of the tasks a change to execute.
+  
+    unsigned long start = millis();
+    while (pb->remaining > 0 && len(r) > 0 && millis() == start) {
+      if (stShadowAHAL >= END_MEM) {
+        sendNak(pb->buf[0]);
+        stShadowAHAL = END_MEM;
+        freePollBuffer();
+        inProgress = 0;              
+        return state;
+      }
+      SetAH(StoHB(stShadowAHAL));
+      SetAL(StoLB(stShadowAHAL));
+      SetDH(0); // doesn't matter - it's a byte write
+      SetDL(peek(r));
+      SingleClock();
+
+      consume(r, 1);
+      pb->remaining--;
+      stShadowAHAL++;
+    }
+
+    // Now we may be done, or we might have caught up with the buffer,
+    // or our millisecond may have run out. We only care if we're done.
+    if (pb->remaining == 0) {
+      // We're done. Ack the command and clean up.
+      sendAck(pb->buf[0]);
+      stShadowAHAL = END_MEM;
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;
   }
 
+  // Read a page from the address established by a previous single transfer.
+  // Like stWrPage, this function can only address main memory, and only as
+  // a set of bytes.
+  //
+  // XXX - stOneXfr() only allows writes, so at the moment there's no way to
+  // initialize the address (stShadowAHAL).
   State stRdPage(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    byte cmdBuf[2];
+
+    if (!canSend(1)) {
+      return state;
+    }
+    if (state != STATE_READY) {
+      stShadowAHAL = END_MEM;
+      sendNak(b);
+      return state;      
+    }
+    if (inProgress && inProgress != stRdPage) {
+      panic(PANIC_SERIAL_NUMBERED, 0x10);
+    }
+
+    // Check for initialization of a page write. If
+    // the length byte isn't here yet, come back later.
+    if (!inProgress) {
+      if (copy(rcvBuf, cmdBuf, 2) < 2) {
+        return state;
+      }
+      consume(rcvBuf, 2);
+      if (pb->inuse) {
+        // We need the buffer but it's in use.
+        panic(PANIC_SERIAL_NUMBERED, 0x11);
+      }
+      allocPollBuffer();
+
+      inProgress = stRdPage;
+      pb->buf[0] = b; // for later ack or nak
+      pb->next = 1;   // keep sanity, but not used
+      pb->remaining = cmdBuf[1];
+      // fall into...
+    }
+
+    // In progress sending bytes to the host link and reading
+    // them from main memory. Loop while we're not done, there
+    // is space available in the transmit buffer, and we're still
+    // in the same millisecond. When the millisecond clicks over,
+    // we remain in progress, but we return and give the rest of
+    // the tasks a change to execute.
+  
+    unsigned long start = millis();
+    while (pb->remaining > 0 && avail(xmtBuf) > 0 && millis() == start) {
+      if (stShadowAHAL >= END_MEM) {
+        sendNak(pb->buf[0]);
+        stShadowAHAL = END_MEM;
+        freePollBuffer();
+        inProgress = 0;              
+        return state;
+      }
+      SetAH(StoHB(stShadowAHAL) | 0x80); // 0x80 = Nano's read bit
+      SetAL(StoLB(stShadowAHAL));
+      SetDH(0); // doesn't matter - it's a byte write
+      SetDL(0); // Also doesn't matter - it's a read
+      SingleClock();
+      send(GetBIR());
+      pb->remaining--;
+      stShadowAHAL++;
+    }
+    return state;
   }
 
   // SetK has a count byte which may be 2 or 4 followed by either

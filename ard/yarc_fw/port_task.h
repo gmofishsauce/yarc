@@ -448,6 +448,10 @@ namespace PortPrivate {
     }
 
     MakeSafe();
+
+    // Bringup
+    byte data[] = {0xFF, 0xEE, 0xDD, 0xCC};
+    WriteALU(0x1432, data, 4);
   }
 }
 

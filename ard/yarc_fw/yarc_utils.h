@@ -52,6 +52,64 @@ int WriteSlice(byte opcode, byte slice, byte *data, byte n, bool panicOnFail) {
   return n;
 }
 
+// Write up to "n" bytes of data to ALU RAM at the given offset. The values
+// are not read back for validation. The ALU contains three physical RAMs,
+// but the hardware writes them in parallel with the same data. They can be
+// be read back separately for validation.
+void WriteALU(unsigned short offset, byte *data, unsigned short n) {
+  if (offset < 0 || n < 0 || offset + n > 0x1FFF) {
+    panic(PANIC_ARGUMENT, 10);
+  }
+
+  for (unsigned short addr = offset; addr < offset + n; ++addr) {
+    // There are 3 RAMs called "low", "high carry 0", and "high carry 1". There
+    // are two operand buses called A and B. The low nybble of both operand buses
+    // form the low address byte on the low RAM. The second nybble of both buses
+    // forms the low address byte on the high two RAMs. In order to write linear
+    // addresses, we need to reverse this hardware swizzling. Call the nybbles 0
+    // and 1. We need to take low byte A1-A0 and low byte B1-B0 and convert it to
+    // B0-A0 for the low RAM and B1-A1 for the high two RAMs. We put these addresses
+    // in R1 and R0 and later move them to the ALU holding registers with microcode.
+    unsigned short bits;
+    // Eventual A operand (register 0) first
+    bits = addr & 0x000F;
+    bits = bits | (bits << 4);
+    WriteReg(0, bits);
+    // Now the eventual B operand
+    bits = (addr & 0x00F0) >> 4;
+    bits = bits | (bits << 4);
+    WriteReg(1, bits);
+
+    // For debugging, write the K register with a harmless high order two bits of
+    // 00 so that R0 appears on the S1BUS (input to the operand A holding register).
+    // This allows me to check it with a scope. Since -something- always appears
+    // there, R0 (00) is as good as any of the other three choices.
+    WriteK(0x3F, 0xFF, 0xFF, 0xFF);
+
+    // Now the five high order address bits. Address bit 8 is the carry input A8 to
+    // all three RAMs when the Nano has control. It comes from the ALU Control
+    // Register (ACR) bit 3.    
+    byte acrBits = AcrWrite(ACR_SAFE);
+    acrBits = (addr & 0x100) ? AcrSetA8(acrBits) : AcrClearA8(acrBits);
+    SetACR(acrBits);
+
+    bits = (addr >> 9) & 0x000F;
+    WriteK(WR_ALU_RAM_FROM_NANO(bits));
+    
+    for(;;) {} // ================ STOP
+
+    // Finally do the write - the low order bit of ACR is the enable.
+    SetACR(AcrEnable(acrBits));
+    SingleClock();
+    SetACR(ACR_SAFE);
+  }
+}
+
+// TODO
+void ReadALU(unsigned short offset, byte *data, unsigned short n) {
+  panic(PANIC_ARGUMENT, 11); 
+}
+
 // Write the bytes at *data to microcode memory. The length of the data array
 // must be 4 * nWords bytes, so this function can write as much as 256 bytes
 // of data (in practice, the only place this data could be passed from is the

@@ -580,31 +580,42 @@ namespace PortPrivate {
 // ACR (ALU control register) support
 
 constexpr byte ACR_SAFE = 0xFF;
+constexpr byte ACR_OP_FIELD = 0x06;
 
-inline byte AcrEnable(byte acr) {
+inline byte AcrDisable(byte acr) {
   return acr | 0x01;
 }
 
+inline byte AcrEnable(byte acr) {
+  return acr &= ~0x01;
+}
+
+// Set the two bit OP field to 0b11, WRITE ALL RAMs.
 inline byte AcrWrite(byte acr) {
   return acr | (0x03 << 1);
 }
 
+// Set the two bit OP field to 0b00, READ LOW RAM
 inline byte AcrReadLow(byte acr) {
-  return acr | (0x00 << 1);
+  return (acr & ~ACR_OP_FIELD); // | (0x00 << 1);
 }
 
+// Set the two bit OP field to 0b01, READ HIGH CARRY 0 RAM
 inline byte AcrReadHiC0(byte acr) {
-  return acr | (0x01 << 1);
+  return (acr & ~ACR_OP_FIELD) | (0x01 << 1);
 }
 
+// Set the two bit OP field to 0b10, READ HIGH CARRY 1 RAM
 inline byte AcrReadHiC1(byte acr) {
-  return acr | (0x02 << 1);
+  return (acr & ~ACR_OP_FIELD) | (0x02 << 1);
 }
 
+// Set ACR bit :3 which controls the carry input to all 3 RAMs
 inline byte AcrSetA8(byte acr) {
   return acr | 0x08;
 }
 
+// Clear ACR bit :3 which controls the carry input to all 3 RAMs
 inline byte AcrClearA8(byte acr) {
   return acr & ~0x08;
 }

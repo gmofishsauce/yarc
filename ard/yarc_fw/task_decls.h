@@ -60,6 +60,8 @@ void panic(byte panicCode, byte subcode);
 // Similarly for the low byte
 #define StoLB(s) ((unsigned char)(s))
 
+constexpr unsigned short END_MEM = 0x7800;
+
 // I spent some time considering how to represent small chunks of microcode,
 // especially individual K-register values which are single microcode words.
 // I tried some "modern" ways, such as:
@@ -106,6 +108,7 @@ void panic(byte panicCode, byte subcode);
 #define CONDITIONAL_MOVE_ALU_R0               0xFC, 0x0F, 0xEE, 0xFF
 #define LOAD_FLAGS_INDIRECT_R3                0xFF, 0xFE, 0x9F, 0xFF
 #define RD_FLAGS_TO_NANO                      0xFF, 0xFF, 0x7F, 0xFF
+#define WR_ALU_RAM_FROM_NANO(hi4)             0x0F, ((hi4<<4) | 0x01), 0xFF, 0x7F
 #define MICROCODE_IDLE                        0xFF, 0xFF, 0xFF, 0xFF
 
 // For now, at least, the 12 unassigned opcodes from 0xF0 through 0xFB
