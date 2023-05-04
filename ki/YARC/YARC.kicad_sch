@@ -1858,9 +1858,6 @@
     (path "/849f3d14-f0b8-4537-b3d9-7d1c506b2b94/ac497c15-341e-4306-977c-03068e5a0035"
       (reference "U136") (unit 2) (value "74LS32") (footprint "")
     )
-    (path "/2ffac34c-e3cb-492f-a745-89749c95e306/df6cf5c0-70a0-462b-bcc0-abff0827728d"
-      (reference "U136") (unit 2) (value "74LS32") (footprint "")
-    )
     (path "/2ffac34c-e3cb-492f-a745-89749c95e306/72f1147b-f045-4218-926c-0baeee0d27ea"
       (reference "U136") (unit 3) (value "74LS32") (footprint "")
     )
