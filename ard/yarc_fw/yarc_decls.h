@@ -21,4 +21,4 @@ unsigned short ReadReg(unsigned char dataReg, unsigned short memAddr);
 void WriteFlags(unsigned char flags);
 byte ReadFlags();
 void WriteALU(unsigned short offset, byte *data, unsigned short n);
-void ReadALU(unsigned short offset, byte *data, unsigned short n);
+void ReadALU(unsigned short offset, byte *data, unsigned short n, byte reg);

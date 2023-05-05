@@ -52,62 +52,123 @@ int WriteSlice(byte opcode, byte slice, byte *data, byte n, bool panicOnFail) {
   return n;
 }
 
+// This function is used by both ReadALU() and WriteALU(). We only need
+// to set the low order byte of the 13-bit ALU RAM address, as the high
+// order five bits come from other places. And we want the same address
+// for both the low RAM and the dual high RAMS.
+//
+// The operands will be written through to the ALU from R0 (the Port1
+// operand) and R1 (the Port2 operand). The address lines of the RAMs
+// are "swizzled" so that the low-order nybbles of both operands address
+// the low RAM and the high-order nybbles address the high RAMs. Example:
+// during phase 1 of an ALU operation (phi1), Port1 operand XXBA and Port2
+// operand XXDC will address CA on the low RAM and DB on the high RAMs.
+//
+// Here, we have just one address. We want only the low byte for all three
+// RAMs. Call it XXFE. If we simply store 0x00FE in both R1 and R0, the
+// addresses will be EE on the low RAM and FF on the high RAMs. So instead
+// we need to duplicate the low nybble in the Port1 (R0) operand and
+// duplicate the high nybble in the Port2 (R1) operand, which will cause
+// both sets of address lines to be 0xXXFE.
+void swizzleAddressToR1R0(unsigned short addr) {
+    unsigned short bits;
+    // Construct the ALU Port1 address and store it in R0
+    bits = addr & 0x000F;
+    bits = bits | (bits << 4);
+    WriteReg(0, bits);
+    // Now the eventual Port2 operand
+    bits = (addr & 0x00F0) >> 4;
+    bits = bits | (bits << 4);
+    WriteReg(1, bits);
+}
+
 // Write up to "n" bytes of data to ALU RAM at the given offset. The values
 // are not read back for validation. The ALU contains three physical RAMs,
 // but the hardware writes them in parallel with the same data. They can be
 // be read back separately for validation.
 void WriteALU(unsigned short offset, byte *data, unsigned short n) {
-  if (offset < 0 || n < 0 || offset + n > 0x1FFF) {
+  if (offset > END_ALU_MEM || n > 256 || offset + n > END_ALU_MEM) {
     panic(PANIC_ARGUMENT, 10);
   }
 
-  for (unsigned short addr = offset; addr < offset + n; ++addr) {
-    // There are 3 RAMs called "low", "high carry 0", and "high carry 1". There
-    // are two operand buses called A and B. The low nybble of both operand buses
-    // form the low address byte on the low RAM. The second nybble of both buses
-    // forms the low address byte on the high two RAMs. In order to write linear
-    // addresses, we need to reverse this hardware swizzling. Call the nybbles 0
-    // and 1. We need to take low byte A1-A0 and low byte B1-B0 and convert it to
-    // B0-A0 for the low RAM and B1-A1 for the high two RAMs. We put these addresses
-    // in R1 and R0 and later move them to the ALU holding registers with microcode.
-    unsigned short bits;
-    // Eventual A operand (register 0) first
-    bits = addr & 0x000F;
-    bits = bits | (bits << 4);
-    WriteReg(0, bits);
-    // Now the eventual B operand
-    bits = (addr & 0x00F0) >> 4;
-    bits = bits | (bits << 4);
-    WriteReg(1, bits);
+  for (unsigned short addr = offset; addr < offset + n; ++addr, ++data) {
+    // Set the low order bits of the RAM address in R1 and R0
+    swizzleAddressToR1R0(addr);
 
     // For debugging, write the K register with a harmless high order two bits of
     // 00 so that R0 appears on the S1BUS (input to the operand A holding register).
     // This allows me to check it with a scope. Since -something- always appears
-    // there, R0 (00) is as good as any of the other three choices.
+    // there, R0 (00) is as good as any of the other three choices. We remove this
+    // for production because writing K is very slow.
     WriteK(0x3F, 0xFF, 0xFF, 0xFF);
 
     // Now the five high order address bits. Address bit 8 is the carry input A8 to
     // all three RAMs when the Nano has control. It comes from the ALU Control
     // Register (ACR) bit 3.    
-    byte acrBits = AcrWrite(ACR_SAFE);
-    acrBits = (addr & 0x100) ? AcrSetA8(acrBits) : AcrClearA8(acrBits);
+    byte acrBits = AcrSetOp(ACR_SAFE, ACR_WRITE);
+    acrBits = AcrSetA8(acrBits, (addr & 0x100) ? 1 : 0);
     SetACR(acrBits);
-
-    bits = (addr >> 9) & 0x000F;
-    WriteK(WR_ALU_RAM_FROM_NANO(bits));
+    byte aluBits = (addr >> 9) & 0x000F;
+    WriteK(WR_ALU_RAM_FROM_NANO(aluBits));
     
-    for(;;) {} // ================ STOP
-
-    // Finally do the write - the low order bit of ACR is the enable.
+    // Finally do the write - the low order bit of ACR is the enable. We share
+    // the "KX" back bus to the ALU RAM with the microcode and K register; the
+    // MCR code calls this EnableWCS() (writeable control store).
     SetACR(AcrEnable(acrBits));
+    SetMCR(McrEnableWcs(MCR_SAFE));
+    SetADHL(0x7F, 0xFF, 0xBB, *data);
     SingleClock();
     SetACR(ACR_SAFE);
+    SetMCR(MCR_SAFE);
   }
 }
 
-// TODO
-void ReadALU(unsigned short offset, byte *data, unsigned short n) {
-  panic(PANIC_ARGUMENT, 11); 
+// Read "n" bytes of data from the address offset of the ALU RAM identified
+// by the ramID argument into *data. The ramID is 0 for the low nybble RAM,
+// 1 for the high nybble carry = 0 RAM, and 2 for the high nybble carry = 1
+// RAM. 
+void ReadALU(unsigned short offset, byte *data, unsigned short n, byte ramID) {
+  if (offset > END_ALU_MEM || n > 256 || offset + n > END_ALU_MEM) {
+    panic(PANIC_ARGUMENT, 11);
+  }
+  if (ramID > 2) {
+    panic(PANIC_ARGUMENT, 12);
+  }
+
+  for (unsigned short addr = offset; addr < offset + n; ++addr, ++data) {
+    // Set the low order bits of the RAM address in R1 and R0
+    swizzleAddressToR1R0(addr);
+
+    // For debugging, write the K register with a harmless high order two bits of
+    // 00 so that R0 appears on the S1BUS (input to the operand A holding register).
+    // This allows me to check it with a scope. Since -something- always appears
+    // there, R0 (00) is as good as any of the other three choices. We remove this
+    // for production because writing K is very slow.
+    WriteK(0x3F, 0xFF, 0xFF, 0xFF);
+
+    // Now the five high order address bits. Address bit 8 is the carry input A8 to
+    // all three RAMs when the Nano has control. It comes from the ALU Control
+    // Register (ACR) bit 3.    
+    byte acrBits = AcrSetOp(ACR_SAFE, ramID);
+    acrBits = AcrSetA8(acrBits, (addr & 0x100) ? 1 : 0);
+    SetACR(acrBits);
+    byte aluBits = (addr >> 9) & 0x000F;
+    WriteK(RD_ALU_RAM_FROM_NANO(aluBits));
+
+    // Finally do the read. We need to set the Nano's direction line (A15) to 1
+    // to reverse the KX bus transceiver. We set the address in I/O space so that
+    // main memory doesn't respond and try to drive the data bus. The DH and DL
+    // registers don't matter.
+    SetACR(AcrEnable(acrBits));
+    SetMCR(McrEnableWcs(MCR_SAFE));
+    SetADHL(0xFF, 0xFF, 0xCC, 0xBB);
+    // PortPrivate::nanoStartToggle(PortPrivate::RawNanoClock);
+    // for (;;) {} // ================================ STOP
+    SingleClock();
+    *data = GetBIR();
+    SetACR(ACR_SAFE);
+    SetMCR(MCR_SAFE);
+  }
 }
 
 // Write the bytes at *data to microcode memory. The length of the data array

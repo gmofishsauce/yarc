@@ -425,26 +425,30 @@ namespace CostPrivate {
     // all the registers using the YARC utility functions. It was written
     // much later than the rest of the code below it.
 
-    WriteReg(2, 0x2332);
-    WriteReg(3, 0x3443);
-    WriteReg(1, 0x1221);
-    WriteReg(0, 0x0110);
+    unsigned short regs[4];
+    for (int i = 0; i < 4; ++i) {
+      regs[i] = random();
+    }
+    WriteReg(2, regs[2]);
+    WriteReg(3, regs[3]);
+    WriteReg(1, regs[1]);
+    WriteReg(0, regs[0]);
 
     bool fail = false;
     byte location;
-    if (ReadReg(0, 0x7700) != 0x0110) {
+    if (ReadReg(0, 0x7700) != regs[0]) {
       fail = true;
       location = 10;
     }
-    if (!fail && ReadReg(1, 0x7700) != 0x1221) {
+    if (!fail && ReadReg(1, 0x7700) != regs[1]) {
       fail = true;
       location = 11;
     }
-    if (ReadReg(2, 0x7700) != 0x2332) {
+    if (ReadReg(2, 0x7700) != regs[2]) {
       fail = true;
       location = 12;
     }
-    if (!fail && ReadReg(3, 0x7700) != 0x3443) {
+    if (!fail && ReadReg(3, 0x7700) != regs[3]) {
       fail = true;
       location = 13;
     }
