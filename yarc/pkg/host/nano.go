@@ -217,6 +217,7 @@ func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
 
 // Issue a command with an array of byte arguments.
 // Do not include the byte count in the bytes argument.
+// TODO FIXME - get the ack BEFORE sending the counted bytes
 func doCommandWithCountedBytes(nano *arduino.Arduino, cmd byte, bytes []byte) error {
 	if len(bytes) == 0 || len(bytes) > 255 {
 		return fmt.Errorf("doCommandWithCountedBytes(): invalid body length %d", len(bytes))

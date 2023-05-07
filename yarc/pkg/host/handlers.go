@@ -145,6 +145,7 @@ func stopCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 	return nostr, err
 }
 
+// TODO FIXME - protocol change - 4 fixed argument bytes only
 func setK(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	words := strings.Split(line, " ");
 	if len(words) != 5 {

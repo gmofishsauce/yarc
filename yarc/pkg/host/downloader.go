@@ -57,6 +57,7 @@ func doMemorySection(binary *bufio.Reader, nano *arduino.Arduino) error {
 		doCycle[2] = byte(addr & (ByteRange-1))		// AL
 		doCycle[3] = 0                              // DH
 		doCycle[4] = b                              // DL
+		// XXX TODO doCommandReturningByte I think (returns the BIR)
 		if err = doCommandWithFixedArgs(nano, doCycle); err != nil {
 			return err
 		}
