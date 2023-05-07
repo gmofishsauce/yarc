@@ -35,8 +35,8 @@ variable-length data transfer in either direction. The transfer occurs
 only after the Nano responds with ACK. NAK, when it occurs, always
 terminates command processing.  Argument format, data size (byte count)
 and order of arguments are specific to each command. Note: protocol
-error handling is not sophisticated enough to handle this case without
-a reset occurring.
+error handling is not sophisticated enough to handle this case without a
+reset occurring.
 
 In order to support logging from the Nano to the host console, the host
 is expected to issue Poll (0xE9, formerly GetMsg) commands frequently.
@@ -108,9 +108,13 @@ from causing bus contention that could damage the drivers.
 
 When the YARC has been prepared for execution, the host may send the
 RunYARC command (which puts the Nano into the PASSIVE state). When in
-the PASSIVE state, commands to perform bus cycles will fail. They may
-be rejected by the Nano (implementation detail).  The Nano will accept
-the command to stop the YARC.
+the PASSIVE state, commands to perform bus cycles will fail. They may be
+rejected by the Nano (implementation detail).  The Nano will accept the
+command to stop the YARC.
+
+Note: when the YARC makes a service request to the Nano, the Nano must
+give itself control in order to read the request from main memory. The
+Nano does not exit PASSIVE mode when it does this.
 
 Design Rationale
 
@@ -133,6 +137,8 @@ so a full download (including code, ALU, microcode, etc.) should take
 less than 20 seconds. A program memory update should take only a few
 seconds.
 
+Note: the following paragraphs are not followed in the implementation.
+
 Acks and naks cannot be confused with data because both Nano and host
 refuse to transmit data bytes less than 0x20 (ASCII space) or greater
 than 0x7F (ASCII DEL). The Nano replaces characters outside this range
@@ -144,9 +150,11 @@ newlines in Nano string responses (e.g. log messages). When creating a
 log file of Nano interactions, the host should insert newlines as
 required for readability.  Binary data to be passed between YARC and
 host must be suitably encoded (hex ASCII, base64 or the like). This
-protocol does not specify the details. (Note: use of hex ASCII cuts
-the link bandwidth in half and complicates the Nano's implementation;
-I might allow binary downloads.)
+protocol does not specify the details. (Note: use of hex ASCII cuts the
+link bandwidth in half and complicates the Nano's implementation; I
+might allow binary downloads.)
+
+Note: end of not followed guidance.
 
 Conceptually, the host has to specify the entire 4 bytes of address and
 data for each single read or write on the YARC system bus. In practice,
@@ -183,8 +191,8 @@ between the Nano and the YARC.
 . Run COST test - 0xE2
 . Stop COST test - 0xE3
 
-These commands stop and start the Continuous Self Test (COST). The
-COST should be stopped before trying to alter any state.
+These commands stop and start the Continuous Self Test (COST). The COST
+should be stopped before trying to alter any state.
 
 . Unassigned - 0xE4
 . Unassigned - 0xE5
@@ -201,8 +209,8 @@ This now seems unnecessary.
 . No result byte
 
 The Nano disables both clocks, sets its own state to PASSIVE, sets the
-YARC/Nano# bit in the MCR high to enable YARC bus cycles, and starts
-the hardware clock.  When the Nano is passive, it cannot initiate bus
+YARC/Nano# bit in the MCR high to enable YARC bus cycles, and starts the
+hardware clock.  When the Nano is passive, it cannot initiate bus
 cycles. As result, 0xF0 - 0xFF commands will return an error.
 
 . StopYARC - 0xE8
@@ -210,8 +218,8 @@ cycles. As result, 0xF0 - 0xFF commands will return an error.
 . No result bytes
 
 The Nano disables the hardware clock and assigns bus mastership to
-itself by setting the YARC/Nano# bit in the MCR to low. It makes its
-own state ACTIVE.
+itself by setting the YARC/Nano# bit in the MCR to low. It makes its own
+state ACTIVE.
 
 . Poll - 0xE9
 . No arguments bytes
@@ -306,7 +314,7 @@ Similarly for the other three bus registers (ARL, DRH, DRL).
 
 . Perform Bus Cycle - 0xF4
 . No argument bytes.
-. No result bytes.
+. 1 result byte
 
 This command causes the Nano to toggle the slow clock once, triggering a
 cycle on the YARC’s 16-bus. The four bus registers provide the high and
@@ -318,8 +326,8 @@ The host constructs the content of this byte, and the Nano is not aware
 of it.  For write cycles, the Data Register Low (byte) is transferred
 into YARC memory. For reads, the Data Register Low is ignored and the
 data byte specified by the Address Registers is transferred from YARC
-memory Bus Input Register. The host must separately transfer the result
-byte to host memory.
+memory Bus Input Register. The Bus Input Register is returned in all
+cases and should always reflect the value written or read.
 
 . Get Bus Input Register - 0xF5
 . No argument bytes
@@ -335,105 +343,125 @@ followed by the ack byte. The Bus Input Register is not altered.
 
 The first argument byte specifies the high byte of an opcode (in
 0x80..0xFF). The second specifies the slice (in 0..3). The third
-specifies the number of data bytes (in 0..64). The third argument
-byte is followed by the counted number of data bytes. The data is
-written to microcode memory for the given opcode and slice.
+specifies the number of data bytes (in 0..64). The third argument byte
+is followed by the counted number of data bytes. The data is written to
+microcode memory for the given opcode and slice.
 
 . Read Slice - 0xF7
 . 3 argument bytes
 . 0 to 64 result bytes
 
 The first argument byte specifies the high byte of an opcode (in
-0x80..0xFF). The second argument specifies the slice (in 0..3).
-The third argument specifies the count (in 0..64). The Nano reads
-that number of bytes from the slice and transmits them to the host.
+0x80..0xFF). The second argument specifies the slice (in 0..3).  The
+third argument specifies the count (in 0..64). The Nano reads that
+number of bytes from the slice and transmits them to the host.
 
 . Transfer Single - 0xF8
 . 4 arguments bytes
-. No result byte
+. 1 result byte
 
-This command does a single bus cycle using the 4 arguments bytes.
-The order of argument bytes are sent is Address Register High,
-Address Register Low, Data Register High, Data Register Low (last
-byte sent).  After the last argument byte is received, the Nano
-triggers a bus cycle, exactly as if the Perform Bus Cycle command
-had been issued.
+This command does a single bus cycle using the 4 arguments bytes.  The
+order of argument bytes are sent is Address Register High, Address
+Register Low, Data Register High, Data Register Low (last byte sent).
+After the last argument byte is received, the Nano triggers a bus cycle,
+exactly as if the Perform Bus Cycle command had been issued.
 
-If the transfer specified in the bytes is a write, the Data Register
-Low is written to YARC memory. If a read, the specified data byte
-is transferred to the Bus Input Register where the host may read
-it via Get Bus Input Register.
+If the transfer specified in the bytes is a write, the Data Register Low
+is written to YARC memory. If a read, the specified data byte is
+transferred to the Bus Input Register. The Bus Input Register is return
+and should reflect the value transferred in all cases.
 
-This command is commonly used to read or write byte 0 of a 256-byte
-page in preparation for a Read Page or Write Page command, below.
+This command is commonly used to read or write byte 0 of a 256-byte page
+in preparation for a Read Page or Write Page command, below.
 
 . Write Page - 0xF9
 . 1 arguments byte
 . 0 to 255 data bytes
 . No result byte
 
-The first argument byte is interpreted as an unsigned byte count
-between 0 and 255. The count byte is followed by the counted number
-of data bytes. For each data byte, the Nano first increments the
-content of the Address Register Low and then performs a bus state
-using the contents of the four Bus Registers, exactly as if the
-Perform Bus Cycle command had been issued. As always, the Nano does
-not “know” if the bus cycle is a write, but this Write Page command
-is not useful for read cycles because the Bus Input Register will
-simply be overwritten N - 1 times.
+The first argument byte is interpreted as an unsigned byte count between
+0 and 255. The count byte is followed by the counted number of data
+bytes. For each data byte, the Nano first increments the content of the
+shadow Address Registers and then performs a bus state using the
+contents of the four Bus Registers, exactly as if the Perform Bus Cycle
+command had been issued. As always, the Nano does not “know” if the bus
+cycle is a write, but this Write Page command is not useful for read
+cycles because the Bus Input Register will simply be overwritten N - 1
+times.
 
-By performing a Transfer Single of byte 0 of an aligned 256-byte
-memory page followed by a Write Page of the remaining 255 bytes,
-the host can repeatedly transfer 256 bytes to YARC memory with only
-6 bytes of control information for a link data utilization of 256/262
-= 97.7%.
+By performing a Transfer Single of byte 0 followed by a Write Page of
+the remaining 255 bytes, the host can repeatedly transfer 256 bytes to
+YARC memory with only 6 bytes of control information for a link data
+utilization of 256/262 = 97.7%.
 
-Implementation note: the Bus Registers are not readable by the Nano,
-so the protocol implementation must retain a shadow of at least the
-last-written Address Register Low value in order to perform the
-incrementation.  There is no carry from the shadow of the Address
-Register Low into the Address Register High.
+Implementation note: the Bus Registers are not readable by the Nano, so
+the protocol implementation must retain a shadow of the last- written
+Address Register value in order to perform the incrementation.
 
 . Read Page - 0xFA
 . 1 argument bytes
 . 0 to 255 result bytes
 
-The first argument byte is interpreted as an unsigned byte count
-between 0 and 255. For each data byte, the Nano first increments
-the content of the Address Register Low and then performs a bus
-state using the contents of the four Bus Registers, exactly as if
-the Perform Bus Cycle command had been issued. As always, the Nano
-does not “know” if the bus cycle is a read, but this Read Page
-command is not useful for write cycles.
+The first argument byte is interpreted as an unsigned byte count between
+0 and 255. For each data byte, the Nano first increments the content of
+the shadow Address Register and then performs a bus cycle using the
+contents of the four Bus Registers, exactly as if the Perform Bus Cycle
+command had been issued. As always, the Nano does not “know” if the bus
+cycle is a read, but this Read Page command is not useful for write
+cycles.
 
-Immediately after triggering the bus cycle, the Nano reads the
-content of the Bus Input Register and writes it to the serial port,
-blocking if the serial port is not ready to receive data. The host
-is expected to consume the data. The ack byte is written before the
-returned data as usual.
+Immediately after triggering the bus cycle, the Nano reads the content
+of the Bus Input Register and writes it to the serial port, blocking if
+the serial port is not ready to receive data. The host is expected to
+consume the data. The ack byte is written before the returned data as
+usual.
 
-By performing a Transfer Single of byte 0 of an aligned 256-byte
-memory page followed by a Read Page of the remaining 255 bytes, the
-host can repeatedly transfer 256 bytes from YARC memory to the host
-with only 6 bytes of control information for a link data utilization
-of 256/262 = 97.7%.
+By performing a Transfer Single of an aligned 256-byte memory page
+followed by a Read Page of the remaining 255 bytes, the host can
+repeatedly transfer 256 bytes from YARC memory to the host with only 6
+bytes of control information for a link data utilization of 256/262 =
+97.7%.
 
-Implementation note: the Bus Registers are not readable by the Nano,
-so the protocol implementation must retain a shadow of at least the
-last-written Address Register Low value in order to perform the
-incrementation.
+Implementation note: the Bus Registers are not readable by the Nano, so
+the protocol implementation must retain a shadow of the last-written
+Address Register value in order to perform the incrementation.
 
 . Write K - 0xFB
-. 1 argument bytes
-. 2 or 4 data bytes
+. 4 argument bytes
 . No result bytes
 
-The argument byte (count) may have the value 2 or 4. If the argument
-is 2, the data bytes are the K register to update (0..3) and the
-new value.  If the argument is 4, all four K registers are updated
-with the four data bytes. The most significant (K[3]) is transmitted
-first and least last.  K[3] contains bits 31:24 while K[0] contains
-7:0.
+All four K registers are updated with the four argument bytes. The most
+significant (K[3]) is transmitted first and least last.  K[3] contains
+bits 31:24 of the microcode pipeline register while K[0] contains 7:0.
 
 The K (microcode pipeline) register is not readable, so no read
 capability is supported by the protocol.
+
+. SetMCR - 0xFC
+. 1 argument byte
+. No result byte
+
+The argument byte is immediately transferred to the MCR. This dangerous
+command represents a change in philosophy. Use with care.
+
+. WriteALU - 0xFD
+. 3 argument bytes
+. 0 .. 128 data bytes
+. No result byte
+
+The first two argument bytes specify the write address in 0..1FFF, high
+byte first. The third byte is an unsigned byte count between 0 and 128.
+The arguments are followed by count number of bytes. The bytes are
+written to ALU memory at the given address. The behavior of a write
+outside the 8k ALU RAM address space is undefined. Note: the hardware
+supports only parallel writes to the three ALU RAMs.
+
+. ReadALU - 0xFE
+. 4 argument bytes
+. 0 to 128 result bytes
+
+The first two argument bytes specify the read address in 0..1FFF, high
+byte first. The third byte is RAM identifier in 0..2. The fourth byte is
+a count of bytes to read. The bytes are read from the specified ALU RAM
+and returned to the host. The behavior of a read outside the 8k ALU RAM
+address space or from a RAM not 0..2 is undefined.

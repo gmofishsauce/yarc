@@ -13,8 +13,13 @@ import (
 // Protocol version 5. Added the read and write microcode slice commands.
 // Protocol version 6. Change of philosophy: added direct set of MCR.
 // Protocol version 7. Removed clock commands. Added RUN/STOP COST.
+// Protocol version 8. Commands 0xF4 and 0xF8 both return the BIR.
+//                     Command 0xF9 and 0xFA need not be page aligned.
+//                     Removed the two argument form of command 0xFB.
+//                     Added already-implemented SetMCR 0xFC to spec.
+//                     Write and read ALU RAM added as Command 0xFD and 0xFE.
 
-const protocolVersion = 7
+const protocolVersion = 8
 
 var names = []struct {
 	name string
@@ -43,6 +48,8 @@ var names = []struct {
 	{ "STCMD_READ_PAGE", 0xFA },
 	{ "STCMD_SET_K", 0xFB },
 	{ "STCMD_SET_MCR", 0xFC },
+	{ "STCMD_WR_ALU", 0xFD },
+	{ "STCMD_RD_ALU", 0xFE },
 }
 
 var errors = []struct {
