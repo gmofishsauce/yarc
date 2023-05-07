@@ -404,6 +404,8 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
+  // TODO - if ever implemented, this function must return
+  // the Bus Interface Register (BIR) - spec change, 5/2023.
   State stOneClk(RING* const r, byte b) {
     return stBadCmd(r, b);
   }
@@ -425,6 +427,8 @@ namespace SerialPrivate {
   // every use and set back to END_MEM when a page write ends for
   // any reason.
   static unsigned short stShadowAHAL = END_MEM;
+
+  // XXX TODO return the BIR from stOneXfr
 
   // Do a bus transfer with the given AH, AL, DH, and DL. Save
   // the values of AH, AL so that a following WrPage or RdPage
@@ -463,8 +467,10 @@ namespace SerialPrivate {
     SetDH(cmdBuf[3]);
     SetDL(cmdBuf[4]);
     SingleClock();
+    byte bir = GetBIR();
     stShadowAHAL++;
     sendAck(b);
+    send(bir);
     return state;
   }
 

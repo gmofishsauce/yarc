@@ -87,7 +87,7 @@ void swizzleAddressToR1R0(unsigned short addr) {
 // but the hardware writes them in parallel with the same data. They can be
 // be read back separately for validation.
 void WriteALU(unsigned short offset, byte *data, unsigned short n) {
-  if (offset > END_ALU_MEM || n > 256 || offset + n > END_ALU_MEM) {
+  if (offset >= END_ALU_MEM || n > 256 || offset + n >= END_ALU_MEM) {
     panic(PANIC_ARGUMENT, 10);
   }
 
@@ -128,7 +128,7 @@ void WriteALU(unsigned short offset, byte *data, unsigned short n) {
 // 1 for the high nybble carry = 0 RAM, and 2 for the high nybble carry = 1
 // RAM. 
 void ReadALU(unsigned short offset, byte *data, unsigned short n, byte ramID) {
-  if (offset > END_ALU_MEM || n > 256 || offset + n > END_ALU_MEM) {
+  if (offset >= END_ALU_MEM || n > 256 || offset + n >= END_ALU_MEM) {
     panic(PANIC_ARGUMENT, 11);
   }
   if (ramID > 2) {

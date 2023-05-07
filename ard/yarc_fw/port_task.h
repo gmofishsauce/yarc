@@ -448,16 +448,6 @@ namespace PortPrivate {
     }
 
     MakeSafe();
-
-    // Bringup
-    byte data[] = {0xA6, 0xDD, 0xCC, 0xBB};
-    WriteALU(0x11A5, data, 4);
-    byte readback[] = {0x00, 0x00, 0x00, 0x00};
-    ReadALU(0x11A5, readback, 4, 0);
-    int trouble = memcmp(data, readback, 4);
-    if (trouble) {
-      panic(0xAA, 0x55);
-    }
   }
 }
 

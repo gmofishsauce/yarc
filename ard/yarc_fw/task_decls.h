@@ -61,7 +61,7 @@ void panic(byte panicCode, byte subcode);
 #define StoLB(s) ((unsigned char)(s))
 
 constexpr unsigned short END_MEM = 0x7800;      // 30k of RAM, 2k of IO
-constexpr unsigned short END_ALU_MEM = 0x1FFF;  // 8k bytes of ALU RAM
+constexpr unsigned short END_ALU_MEM = 0x2000;  // 8k bytes of ALU RAM
 
 // I spent some time considering how to represent small chunks of microcode,
 // especially individual K-register values which are single microcode words.

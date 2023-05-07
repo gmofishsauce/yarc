@@ -80,6 +80,12 @@ namespace CostPrivate {
       byte condition;
       byte location;
     } flagsData;
+    struct aluRamData {
+      unsigned short address;
+      byte written;
+      byte readback;
+      byte ram;
+    } aluRamData;
   };
 
   typedef void (*TestInit)();
@@ -99,6 +105,8 @@ namespace CostPrivate {
   bool memHammerTest(void);
   void flagsInit(void);
   bool flagsTest(void);
+  void aluRamInit(void);
+  bool aluRamTest(void);
 
   typedef struct tr {
     TestInit init;
@@ -113,7 +121,8 @@ namespace CostPrivate {
     { ucodeTestInit,    ucodeBasicTest, "ucode"     },
     { memBasicTestInit, memBasicTest,   "membasic"  },
     { memHammerInit,    memHammerTest,  "memhammer" },
-    { flagsInit,        flagsTest,      "flags"     }    
+    { flagsInit,        flagsTest,      "flags"     },
+    { aluRamInit,       aluRamTest,     "alu"       }   
    };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
@@ -737,6 +746,8 @@ namespace CostPrivate {
   // This function does two unrelated tests. They are distinguished by the
   // location value, which is then used by the callback to log what part of
   // the test failed.
+  // 08:05:52.327363   F flagTest: (2) flags 0x01 cond 0x00 SCRATCH 0xD0FF 0x3C3C
+
   bool flagsTest() {
     // First test: just read and write the flags register
     if (flagsData.location == 1) {
@@ -753,36 +764,85 @@ namespace CostPrivate {
       return true; // come back and do the second test
     }
 
+    // May 2023: the rest of this test stopped working when I wired the ALU
+    // because the uninitialized ALU outputs became random, rather than being
+    // zeroes because they were pulled there. Rather than fix the test to be
+    // a full ALU flow-through, I decided to remove it and focus on the downloader.
+    //
     // Second test: do a conditional move on carry
     // Note: the ALU output is currently all zeroes.
-    WriteIR(0xC0, 0);
-    flagsData.flags = 0x01; // carry set
-    WriteFlags(flagsData.flags);
-    WriteReg(0, 0xFFFF);
-    flagsData.condition = 0; // built into CONDITIONAL_MOVE...
-    WriteK(CONDITIONAL_MOVE_ALU_R0);
-    SetMCR(McrEnableYarc((MCR_SAFE)));
-    // When we issue the clock pulse, YARC will act based
-    // on K and clock the microcode word at IR into K.
-    // This should be a noop word with all bits 1.
-    SingleClock();
-    SetMCR(MCR_SAFE);
-    unsigned short u = ReadReg(0, 0x7700);
-    // Now, in theory, R0 should contain 0 because we moved
-    // (conditionally moved) 0 from the ALU to R0. But the
-    // ALU output registers are the only part of the ALU that
-    // exists. One is a 573 and the other is a 574. Both have
-    // their inputs strapped to 0 and pin 11 (their "clock"
-    // or "pulse" inputs) pulled up. As a result the 573 is
-    // always following the inputs low, but the 574 never sees
-    // any edges so its content is random. The 573 is on the
-    // high order bits. So call we can test is that u is 0x00XX,
-    // not that it's 0x0000.
-    if ((u&0xFF00) != 0) {
-      queuedLogMessageCount++;
-      logQueueCallback(flagsCallback);
-    }
+    // WriteIR(0xC0, 0);
+    // flagsData.flags = 0x01; // carry set
+    // WriteFlags(flagsData.flags);
+    // WriteReg(0, 0xFFFF);
+    // flagsData.condition = 0; // built into CONDITIONAL_MOVE_ALU_R0
+    // WriteK(CONDITIONAL_MOVE_ALU_R0);
+    // SetMCR(McrEnableYarc((MCR_SAFE)));
+    // // When we issue the clock pulse, YARC will act based
+    // // on K and clock the microcode word at IR into K.
+    // // This should be a noop word with all bits 1.
+    // SingleClock();
+    // SetMCR(MCR_SAFE);
+    // unsigned short u = ReadReg(0, 0x7700);
+    // // Now, in theory, R0 should contain 0 because we moved
+    // // (conditionally moved) 0 from the ALU to R0. But the
+    // // ALU output registers are the only part of the ALU that
+    // // exists. One is a 573 and the other is a 574. Both have
+    // // their inputs strapped to 0 and pin 11 (their "clock"
+    // // or "pulse" inputs) pulled up. As a result the 573 is
+    // // always following the inputs low, but the 574 never sees
+    // // any edges so its content is random. The 573 is on the
+    // // high order bits. So call we can test is that u is 0x00XX,
+    // // not that it's 0x0000.
+    // if ((u&0xFF00) != 0) {
+    //   queuedLogMessageCount++;
+    //   logQueueCallback(flagsCallback);
+    // }
     return false; // done, success or failure
+  }
+
+  // === ALU RAM test - each call verifies a small chunk of ALU RAM
+
+    int aluRamCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax,
+      PSTR("  F aluRamTest: ram %d: at 0x%04x wrote 0x%02X read 0x%02X"),
+        aluRamData.ram, aluRamData.address, aluRamData.written, aluRamData.readback);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  void aluRamInit() {
+  }
+
+  bool aluRamTest() {
+    constexpr byte chunksize = 16;
+    byte data[chunksize];
+    byte readback[chunksize];
+    byte b = random();
+
+    for (byte i = 0; i < chunksize; ++i) {
+      data[i] = b + 131;
+    }
+
+    unsigned short addr = random(0, END_ALU_MEM - chunksize);
+    WriteALU(addr, data, chunksize);
+
+    for (byte ram = 0; ram < 3; ++ram) {
+      ReadALU(addr, readback, chunksize, ram);
+      for (int i = 0; i < chunksize; ++i) {
+        if (readback[i] != data[i]) {
+          aluRamData.address = addr + i;
+          aluRamData.written = data[i];
+          aluRamData.readback = readback[i];
+          aluRamData.ram = ram;
+          queuedLogMessageCount++;
+          logQueueCallback(aluRamCallback);
+          break;
+        }
+      }
+    }
+    return false;
   }
 #endif // COST
 } // End of CostPrivate namespace
