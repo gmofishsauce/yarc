@@ -65,7 +65,7 @@ var commands = []protocolCommand {
 	{ sp.CmdRunYarc,     "rn", "Run",         0, false, notImpl  },
 	{ sp.CmdStopYarc,    "st", "Stop",        0, false, notImpl  },
 	{ sp.CmdPoll,        "pl", "Poll",        0, false, notImpl  },
-	{ sp.CmdSvcResponse, "sr", "SvcResponse", 1, true,  svcResp  },
+	{ sp.CmdSvcResponse, "sr", "SvcResponse", 1, true,  notImpl  },
 	{ sp.CmdGetVer,      "gv", "GetVer",      0, false, notImpl  },
 	{ sp.CmdSync,        "sn", "Sync",        0, false, notImpl  },
 	{ sp.CmdSetArh,      "ah", "SetAddrHigh", 1, false, notImpl  },
@@ -145,23 +145,27 @@ func stopCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 	return nostr, err
 }
 
-// TODO FIXME - protocol change - 4 fixed argument bytes only
-func setK(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+func setK(pc *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	words := strings.Split(line, " ");
 	if len(words) != 5 {
 		return nostr, fmt.Errorf("usage: sk k3 k2 k1 k0");
 	}
 
-	args := make([]byte, 4, 4)
-	for i := 0; i < 4; i++ {
-		n, err := strconv.ParseInt(words[i+1], 0, 16)
+	cmd := make([]byte, 5, 5)
+	cmd[0] = sp.CmdSetK
+	for i := 1; i < 5; i++ {
+		n, err := strconv.ParseInt(words[i], 0, 16)
 		if err != nil {
 			return nostr, err
 		}
-		args[i] = byte(n);
+		if n > 0xFF {
+			return nostr, fmt.Errorf("illegal value")
+		}
+		cmd[i] = byte(n);
 	}
 
-	return nostr, doCommandWithCountedBytes(nano, sp.CmdSetK, args)
+	_, err := doFixedCommand(nano, cmd, 0)
+	return nostr, err
 }
 
 func setMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
@@ -195,14 +199,14 @@ func pollNano(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
 }
 */
 
-func svcResp(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	// For now, just send "!C" to the Nano telling it to continue
-	// from a breakpoint.
-	if err := doCommandWithString(nano, byte(cmd.cmdVal), "!C"); err != nil {
-		return nostr, err
-	}
-	return nostr, nil
-}
+//func svcResp(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+//	// For now, just send "!C" to the Nano telling it to continue
+//	// from a breakpoint.
+//	if err := doCommandWithString(nano, byte(cmd.cmdVal), "!C"); err != nil {
+//		return nostr, err
+//	}
+//	return nostr, nil
+//}
 
 func help(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	fmtStr := "%-6s%-12s%-6s%-8s\n"

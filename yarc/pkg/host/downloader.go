@@ -41,7 +41,6 @@ type uint8 byte
 func doMemorySection(binary *bufio.Reader, nano *arduino.Arduino) error {
 	const ChunkSize = 256
 	const ByteRange = 1 << 8
-	var writePage[] byte = make([]byte, ChunkSize-1, ChunkSize-1)
 	var doCycle[] byte = make([]byte, 5, 5)
 	var addr uint16
 	var b byte
@@ -57,30 +56,24 @@ func doMemorySection(binary *bufio.Reader, nano *arduino.Arduino) error {
 		doCycle[2] = byte(addr & (ByteRange-1))		// AL
 		doCycle[3] = 0                              // DH
 		doCycle[4] = b                              // DL
-		// XXX TODO doCommandReturningByte I think (returns the BIR)
 		if err = doCommandWithFixedArgs(nano, doCycle); err != nil {
 			return err
 		}
 
-		// Now with the addressing registers set in the Nano,
-		// write the rest of the chunk. Note the difference
-		// between calling ReadByte() in a loop and calling
-		// Read() without the loop: Read() may return a short
-		// read that is not EOF, but ReadByte() never will.
-		// So by calling ReadByte() in a loop, I avoid having
-		// fill logic for partial reads.
+		// Now with the addressing registers set in the Nano, read the
+		// rest of the chunk from the binary file. We use ReadByte()
+		// because it will never return a short read so we avoid having
+		// fill logic.
+		writePage := make([]byte, ChunkSize-1, ChunkSize-1)
 		for i := range(writePage) {
 			if writePage[i], err = binary.ReadByte(); err != nil {
 				return err
 			}
 		}
 
-		// FYI: doCommandWithCountedBytes() takes the number of
-		// bytes to write from the array length. So this is always
-		// going to write 2 + (ChunkSize-1) bytes, and the ChunkSize-1
-		// data bytes will always be written to YARC memory at the
-		// addresses following addr+1.
-		if err = doCommandWithCountedBytes(nano, sp.CmdWritePage, writePage); err != nil {
+		cmd := make([]byte, 1, 1)
+	 	cmd[0] = sp.CmdWritePage
+		if err = doCountedSend(nano, cmd, writePage); err != nil {
 			return err
 		}
 	}

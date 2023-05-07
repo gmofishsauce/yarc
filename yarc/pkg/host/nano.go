@@ -132,6 +132,7 @@ func getCountedStringFromNano(nano *arduino.Arduino, count byte) (string, error)
 		return "", fmt.Errorf("while getting string from Nano: %v", err)
 	}
 	badByte := false
+	// XXX - spec says none-ASCII bytes should be replaced with a tilde.
 	for i := range(bytes) {
 		if bytes[i] < 0x20 || bytes[i] > 0x7F {
 			log.Printf("while getting string from Nano: bad byte 0x%02X\n", bytes[i])
@@ -211,24 +212,122 @@ func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
 }
 
 // Issue a command with a counted string argument
-func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
-	return doCommandWithCountedBytes(nano, cmd, []byte(body))
-}
+//func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
+//	return doCommandWithCountedBytes(nano, cmd, []byte(body))
+//}
 
 // Issue a command with an array of byte arguments.
 // Do not include the byte count in the bytes argument.
-// TODO FIXME - get the ack BEFORE sending the counted bytes
-func doCommandWithCountedBytes(nano *arduino.Arduino, cmd byte, bytes []byte) error {
-	if len(bytes) == 0 || len(bytes) > 255 {
-		return fmt.Errorf("doCommandWithCountedBytes(): invalid body length %d", len(bytes))
+//func doCommandWithCountedBytes(nano *arduino.Arduino, cmd byte, bytes []byte) error {
+//	if len(bytes) == 0 || len(bytes) > 255 {
+//		return fmt.Errorf("doCommandWithCountedBytes(): invalid body length %d", len(bytes))
+//	}
+//	msg := make([]byte, 2 + len(bytes))
+//	msg[0] = cmd
+//	msg[1] = byte(len(bytes))
+//	for i := range(bytes) {
+//		msg[2 + i] = bytes[i]
+//	}
+//	nano.Write(msg)
+//  return getAck(nano, cmd)
+//}
+
+// Do the fixed part of a command, which may be the entire command, and optionally
+// return the fixed response if any.
+//
+// Every protocol command has a command byte and 0 or more fixed bytes specified
+// by the protocol spec, the last of which may be a count. After receipt of the
+// fixed bytes, the Nano is supposed to ack or nak. If the protocol specifies a
+// fixed response, it immediately follows the ack. The fixed response is not sent
+// if the Nano nak's the command. If an ack is seen and the command specified a
+// counted number of bytes, they follow. The counted bytes are neither ack'd nor
+// nak'd.
+//
+// This function handles the fixed part of the command, the ack or nak, and the
+// fixed response if one is specified. If the Nano nak's, the returned byte slice
+// is empty and the error is non-nil. If the Nano ack's and the expected argument
+// is zero, the error is nil and the returned byte slice is empty. If the Nano
+// ack's and the fixed response does not arrive, an error is returned and the
+// state of the returned byte slice is undefined. Otherwise, the error is nil
+// and the returned byte slice contains the fixed response. If the command includes
+// counted bytes, the caller must then read or write them if the error return from
+// this function is nil but must not if the error return is non-nil.
+func doFixedCommand(nano *arduino.Arduino, fixed []byte, expected int) ([]byte, error) {
+	var response []byte
+
+    if len(fixed) < 1 || len(fixed) > 8 {
+        return response, fmt.Errorf("invalid command length")
+    }
+	if expected < 0 || expected > 8 {
+		return response, fmt.Errorf("invalid fixed response expected")
 	}
-	msg := make([]byte, 2 + len(bytes))
-	msg[0] = cmd
-	msg[1] = byte(len(bytes))
-	for i := range(bytes) {
-		msg[2 + i] = bytes[i]
+    if debug {
+        log.Printf("doFixedCommand: write 0x%X with %d argument bytes\n", fixed[0], len(fixed) - 1)
+    }
+    if err := nano.Write(fixed); err != nil {
+        return response, err
+    }
+    if err := getAck(nano, fixed[0]); err != nil {
+		return response, err
 	}
-	nano.Write(msg)
-    return getAck(nano, cmd)
+
+	if expected > 0 {
+		response = make([]byte, expected, expected)
+		for i := 0; i < expected; i++ {
+			b, err := nano.ReadFor(responseDelay)
+			if err != nil {
+				// If we encounter an error here,
+				// the state of the response slice
+				// is undefined as described above
+				return response, err
+			}
+			response[i] = b
+		}
+	}
+	return response, nil
 }
 
+// Send a counted set of bytes to the Nano. The count must be in the last
+// byte of the fixed slice. The counted slice must be at least as long as
+// the count. If the fixed command is ack'd, the counted bytes are just
+// stuffed down the pipe. If a nak or other error occurs, it is returned.
+// No counted command has fixed response so only the error is returned.
+func doCountedSend(nano *arduino.Arduino, fixed []byte, counted []byte) error {
+	n := len(fixed)
+	if n < 2 || n > 8 {
+        return fmt.Errorf("invalid command length")
+	}
+	// The count is in the last fixed byte
+	count := fixed[n-1];
+	if len(counted) < int(count) {
+		return fmt.Errorf("not enough data")
+	}
+	if _, err := doFixedCommand(nano, fixed, 0); err != nil {
+		return err
+	}
+    if err := nano.Write(counted[0:count]); err != nil {
+        return err
+    }
+	return nil
+}
+
+// Issue a command to the Nano and receive a counted response. As of protocol
+// v8, all commands that return a counted set of bytes have a count as the
+// sole fixed response byte (even though it's often just an echo of the count
+// the request asked for).
+func doCountedReceive(nano *arduino.Arduino, fixed []byte) ([]byte, error) {
+	expected, err := doFixedCommand(nano, fixed, 1)
+	if err != nil {
+		return expected, err
+	}
+	count := expected[0]
+	response := make([]byte, count, count)
+	for i := 0; i < int(count); i++ {
+		b, err := nano.ReadFor(responseDelay)
+		if err != nil {
+			return response, err
+		}
+		response[i] = b
+	}
+	return response, nil
+}

@@ -349,30 +349,34 @@ microcode memory for the given opcode and slice.
 
 . Read Slice - 0xF7
 . 3 argument bytes
-. 0 to 64 result bytes
+. 1 fixed result byte
+. 0 to 64 data bytes
 
 The first argument byte specifies the high byte of an opcode (in
 0x80..0xFF). The second argument specifies the slice (in 0..3).  The
-third argument specifies the count (in 0..64). The Nano reads that
-number of bytes from the slice and transmits them to the host.
+third argument specifies the count (in 0..64). The Nano first echoes
+the count and then reads that number of bytes from the slice and
+transmits them to the host.
 
 . Transfer Single - 0xF8
 . 4 arguments bytes
-. 1 result byte
+. 1 fixed result byte
 
 This command does a single bus cycle using the 4 arguments bytes.  The
 order of argument bytes are sent is Address Register High, Address
 Register Low, Data Register High, Data Register Low (last byte sent).
-After the last argument byte is received, the Nano triggers a bus cycle,
-exactly as if the Perform Bus Cycle command had been issued.
+After the last argument byte is received, the Nano sets the shadow
+address to the the AH:AL value and triggers a bus cycle at this address
+with the provided data.
 
-If the transfer specified in the bytes is a write, the Data Register Low
-is written to YARC memory. If a read, the specified data byte is
-transferred to the Bus Input Register. The Bus Input Register is return
-and should reflect the value transferred in all cases.
+If the transfer specified by the high bit of AH is a write, the Data
+Register Low is written to YARC memory. If a read, the specified data
+byte is transferred to the Bus Input Register. The Bus Input Register
+is returned and should reflect the value transferred in all cases.
 
-This command is commonly used to read or write byte 0 of a 256-byte page
-in preparation for a Read Page or Write Page command, below.
+This command is commonly used to set the shadow address register and
+read or write byte 0 of a 256-byte page in preparation for a Read Page
+or Write Page command, below.
 
 . Write Page - 0xF9
 . 1 arguments byte
@@ -381,10 +385,9 @@ in preparation for a Read Page or Write Page command, below.
 
 The first argument byte is interpreted as an unsigned byte count between
 0 and 255. The count byte is followed by the counted number of data
-bytes. For each data byte, the Nano first increments the content of the
-shadow Address Registers and then performs a bus state using the
-contents of the four Bus Registers, exactly as if the Perform Bus Cycle
-command had been issued. As always, the Nano does not “know” if the bus
+bytes. For each data byte, the Nano first performs a write state using the
+contents of the four Bus Registers and then increments the content of the
+shadow Address Registers. As always, the Nano does not “know” if the bus
 cycle is a write, but this Write Page command is not useful for read
 cycles because the Bus Input Register will simply be overwritten N - 1
 times.
@@ -399,22 +402,20 @@ the protocol implementation must retain a shadow of the last- written
 Address Register value in order to perform the incrementation.
 
 . Read Page - 0xFA
-. 1 argument bytes
+. 1 argument byte
+. 1 fixed response byte
 . 0 to 255 result bytes
 
-The first argument byte is interpreted as an unsigned byte count between
-0 and 255. For each data byte, the Nano first increments the content of
-the shadow Address Register and then performs a bus cycle using the
-contents of the four Bus Registers, exactly as if the Perform Bus Cycle
-command had been issued. As always, the Nano does not “know” if the bus
-cycle is a read, but this Read Page command is not useful for write
-cycles.
-
-Immediately after triggering the bus cycle, the Nano reads the content
-of the Bus Input Register and writes it to the serial port, blocking if
-the serial port is not ready to receive data. The host is expected to
-consume the data. The ack byte is written before the returned data as
-usual.
+The argument byte is interpreted as an unsigned byte count between 0 and
+255. The Nano echoes this byte immediately following the ack. For each
+data byte, the Nano first performs a bus cycle using the contents of the
+four Bus Registers and then increments the content of the shadow Address
+Register. The Nano then reads the content of the Bus Input Register and
+writes it to the serial port, blocking if the serial port is not ready
+to receive data. The host is expected to consume the data. The ack byte
+and count are written before the returned data as usual. As always, the
+Nano does not “know” if the bus cycle is a read, but this Read Page
+command is not useful for write cycles.
 
 By performing a Transfer Single of an aligned 256-byte memory page
 followed by a Read Page of the remaining 255 bytes, the host can
@@ -458,10 +459,13 @@ supports only parallel writes to the three ALU RAMs.
 
 . ReadALU - 0xFE
 . 4 argument bytes
+. 1 fixed response byte
 . 0 to 128 result bytes
 
 The first two argument bytes specify the read address in 0..1FFF, high
 byte first. The third byte is RAM identifier in 0..2. The fourth byte is
-a count of bytes to read. The bytes are read from the specified ALU RAM
-and returned to the host. The behavior of a read outside the 8k ALU RAM
-address space or from a RAM not 0..2 is undefined.
+a count of bytes to read. The fixed response byte specifies the length
+of the response; normally it echoes the last fixed argument byte. The
+bytes are read from the specified ALU RAM and returned to the host.
+The behavior of a read outside the 8k ALU RAM address space or from a
+RAM ID not in 0..2 is undefined.

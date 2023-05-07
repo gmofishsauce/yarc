@@ -428,8 +428,6 @@ namespace SerialPrivate {
   // any reason.
   static unsigned short stShadowAHAL = END_MEM;
 
-  // XXX TODO return the BIR from stOneXfr
-
   // Do a bus transfer with the given AH, AL, DH, and DL. Save
   // the values of AH, AL so that a following WrPage or RdPage
   // command can use the value. The transfers are always
@@ -439,7 +437,8 @@ namespace SerialPrivate {
   // and arbitrary registers may (at least in theory) be written
   // from the host with combinations of SetK, SetMCR, the four set
   // bus register commands, and single clock cycles. N.B. - there's
-  // no count byte with fixed arguments.
+  // no count byte with fixed arguments. Return the BIR to the host
+  // (spec change 5/2023).
   State stOneXfr(RING* const r, byte b) {
     byte cmdBuf[5];
     if (!canSend(1)) {
@@ -470,7 +469,7 @@ namespace SerialPrivate {
     byte bir = GetBIR();
     stShadowAHAL++;
     sendAck(b);
-    send(bir);
+    send(bir); // Protocol v8 - always return BIR
     return state;
   }
 
