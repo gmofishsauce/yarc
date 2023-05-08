@@ -73,38 +73,24 @@ func getSyncResponse(nano *arduino.Arduino) error {
 }
 
 func checkProtocolVersion(nano *arduino.Arduino) error {
-	b, err := doCommandReturningByte(nano, sp.CmdGetVer)
+	var nanoCmd []byte = []byte{sp.CmdGetVer}
+	b, err := doFixedCommand(nano, nanoCmd, 1)
 	if err != nil {
 		return err
 	}
-	if b != sp.ProtocolVersion {
+	if b[0] != sp.ProtocolVersion {
 		return fmt.Errorf("protocol version mismatch: host 0x%02X, Arduino 0x%02X\n",
-			sp.ProtocolVersion, b)
+			sp.ProtocolVersion, b[0])
 	}
-	return nil // ok
+	return nil
 }
 
 func getNanoRequest(nano *arduino.Arduino) (string, error) {
-	b, err := doCommandReturningByte(nano, sp.CmdPoll)
+	bytes, err := doCountedReceive(nano, []byte{sp.CmdPoll});
 	if err != nil {
 		return nostr, err
 	}
-	if b == 0 {
-		return nostr, nil
-	}
-	if debug {
-		log.Printf("reading %d byte request from Nano\n", b)
-	}
-
-	var msg string
-	msg, err = getCountedStringFromNano(nano, b);
-	if err != nil {
-		return nostr, fmt.Errorf("getNanoRequest(): reading %d byte request string: %v", b, err)
-	}
-	if len(msg) == 0 {
-		return nostr, fmt.Errorf("getNanoRequest(): read 0 of %d bytes", b)
-	}
-	return msg, nil
+	return string(bytes), nil
 }
 
 // There are two general kinds of requests from the Nano: "log a message" and
@@ -122,100 +108,102 @@ func isLogRequest(req string) bool {
 	return true
 }
 
+// ============ XXX DELETE =============
+
+//func getNanoRequest(nano *arduino.Arduino) (string, error) {
+//	var nanoCmd []byte = []byte{sp.CmdPoll}
+//	b, err := doFixedCommand(nano, nanoCmd, 1)
+//	if err != nil {
+//		return nostr, err
+//	}
+//	if b[0] == 0 {
+//		return nostr, nil
+//	}
+//	if debug {
+//		log.Printf("reading %d byte request from Nano\n", b)
+//	}
+//
+//	var msg string
+//	msg, err = getCountedStringFromNano(nano, b[0]);
+//	if err != nil {
+//		return nostr, fmt.Errorf("getNanoRequest(): reading %d byte request string: %v", b, err)
+//	}
+//	if len(msg) == 0 {
+//		return nostr, fmt.Errorf("getNanoRequest(): read 0 of %d bytes", b)
+//	}
+//	return msg, nil
+//}
+
 // Get a counted number of bytes from the Nano and return them as a string.
 // The protocol only allows the Nano to send the characters 0x20 through 0x7F
 // in the body of a string (no control characters or 8-bit characters). We
 // check this and declare a serious error if we see an offending character.
-func getCountedStringFromNano(nano *arduino.Arduino, count byte) (string, error) {
-	bytes, err := getCountedBytesFromNano(nano, count)
-	if err != nil {
-		return "", fmt.Errorf("while getting string from Nano: %v", err)
-	}
-	badByte := false
-	// XXX - spec says none-ASCII bytes should be replaced with a tilde.
-	for i := range(bytes) {
-		if bytes[i] < 0x20 || bytes[i] > 0x7F {
-			log.Printf("while getting string from Nano: bad byte 0x%02X\n", bytes[i])
-			badByte = true
-		}
-	}
+//func getCountedStringFromNano(nano *arduino.Arduino, count byte) (string, error) {
+//	bytes, err := getCountedBytesFromNano(nano, count)
+//	if err != nil {
+//		return "", fmt.Errorf("while getting string from Nano: %v", err)
+//	}
+//	badByte := false
+//	// XXX - spec says none-ASCII bytes should be replaced with a tilde.
+//	for i := range(bytes) {
+//		if bytes[i] < 0x20 || bytes[i] > 0x7F {
+//			log.Printf("while getting string from Nano: bad byte 0x%02X\n", bytes[i])
+//			badByte = true
+//		}
+//	}
+//
+//	if badByte {
+//		return "", fmt.Errorf("invalid string from Nano");
+//	}
+//
+//	return string(bytes[:]), nil
+//}
 
-	if badByte {
-		return "", fmt.Errorf("invalid string from Nano");
-	}
+//func getCountedBytesFromNano(nano *arduino.Arduino, count byte) ([]byte, error) {
+//	result := make([]byte, count, count)
+//	n := int(count)
+//	for i := 0; i < n; i++ {
+//		b, err := nano.ReadFor(responseDelay)
+//		if err != nil {
+//			return nil, err
+//		}
+//		result[i] = b
+//	}
+//	return result, nil
+//}
 
-	return string(bytes[:]), nil
-}
+//func doCommandWithFixedArgs(nano *arduino.Arduino, cmd []byte) error {
+//	if len(cmd) < 1 || len(cmd) > 8 {
+//		return fmt.Errorf("invalid command length")
+//	}
+//	if debug {
+//		log.Printf("doCommand: write 0x%X with %d argument bytes\n", cmd[0], len(cmd) - 1)
+//	}
+//	if err := nano.Write(cmd); err != nil {
+//		// typical error here: "write would block"
+//		return err
+//	}
+//	return getAck(nano, cmd[0])
+//}
 
-func getCountedBytesFromNano(nano *arduino.Arduino, count byte) ([]byte, error) {
-	result := make([]byte, count, count)
-	n := int(count)
-	for i := 0; i < n; i++ {
-		b, err := nano.ReadFor(responseDelay)
-		if err != nil {
-			return nil, err
-		}
-		result[i] = b
-	}
-	return result, nil
-}
+//func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
+//    if err := doCommand(nano, cmd); err != nil {
+//        return 0, err
+//    }
+//    b, err := nano.ReadFor(responseDelay)
+//    if err != nil {
+//        return 0, fmt.Errorf("no response byte after command 0x%02X %v", cmd, err)
+//    }
+//	return b, nil
+//}
 
-type UnexpectedResponseError struct {
-	Command byte
-	Response byte
-}
-
-func (u *UnexpectedResponseError) Error() string {
-	return fmt.Sprintf("command 0x%X: unexpected response 0x%X", u.Command, u.Response)
-}
-
-// Do a command, returning error if no ack or bad ack.
-func doCommand(nano *arduino.Arduino, cmd byte) error {
-	b := []byte { cmd }
-	return doCommandWithFixedArgs(nano, b)
-}
-
-func doCommandWithFixedArgs(nano *arduino.Arduino, cmd []byte) error {
-	if len(cmd) < 1 || len(cmd) > 8 {
-		return fmt.Errorf("invalid command length")
-	}
-	if debug {
-		log.Printf("doCommand: write 0x%X with %d argument bytes\n", cmd[0], len(cmd) - 1)
-	}
-	if err := nano.Write(cmd); err != nil {
-		// typical error here: "write would block"
-		return err
-	}
-	return getAck(nano, cmd[0])
-}
-
-func getAck(nano *arduino.Arduino, cmd byte) error {
-    b, err := nano.ReadFor(responseDelay)
-    if err != nil {
-        return err
-    }
-    if b != sp.Ack(cmd) {
-        return &UnexpectedResponseError {cmd, b}
-    }
-    return nil
-}
-
-func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
-    if err := doCommand(nano, cmd); err != nil {
-        return 0, err
-    }
-    b, err := nano.ReadFor(responseDelay)
-    if err != nil {
-        return 0, fmt.Errorf("no response byte after command 0x%02X %v", cmd, err)
-    }
-	return b, nil
-}
-
+// ============ XXX DELETE =============
 // Issue a command with a counted string argument
 //func doCommandWithString(nano *arduino.Arduino, cmd byte, body string) error {
 //	return doCommandWithCountedBytes(nano, cmd, []byte(body))
 //}
 
+// ============ XXX DELETE =============
 // Issue a command with an array of byte arguments.
 // Do not include the byte count in the bytes argument.
 //func doCommandWithCountedBytes(nano *arduino.Arduino, cmd byte, bytes []byte) error {
@@ -231,6 +219,35 @@ func doCommandReturningByte(nano *arduino.Arduino, cmd byte) (byte, error) {
 //	nano.Write(msg)
 //  return getAck(nano, cmd)
 //}
+
+// ============== END OF OBSOLETE CODE. START OF REPLACEMENT CODE =============
+
+type UnexpectedResponseError struct {
+	Command byte
+	Response byte
+}
+
+func (u *UnexpectedResponseError) Error() string {
+	return fmt.Sprintf("command 0x%X: unexpected response 0x%X", u.Command, u.Response)
+}
+
+// Do a command, returning error if no ack or bad ack.
+// Only for commands with no arguments and no return.
+func doCommand(nano *arduino.Arduino, cmd byte) error {
+	_, err := doFixedCommand(nano, []byte{cmd}, 0)
+	return err
+}
+
+func getAck(nano *arduino.Arduino, cmd byte) error {
+    b, err := nano.ReadFor(responseDelay)
+    if err != nil {
+        return err
+    }
+    if b != sp.Ack(cmd) {
+        return &UnexpectedResponseError {cmd, b}
+    }
+    return nil
+}
 
 // Do the fixed part of a command, which may be the entire command, and optionally
 // return the fixed response if any.

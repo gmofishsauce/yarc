@@ -127,11 +127,12 @@ func download(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 }
 
 func getMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	result, err := doCommandReturningByte(nano, sp.CmdGetMcr)
+	var nanoCmd []byte = []byte{sp.CmdGetMcr}
+	result, err := doFixedCommand(nano, nanoCmd, 1)
 	if err != nil {
 		return nostr, err
 	}
-	fmt.Printf("0x%02x\n", result)
+	fmt.Printf("0x%02x\n", result[0])
 	return nostr, nil
 }
 
@@ -177,36 +178,9 @@ func setMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, e
 	if err != nil {
 		return nostr, err
 	}
-	return nostr, doCommandWithFixedArgs(nano, []byte { sp.CmdSetMcr, byte(n) });
+	_, err = doFixedCommand(nano, []byte { sp.CmdSetMcr, byte(n) }, 0)
+	return nostr, err
 }
-
-/* This command is issued regularly by the host and it doesn't make sense
-   to expose it as a user command, so it's implemented by notImpl().
-func pollNano(cmd *protocolCommand, nano *arduino.Arduino) (string, error) {
-	result, err := doCommandReturningByte(nano, sp.CmdGetMcr)
-    if err != nil {
-        return nostr, err
-    }
-    var msg string
-    msg, err = getCountedStringFromNano(nano, result);
-    if err != nil {
-        return nostr, fmt.Errorf("pollNano(): reading string: %v", err)
-    }
-    if len(msg) == 0 {
-        return nostr, fmt.Errorf("pollNano(): got 0 of %d bytes", result);
-    }
-	return msg, nil
-}
-*/
-
-//func svcResp(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-//	// For now, just send "!C" to the Nano telling it to continue
-//	// from a breakpoint.
-//	if err := doCommandWithString(nano, byte(cmd.cmdVal), "!C"); err != nil {
-//		return nostr, err
-//	}
-//	return nostr, nil
-//}
 
 func help(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	fmtStr := "%-6s%-12s%-6s%-8s\n"
