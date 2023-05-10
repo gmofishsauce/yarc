@@ -30,6 +30,9 @@ void ledPlaySos();
 
 typedef int (*logCallback)(char *bp, int count);
 
+// Return true if there is nothing to send up to the host.
+bool logIsEmpty(void);
+
 // Queue a callback. There is a status return, but it's not
 // very useful because there's not much the caller can do if
 // the log queue fills up.

@@ -8,8 +8,9 @@
 // TODO modify Protogen to use const, or at least to emit #pragma once.
 // TODO All command implementations are supposed to check the state,
 //      which is messy; and none of them currently check for an in-progress
-//      command that isn't themselves, which is impossible, but would be
-//      sensible to check.
+//      command that isn't themselves.
+// TODO The BadCommand implementation only gives one "spin", as little as
+//      30uS or so, for the nak to go out. It should give at least 1 mS.
 
 namespace SerialPrivate {
   
@@ -131,13 +132,24 @@ namespace SerialPrivate {
 
   // === the "middle layer": connection state and send/receive ===
 
+  // State of the connection. There are actually four states, as the
+  // READY state is broken into "ready to accept a new command" and
+  // "processing a command is in progress". But the latter state is
+  // easier to represent by a function pointer that says what function
+  // to call for continued processing of a long command or response.
   typedef byte State;
   
-  constexpr State STATE_UNSYNC = 0;
-  constexpr State STATE_DESYNCHRONIZING = 1;
-  constexpr State STATE_READY = 2;
-  constexpr State STATE_PROCESSING = 3;
-  
+  constexpr State STATE_UNSYNC = 0;           // initial state; no session
+  constexpr State STATE_DESYNCHRONIZING = 1;  // trouble; tearing down session
+  constexpr State STATE_READY = 2;            // session in progress
+
+  // Commands may require more than one call to the serial task to read
+  // or push out all their data. When this occurs, we set an "in progress
+  // handler", which is a contextless function. This is the second half
+  // of the READY state - the substate where a command is in progress.
+  typedef State (*InProgressHandler)(void);
+  InProgressHandler inProgress = 0;
+
   State state = STATE_UNSYNC;
 
   // Enter the unsynchronized state immediately. This cancels any
@@ -147,6 +159,7 @@ namespace SerialPrivate {
     rcvBuf->tail = 0;
     xmtBuf->head = 0;
     xmtBuf->tail = 0;
+    inProgress = 0;
     state = STATE_UNSYNC;
     SetDisplay(0xCF);
   }
@@ -190,8 +203,10 @@ namespace SerialPrivate {
 
   // === Poll buffer support ===
 
+  // Command handlers interpret newly-arrived commands. They may
+  // fully process the command or they may install an in-progress
+  // command handler.
   typedef State (*CommandHandler)(RING *const r, byte b);
-  CommandHandler inProgress = 0;
 
   // The poll buffer (serial output buffer) is the single largest
   // user of RAM in the entire system. It allows us to hide the
@@ -260,6 +275,7 @@ namespace SerialPrivate {
   // Then we reset everything and wait for the host to start a
   // new session.
   State stBadCmd(RING* const r, byte b) {
+    inProgress = 0;
     if (state != STATE_DESYNCHRONIZING) {
       if (!canSend(1)) {
         // We have an error -and- the transmit buffer is full.
@@ -281,79 +297,67 @@ namespace SerialPrivate {
   }
 
   State stGetMcr(RING* const r, byte b) {
-    if (!canSend(2)) {
-      return state;
-    }
     consume(r, 1);
-
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {   
-      sendAck(b);
-      send(GetMCR());
-    }
+    sendAck(b);
+    send(GetMCR());
     return state;
   }
 
   State stRunCost(RING* const r, byte b) {
     consume(r, 1);
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {   
-      costRun();
-      sendAck(b);
-    }
+    costRun();
+    sendAck(b);
     return state;
   }
 
   State stStopCost(RING* const r, byte b) {
     consume(r, 1);
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {   
-      costStop();
-      sendAck(b);
-    }
+    costStop();
+    sendAck(b);
     return state;
   }
 
   State stRun(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    return stBadCmd(r, b); // TODO
   }
 
   State stStop(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    return stBadCmd(r, b); // TODO
   }
 
-  // Respond to a poll request from the host. This is a state machine
-  // that maintains its own state, separate from the State enum.
-  State stPoll(RING* const r, byte b) {
-    if (inProgress) {
-      while (canSend(1) && pb->remaining > 0) {
-        send(pb->buf[pb->next]);
-        pb->remaining--;
-        pb->next++;
-      }
-      if (pb->remaining == 0) {
-        consume(r, 1);
-        freePollBuffer();
-        inProgress = 0;              
-      }
-    } else {
-      if (pb->inuse) {
-        // We need the buffer but it's in use.
-        panic(PANIC_SERIAL_NUMBERED, 0xB);
-      }
-      
-      inProgress = stPoll;
-      allocPollBuffer();
-      byte n = logGetPending((char *)&pb->buf[2], POLL_BUF_MAX_DATA);
-      pb->buf[0] = ACK(b);
-      pb->buf[1] = n; // may be zero (it usually is)
-      pb->next = 0;
-      pb->remaining = 2 + n;
+  // In progress handler for transmitting buffered
+  // messages from the poll buffer to the host. Transmit
+  // as much of the poll buffer as possible. If finished,
+  // free the buffer and clear the inProgress handler.
+  State sendBufferedData() {
+    while (canSend(1) && pb->remaining > 0) {
+      send(pb->buf[pb->next]);
+      pb->remaining--;
+      pb->next++;
+    }
+    if (pb->remaining == 0) {
+      freePollBuffer();
+      inProgress = 0;              
     }
     return state;
+  }
+
+  // Respond to a poll request from the host.
+  State stPoll(RING* const r, byte b) {    
+    consume(r, 1);
+    sendAck(b);
+    if (logIsEmpty()) {
+      // usual case
+      send(0);
+      return state;
+    }
+
+    allocPollBuffer();
+    pb->remaining = logGetPending((char *)pb->buf, POLL_BUF_MAX_DATA);
+    send(pb->remaining); // byte count follows ack back to host
+    pb->next = 0;
+    inProgress = sendBufferedData;
+    return sendBufferedData();
   }
 
   State stResp(RING* const r, byte b) {
@@ -363,25 +367,14 @@ namespace SerialPrivate {
   // GetVer command - when we can send, consume the command
   // byte and send the ack and version. Does not change state.
   State stGetVer(RING* const r, byte b) {
-    if (!canSend(2)) {
-      return state;
-    }
     consume(r, 1);
-
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {   
-      sendAck(b);
-      send(PROTOCOL_VERSION);
-    }
+    sendAck(b);
+    send(PROTOCOL_VERSION);
     return state;
   }
 
   // Sync command - just ack it and set the display register
   State stSync(RING* const r, byte b) {
-    if (!canSend(1)) {
-      return state;
-    }
     consume(r, 1);
     sendAck(b);
     SetDisplay(0xC2);
@@ -441,17 +434,7 @@ namespace SerialPrivate {
   // (spec change 5/2023).
   State stOneXfr(RING* const r, byte b) {
     byte cmdBuf[5];
-    if (!canSend(1)) {
-      return state;
-    }
-    if (state != STATE_READY) {
-      sendNak(b);
-      return state;
-    }
-    if (copy(rcvBuf, cmdBuf, 5) < 5) {
-      // Entire commmand not available yet
-      return state;
-    }
+    copy(rcvBuf, cmdBuf, 5);
     consume(rcvBuf, 5);
     stShadowAHAL = BtoS(cmdBuf[1], cmdBuf[2]);
     if (stShadowAHAL >= END_MEM) {
@@ -481,145 +464,141 @@ namespace SerialPrivate {
   // left to read from the connection and write to memory. (We also
   // stash the command byte there so we can defer the decision about
   // ack versus nak.)
+  //
+  // XXX - if an error occurs, how does stShadowAHAL get cleared or
+  //       reinitialized?
   State stWrPage(RING* const r, byte b) {
-    byte cmdBuf[2];
+    return stBadCmd(r, b);
+    // byte cmdBuf[2];
 
-    if (!canSend(1)) {
-      return state;
-    }
-    if (state != STATE_READY) {
-      stShadowAHAL = END_MEM;
-      sendNak(b);
-      return state;      
-    }
+    // // Check for initialization of a page write. If
+    // // the length byte isn't here yet, come back later.
+    // if (!inProgress) {
+    //   if (copy(rcvBuf, cmdBuf, 2) < 2) {
+    //     return state;
+    //   }
+    //   consume(rcvBuf, 2);
 
-    // Check for initialization of a page write. If
-    // the length byte isn't here yet, come back later.
-    if (!inProgress) {
-      if (copy(rcvBuf, cmdBuf, 2) < 2) {
-        return state;
-      }
-      consume(rcvBuf, 2);
+    //   if (pb->inuse) {
+    //     // We need the buffer but it's in use.
+    //     panic(PANIC_SERIAL_NUMBERED, 0xF);
+    //   }
+    //   allocPollBuffer();
 
-      if (pb->inuse) {
-        // We need the buffer but it's in use.
-        panic(PANIC_SERIAL_NUMBERED, 0xF);
-      }
-      allocPollBuffer();
+    //   inProgress = stWrPage;
+    //   pb->buf[0] = b; // for later ack or nak
+    //   pb->next = 1;   // keep sanity, but not used
+    //   pb->remaining = cmdBuf[1];
+    //   // fall into...
+    // }
 
-      inProgress = stWrPage;
-      pb->buf[0] = b; // for later ack or nak
-      pb->next = 1;   // keep sanity, but not used
-      pb->remaining = cmdBuf[1];
-      // fall into...
-    }
-
-    // In progress consuming bytes from the host link and
-    // writing them to main memory. Loop while we're not done,
-    // there are bytes available in the receive buffer, and
-    // we're still in the same millisecond. When the millisecond
-    // clicks over, we remain in progress, but we return and give
-    // the rest of the tasks a change to execute.
+    // // In progress consuming bytes from the host link and
+    // // writing them to main memory. Loop while we're not done,
+    // // there are bytes available in the receive buffer, and
+    // // we're still in the same millisecond. When the millisecond
+    // // clicks over, we remain in progress, but we return and give
+    // // the rest of the tasks a change to execute.
   
-    unsigned long start = millis();
-    while (pb->remaining > 0 && len(r) > 0 && millis() == start) {
-      if (stShadowAHAL >= END_MEM) {
-        sendNak(pb->buf[0]);
-        stShadowAHAL = END_MEM;
-        freePollBuffer();
-        inProgress = 0;              
-        return state;
-      }
-      SetAH(StoHB(stShadowAHAL));
-      SetAL(StoLB(stShadowAHAL));
-      SetDH(0); // doesn't matter - it's a byte write
-      SetDL(peek(r));
-      SingleClock();
+    // unsigned long start = millis();
+    // while (pb->remaining > 0 && len(r) > 0 && millis() == start) {
+    //   if (stShadowAHAL >= END_MEM) {
+    //     sendNak(pb->buf[0]);
+    //     stShadowAHAL = END_MEM;
+    //     freePollBuffer();
+    //     inProgress = 0;              
+    //     return state;
+    //   }
+    //   SetAH(StoHB(stShadowAHAL));
+    //   SetAL(StoLB(stShadowAHAL));
+    //   SetDH(0); // doesn't matter - it's a byte write
+    //   SetDL(peek(r));
+    //   SingleClock();
 
-      consume(r, 1);
-      pb->remaining--;
-      stShadowAHAL++;
-    }
+    //   consume(r, 1);
+    //   pb->remaining--;
+    //   stShadowAHAL++;
+    // }
 
-    // Now we may be done, or we might have caught up with the buffer,
-    // or our millisecond may have run out. We only care if we're done.
-    if (pb->remaining == 0) {
-      // We're done. Ack the command and clean up.
-      sendAck(pb->buf[0]);
-      stShadowAHAL = END_MEM;
-      freePollBuffer();
-      inProgress = 0;              
-    }
-    return state;
+    // // Now we may be done, or we might have caught up with the buffer,
+    // // or our millisecond may have run out. We only care if we're done.
+    // if (pb->remaining == 0) {
+    //   // We're done. Ack the command and clean up.
+    //   sendAck(pb->buf[0]);
+    //   stShadowAHAL = END_MEM;
+    //   freePollBuffer();
+    //   inProgress = 0;              
+    // }
+    // return state;
   }
 
   // Read a page from the address established by a previous single transfer.
   // Like stWrPage, this function can only address main memory, and only as
   // a set of bytes.
   //
-  // XXX - stOneXfr() only allows writes, so at the moment there's no way to
-  // initialize the address (stShadowAHAL).
+  // XXX - if an error occurs, how does stShadowAHAL get cleared or
+  //       reinitialized?
   State stRdPage(RING* const r, byte b) {
-    byte cmdBuf[2];
+    return stBadCmd(r, b);
+    // byte cmdBuf[2];
 
-    if (!canSend(1)) {
-      return state;
-    }
-    if (state != STATE_READY) {
-      stShadowAHAL = END_MEM;
-      sendNak(b);
-      return state;      
-    }
-    if (inProgress && inProgress != stRdPage) {
-      panic(PANIC_SERIAL_NUMBERED, 0x10);
-    }
+    // if (!canSend(1)) {
+    //   return state;
+    // }
+    // if (state != STATE_READY) {
+    //   stShadowAHAL = END_MEM;
+    //   sendNak(b);
+    //   return state;      
+    // }
+    // if (inProgress && inProgress != stRdPage) {
+    //   panic(PANIC_SERIAL_NUMBERED, 0x10);
+    // }
 
-    // Check for initialization of a page write. If
-    // the length byte isn't here yet, come back later.
-    if (!inProgress) {
-      if (copy(rcvBuf, cmdBuf, 2) < 2) {
-        return state;
-      }
-      consume(rcvBuf, 2);
-      if (pb->inuse) {
-        // We need the buffer but it's in use.
-        panic(PANIC_SERIAL_NUMBERED, 0x11);
-      }
-      allocPollBuffer();
+    // // Check for initialization of a page write. If
+    // // the length byte isn't here yet, come back later.
+    // if (!inProgress) {
+    //   if (copy(rcvBuf, cmdBuf, 2) < 2) {
+    //     return state;
+    //   }
+    //   consume(rcvBuf, 2);
+    //   if (pb->inuse) {
+    //     // We need the buffer but it's in use.
+    //     panic(PANIC_SERIAL_NUMBERED, 0x11);
+    //   }
+    //   allocPollBuffer();
 
-      inProgress = stRdPage;
-      pb->buf[0] = b; // for later ack or nak
-      pb->next = 1;   // keep sanity, but not used
-      pb->remaining = cmdBuf[1];
-      // fall into...
-    }
+    //   inProgress = stRdPage;
+    //   pb->buf[0] = b; // for later ack or nak
+    //   pb->next = 1;   // keep sanity, but not used
+    //   pb->remaining = cmdBuf[1];
+    //   // fall into...
+    // }
 
-    // In progress sending bytes to the host link and reading
-    // them from main memory. Loop while we're not done, there
-    // is space available in the transmit buffer, and we're still
-    // in the same millisecond. When the millisecond clicks over,
-    // we remain in progress, but we return and give the rest of
-    // the tasks a change to execute.
+    // // In progress sending bytes to the host link and reading
+    // // them from main memory. Loop while we're not done, there
+    // // is space available in the transmit buffer, and we're still
+    // // in the same millisecond. When the millisecond clicks over,
+    // // we remain in progress, but we return and give the rest of
+    // // the tasks a change to execute.
   
-    unsigned long start = millis();
-    while (pb->remaining > 0 && avail(xmtBuf) > 0 && millis() == start) {
-      if (stShadowAHAL >= END_MEM) {
-        sendNak(pb->buf[0]);
-        stShadowAHAL = END_MEM;
-        freePollBuffer();
-        inProgress = 0;              
-        return state;
-      }
-      SetAH(StoHB(stShadowAHAL) | 0x80); // 0x80 = Nano's read bit
-      SetAL(StoLB(stShadowAHAL));
-      SetDH(0); // doesn't matter - it's a byte write
-      SetDL(0); // Also doesn't matter - it's a read
-      SingleClock();
-      send(GetBIR());
-      pb->remaining--;
-      stShadowAHAL++;
-    }
-    return state;
+    // unsigned long start = millis();
+    // while (pb->remaining > 0 && avail(xmtBuf) > 0 && millis() == start) {
+    //   if (stShadowAHAL >= END_MEM) {
+    //     sendNak(pb->buf[0]);
+    //     stShadowAHAL = END_MEM;
+    //     freePollBuffer();
+    //     inProgress = 0;              
+    //     return state;
+    //   }
+    //   SetAH(StoHB(stShadowAHAL) | 0x80); // 0x80 = Nano's read bit
+    //   SetAL(StoLB(stShadowAHAL));
+    //   SetDH(0); // doesn't matter - it's a byte write
+    //   SetDL(0); // Also doesn't matter - it's a read
+    //   SingleClock();
+    //   send(GetBIR());
+    //   pb->remaining--;
+    //   stShadowAHAL++;
+    // }
+    // return state;
   }
 
   // SetK has a count byte which may be 2 or 4 followed by either
@@ -627,6 +606,9 @@ namespace SerialPrivate {
   // values in order 3..0. The command was designed this way partly
   // to see what the implementation code would look like. The 2-arg
   // form is no longer supported because it was never used.
+  //
+  // XXX - remove now-unnecessary checks. Remove support for variable
+  //       number of arguments.
   State stSetK(RING* const r, byte b) {
     byte cmdBuf[6];
     if (!canSend(1)) {
@@ -650,66 +632,107 @@ namespace SerialPrivate {
   
   // Set the MCR. This is a change in philosophy added December 2022.
   State stSetMCR(RING* const r, byte b) {
-    if (!canSend(1)) {
-      return state;
-    }
-    byte cmdbuf[2];
-    if (copy(r, cmdbuf, 2) != 2) {
-      return state;
-    }
-    consume(r, 2);
-
-    if (state != STATE_READY) {
-      sendNak(b);
-    } else {
-      SetMCR(cmdbuf[1]);
-      sendAck(b);
-    }
+    consume(r, 1);
+    byte mcr = peek(r);
+    consume(r, 1);
+    SetMCR(mcr);
+    sendAck(b);
     return state;
   }
+
+  typedef struct commandData {
+    CommandHandler handler;     // handler function
+    byte length;                // length of fixed part of command
+  } CommandData;
 
   // Jump table for protocol command handlers. The table is stored in
   // PROGMEM (ROM) so requires special access, below.
   
-  const PROGMEM CommandHandler handlers[] = {
-    stBadCmd,   stGetMcr,  stRunCost,  stStopCost,   // 0xE0 ...
-    stUndef,    stUndef,   stUndef,    stRun,        // 0xE4 ...
-    stStop,     stPoll,    stResp,     stUndef,      // 0xE8 ...
-    stUndef,    stUndef,   stGetVer,   stSync,       // 0xEC ...
+  const PROGMEM CommandData handlers[] = {
+    { stBadCmd,     1 },
+    { stGetMcr,     1 },
+    { stRunCost,    1 },
+    { stStopCost,   1 },
+
+    { stUndef,      1 },
+    { stUndef,      1 },
+    { stUndef,      1 },
+    { stRun,        1 },
+
+    { stStop,       1 },
+    { stPoll,       1 },
+    { stResp,       2 },
+    { stUndef,      1 },
+
+    { stUndef,      1 },
+    { stUndef,      1 },
+    { stGetVer,     1 },
+    { stSync,       1 },
   
-    stSetAH,    stSetAL,   stSetDH,    stSetDL,      // 0xF0 ...
-    stOneClk,   stGetBir,  stWrSlice,  stRdSlice,    // 0xF4 ...
-    stOneXfr,   stWrPage,  stRdPage,   stSetK,       // 0xF8 ...
-    stSetMCR,   stBadCmd,  stBadCmd,   stBadCmd,     // 0xFC ...
+    { stSetAH,      2 },
+    { stSetAL,      2 },
+    { stSetDH,      2 },
+    { stSetDL,      2 },
+
+    { stOneClk,     1 },
+    { stGetBir,     1 },
+    { stWrSlice,    4 },
+    { stRdSlice,    4 },
+
+    { stOneXfr,     5 },
+    { stWrPage,     2 },
+    { stRdPage,     2 },
+    { stSetK,       5 },
+    
+    { stSetMCR,     2 },
+    { stBadCmd,     1 },
+    { stBadCmd,     1 },
+    { stBadCmd,     1 },
   };
 
-  // There is at least one byte waiting to be processed in the receive-
+  // The maximum fixed response currently specified by the protocol is 1
+  // result byte in addition to the ack or nak. This result byte may be a
+  // value or may be a byte count of variable bytes to follow. This is
+  // checked by the top-level handler to ensure that called handler
+  // subfunctions that transmit only the fixed response won't block
+  // waiting for room in the transmit buffer. Functions that transmit
+  // larger, variable-length responses return a count as the fixed result
+  // and then must handle blocking while transmitting.
+  constexpr byte MAX_FIXED_RESPONSE_BYTES = 2;
+
+  // There is at least one command waiting to be processed in the receive-
   // side ring buffer at r. The command handler may or may not consume
   // the byte(s) on this call, but must always return the next state.
-  
-  void process(RING *const r, byte b) {
+  // The value has already been verified to be a command byte.
+  State process(RING *const r, byte b) {
     CommandHandler handler;
-    if (inProgress) {
-      handler = inProgress;
-    } else if (isCommand(b)) {
-      handler = pgm_read_ptr_near(&handlers[b - STCMD_BASE]);
+    if (isCommand(b)) {
+      byte cmdLen = pgm_read_ptr_near(&handlers[b - STCMD_BASE].length);
+      if (len(rcvBuf) < cmdLen && avail(xmtBuf) < MAX_FIXED_RESPONSE_BYTES) {
+        // Come back later after more bytes arrive or go out. Checking this
+        // here means individual handlers can assume their command is fully
+        // available and there is space for the fixed part of the response.
+        return state;
+      }
+      handler = pgm_read_ptr_near(&handlers[b - STCMD_BASE].handler);
     } else {
       handler = stBadCmd;
     }
-    state = (*handler)(r, b);
+    return (*handler)(r, b);
   }
 
   // The serial task. Called as often as possible (no delay).
   // Try to write everything in the write buffer. Then try to
-  // read all the available bytes. Finally, if the read ring
-  // buffer is not empty, invoke process() to handle it. Note
-  // that process() may do nothing, waiting for more bytes.
+  // read all the available bytes. If we have an in-progress
+  // command, defer to it. Else finally, if the read ring
+  // buffer is not empty, invoke process() to handle a new
+  // command. Note that process() may do nothing, waiting
+  // for more bytes to either come in or go out.
   
   int serialTask() {
-    
     while (len(xmtBuf) > 0 && Serial.availableForWrite() != 0) {
       if (Serial.write(peek(xmtBuf)) != 1) {
-        panic(PANIC_SERIAL_NUMBERED, 9); // TODO
+        panic(PANIC_SERIAL_NUMBERED, 9);
       }
       consume(xmtBuf, 1);
     }
@@ -718,8 +741,22 @@ namespace SerialPrivate {
       put(rcvBuf, Serial.read());
     }
 
+    if (inProgress) {
+      state = (*inProgress)();
+      return 0;
+    }
+    
     if (len(rcvBuf) > 0) {
-      process(rcvBuf, peek(rcvBuf));
+      byte b = peek(rcvBuf);
+      if (state == STATE_READY) {
+        state = process(rcvBuf, b);
+      } else if (state == STATE_UNSYNC && b == STCMD_SYNC) {
+        // By handling this case here, we make it unnecessary for
+        // the individual command handlers to check the state.
+        state = stSync(rcvBuf, b);
+      } else {
+        state = stBadCmd(rcvBuf, b);
+      }
     }
     
     return 0;

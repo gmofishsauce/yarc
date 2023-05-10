@@ -31,6 +31,9 @@ func establishConnection(nano *arduino.Arduino, wasReset bool) error {
 	if err := checkProtocolVersion(nano); err != nil {
 		return err
 	}
+	if (debug) {
+		log.Println("protocol version OK")
+	}
 	return nil
 }
 
@@ -338,6 +341,9 @@ func doCountedReceive(nano *arduino.Arduino, fixed []byte) ([]byte, error) {
 		return expected, err
 	}
 	count := expected[0]
+	if debug && count > 0 {
+		log.Printf("Receive %d\n", count)
+	}
 	response := make([]byte, count, count)
 	for i := 0; i < int(count); i++ {
 		b, err := nano.ReadFor(responseDelay)

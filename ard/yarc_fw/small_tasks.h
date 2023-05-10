@@ -166,6 +166,9 @@ namespace LogPrivate {
   byte logTailIndex = 0;      // Consumption point
   byte messagesWereLost = 0;  // Queue overrun occurred
 
+  bool internalLogIsEmpty() {
+    return logHeadIndex == logTailIndex;
+  }
   // Return is a boolean value that is nonzero if the callback queue
   // was full (i.e. the callback was not queued).
   byte internalLogQueueCallback(logCallback callback) {
@@ -202,6 +205,10 @@ int logInitCallback(char *bp, int bmax) {
 
 void logInit() {
   logQueueCallback(logInitCallback);
+}
+
+bool logIsEmpty() {
+  return LogPrivate::internalLogIsEmpty();
 }
 
 byte logQueueCallback(logCallback callback) {
