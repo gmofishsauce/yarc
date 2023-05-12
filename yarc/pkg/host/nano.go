@@ -276,13 +276,14 @@ func doFixedCommand(nano *arduino.Arduino, fixed []byte, expected int) ([]byte, 
 	var response []byte
 
     if len(fixed) < 1 || len(fixed) > 8 {
-        return response, fmt.Errorf("invalid command length")
+        return response, fmt.Errorf("invalid fixed command length")
     }
 	if expected < 0 || expected > 8 {
 		return response, fmt.Errorf("invalid fixed response expected")
 	}
-    if debug {
-        log.Printf("doFixedCommand: write 0x%X with %d argument bytes\n", fixed[0], len(fixed) - 1)
+    if debug && fixed[0] != sp.CmdPoll {
+		// Don't log poll commands - there are too many
+		log.Printf("doFixedCommand: sending %v\n", fixed)
     }
     if err := nano.Write(fixed); err != nil {
         return response, err
@@ -313,21 +314,22 @@ func doFixedCommand(nano *arduino.Arduino, fixed []byte, expected int) ([]byte, 
 // stuffed down the pipe. If a nak or other error occurs, it is returned.
 // No counted command has fixed response so only the error is returned.
 func doCountedSend(nano *arduino.Arduino, fixed []byte, counted []byte) error {
-	n := len(fixed)
-	if n < 2 || n > 8 {
-        return fmt.Errorf("invalid command length")
+	count := fixed[len(fixed)-1];
+	if debug {
+		log.Printf("doCountedSend(): counted len = %d\n", count)
 	}
-	// The count is in the last fixed byte
-	count := fixed[n-1];
 	if len(counted) < int(count) {
 		return fmt.Errorf("not enough data")
 	}
 	if _, err := doFixedCommand(nano, fixed, 0); err != nil {
 		return err
 	}
-    if err := nano.Write(counted[0:count]); err != nil {
-        return err
-    }
+	if debug {
+		log.Printf("doCountedSend(): sending %d\n", len(counted))
+	}
+	if err := nano.Write(counted); err != nil {
+		return err
+	}
 	return nil
 }
 
