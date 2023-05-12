@@ -94,10 +94,7 @@ func init() {
 func process(line string, nano *arduino.Arduino) error {
 	for _, cmd := range commands {
 		if strings.HasPrefix(line, cmd.shortCmd) || strings.HasPrefix(line, cmd.longCmd) {
-			if str, err := cmd.handler(&cmd, nano, line); err != nil {
-				if (debug) {
-					fmt.Printf("ensure variable str is used for now: %s\n", str)
-				}
+			if _, err := cmd.handler(&cmd, nano, line); err != nil {
 				return err
 			}
 			return nil
@@ -122,7 +119,6 @@ func download(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
         yarcbin.Close()
     }()
 
-	fmt.Println("Downloading...")
     return nostr, doDownload(bufio.NewReader(yarcbin), nano)
 }
 
