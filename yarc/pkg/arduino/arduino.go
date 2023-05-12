@@ -49,12 +49,6 @@ import (
 
 const resetDelay = 3 * time.Second
 
-var debug bool = false
-
-func setDebug(setting bool) {
-	debug = setting
-}
-
 // Types
 
 type Arduino struct {
@@ -92,9 +86,9 @@ func (arduino *Arduino) ReadFor(timeout time.Duration) (byte, error) {
 	return arduino.readByte(timeout)
 }
 
-// Write a byte to the Arduino. Return error if the write would block.
+// Write bytes to the Arduino.
 func (arduino *Arduino) Write(b []byte) error {
-	return arduino.writeByte(b)
+	return arduino.writeBytes(b)
 }
 
 // Close the connection to the Nano.
@@ -104,8 +98,7 @@ func (arduino *Arduino) Close() error {
 
 // Implementation
 
-// Read a byte. Errors are this level are serious and mean the
-// the protocol has broken down or is about to.
+// Read a byte
 func (arduino *Arduino) readByte(readTimeout time.Duration) (byte, error) {
 	b := make([]byte, 1, 1)
 	var n int
@@ -130,29 +123,11 @@ func (arduino *Arduino) readByte(readTimeout time.Duration) (byte, error) {
 	if n == 0 {
 		return 0, NoResponseError(readTimeout)
 	}
-	if debug {
-		log.Printf("blockingReadByte: return 0x%X\n", b[0])
-	}
 	return b[0], nil
 }
 
-// Write a byte. Errors are this level are serious and mean the
-// the protocol has broken down or is about to.
-//
-// If the Nano stops responding to writes, we could attempt write
-// as many as 255 bytes without looking for any kind of response.
-// If the Nano stops receiving during this time, the serial link
-// will absorb writes until its buffer is full. The buffer size
-// is a fact about the driver that is difficult to establish. If
-// the buffer fills, the next write will hang indefinitely. It's
-// possible to do something like this, such as schedule a timer
-// event for a long-enough timeout, like a second, and then cancel
-// the write call (I think the serial module supports this) and
-// return an error. So far I haven't bothered.
-func (arduino *Arduino) writeByte(toWrite []byte) error {
-	if debug {
-		log.Printf("writeByte: write 0x%X\n", toWrite)
-	}
+// Write bytes
+func (arduino *Arduino) writeBytes(toWrite []byte) error {
 	var n int
 	var err error
 
