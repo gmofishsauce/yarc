@@ -16,6 +16,8 @@ void WriteMem16(unsigned short addr, unsigned short *data, short nWords);
 void ReadMem16(unsigned short addr, unsigned short *data, short nWords);
 void WriteMem8(unsigned short addr, unsigned char *data, short nBytes);
 void ReadMem8(unsigned short addr, unsigned char *data, short nBytes);
+byte WrMemFast(unsigned short addr, byte data);
+byte RdMemFast(unsigned short addr);
 void WriteReg(unsigned char reg, unsigned short value);
 unsigned short ReadReg(unsigned char dataReg, unsigned short memAddr);
 void WriteFlags(unsigned char flags);

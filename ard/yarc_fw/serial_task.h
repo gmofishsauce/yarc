@@ -427,17 +427,15 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
-  // Do a bus transfer with the given AH, AL, and DL. Save
-  // the values of AH, AL so that a following WrPage or RdPage
-  // command can use the value. The transfers are always
-  // byte transfers, and the host has no control over the K register
-  // so can only transfer bytes to main memory using these commands.
-  // Microcode and ALU memory are written with distinct commands,
-  // and arbitrary registers may (at least in theory) be written
-  // from the host with combinations of SetK, SetMCR, the four set
-  // bus register commands, and single clock cycles. N.B. - there's
-  // no count byte with fixed arguments. Return the BIR to the host
-  // (spec change 5/2023). Note: cmdBuf[3] (data high) is not used.
+  bool OPT = true;
+
+  // Do a bus transfer with the given AH, AL, and DL. Save the values
+  // of AH, AL, and set the K register (important) so that a following
+  // WrPageFast or RdPageFast command can use the value. The transfers
+  // are always byte transfers, and the host has no control over the K
+  // register so can only transfer bytes to main memory using these
+  // commands. Microcode and ALU memory are written separately. Note:
+  // cmdBuf[3], data high, is not used.
   State stOneXfr(RING* const r, byte b) {
     byte cmdBuf[5];
     copy(rcvBuf, cmdBuf, 5);
@@ -450,12 +448,13 @@ namespace SerialPrivate {
     }
 
     byte bir;
-    if (stShadowAHAL & 0x8000) {    // read
-      ReadMem8(stShadowAHAL, &bir, 1);
-    } else {                        // write
-      byte b = cmdBuf[4];
-      WriteMem8(stShadowAHAL, &b, 1);
-      bir = GetBIR();
+
+    if (stShadowAHAL & 0x8000) {
+      WriteK(RDMEM8_TO_NANO);   // read memory byte
+      bir = RdMemFast(stShadowAHAL);
+    } else {
+      WriteK(WRMEM8_FROM_NANO); // Write memory byte
+      bir = WrMemFast(stShadowAHAL, cmdBuf[4]);
     }
     stShadowAHAL++;
     sendAck(b);
@@ -472,7 +471,7 @@ namespace SerialPrivate {
     while (canReceive(1) && pb->remaining > 0) {
       byte b = peek(rcvBuf);
       consume(rcvBuf, 1);
-      WriteMem8(stShadowAHAL, &b, 1);
+      WrMemFast(stShadowAHAL, b);
       stShadowAHAL++;
       pb->remaining--;
     }
@@ -515,9 +514,7 @@ namespace SerialPrivate {
   // ring buffer.
   State readPageInProgress() {
     while (canSend(1) && pb->remaining > 0) {
-      byte b;
-      ReadMem8(stShadowAHAL, &b, 1);
-      send(b);
+      send(RdMemFast(stShadowAHAL));
       stShadowAHAL++;
       pb->remaining--;
     }
@@ -533,7 +530,7 @@ namespace SerialPrivate {
   // Like stWrPage, this function can only address main memory, and only as
   // an array of bytes. And also like stWrPage(), we allocate the poll buffer
   // even though we pull the data from memory and send it directly to the
-  // ring buffer.
+  // ring buffer. A single transfer must be done first to set AH, AL, and K.
   State stRdPage(RING* const r, byte b) {
     consume(r, 1); // the byte b
 
@@ -555,6 +552,8 @@ namespace SerialPrivate {
   }
 
   // Set the K register to the four bytes that follow the command.
+  // This command is used only for manual debugging; when the host
+  // e.g. writes memory, code here takes care of setting K.
   State stSetK(RING* const r, byte b) {
     byte cmdBuf[4];
     copy(r, cmdBuf, 4);

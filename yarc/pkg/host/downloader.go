@@ -15,14 +15,21 @@ import (
 
 	"bufio"
 	"fmt"
+	"log"
 )
 
 // Downloader
+//
+// The assembler produces an absolute binary file, 70k long, having
+// three sections. The sections are memory (30k bytes),  microcode
+// (32k bytes), and ALU RAM (8k bytes). These can be written to and
+// read back from the YARC for validation using a variety of protocol
+// commands to the Nano. The code here does this download and verify.
 
-const MemorySize = 0x7800
+const MemorySize = 0x7800	// 32k - 2k of I/O register space
 
 func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
-	fmt.Println("downloading...")
+	log.Println("downloading...")
 	if err := doMemorySection(binary, nano); err != nil {
 		return err
 	}
@@ -36,45 +43,77 @@ func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
 	return nil
 }
 
-type uint8 byte
+// Read a fixed set of bytes into the slice at offset through offset + n -1.
+// If an error is returned, the state of the slice into[] is undefined.
+func readBytes(binary *bufio.Reader, into []byte, offset int, n int) error {
+	for i := 0; i < n; i++ {
+		b, err := binary.ReadByte()
+		if err != nil {
+			return err
+		}
+		into[offset] = b;
+		offset++;
+	}
+	return nil
+}
+
+func writeMainMemoryChunk(binary *bufio.Reader, nano *arduino.Arduino, addr uint16, size uint16) error {
+	if size > 256 {
+		return fmt.Errorf("illegal size: %d", size)
+	}
+
+	// write the first byte
+	var doCycle[] byte = make([]byte, 5, 5)
+	var response[] byte
+
+	b, err := binary.ReadByte()
+	if err != nil {
+		return err
+	}
+	doCycle[0] = sp.CmdXferSingle
+	doCycle[1] = byte(addr % size)		// AH
+	doCycle[2] = byte(addr / size)		// AL
+	doCycle[3] = 0						// DH
+	doCycle[4] = b						// DL
+	response, err = doFixedCommand(nano, doCycle, 1)
+	if err != nil {
+		return err
+	}
+	// On a write transfer, the returned value should
+	// merely echo the data value.
+	if response[0] != doCycle[4] {
+		return fmt.Errorf("invalid response 0x%02X to CmdXferSingle(0x%02X)",
+			response[0], doCycle[4])
+	}
+
+	// Now with the addressing registers set in the Nano, read the
+	// rest of the chunk from the binary file. We use ReadByte()
+	// because it will never return a short read so we avoid having
+	// fill logic.
+	writePage := make([]byte, size-1, size-1)
+	for i := range(writePage) {
+		if writePage[i], err = binary.ReadByte(); err != nil {
+			return err
+		}
+	}
+	cmd := make([]byte, 2, 2)
+	cmd[0] = sp.CmdWritePage
+	cmd[1] = byte(len(writePage))
+	return doCountedSend(nano, cmd, writePage)
+}
 
 func doMemorySection(binary *bufio.Reader, nano *arduino.Arduino) error {
-	const ChunkSize = 256
-	const ByteRange = 1 << 8
-	var doCycle[] byte = make([]byte, 5, 5)
+	const chunkSize = 64
 	var addr uint16
-	var b byte
-	var err error
 
-	for addr = 0; addr < MemorySize; addr += ChunkSize {
-		// write the first byte
-		if b, err = binary.ReadByte(); err != nil {
+	// For now this will only work if ChunkSize is a multiple of memory
+	// size (basically a power of 2).
+	for addr = 0; addr < MemorySize; addr += chunkSize {
+		if err := writeMainMemoryChunk(binary, nano, addr, chunkSize); err != nil {
 			return err
 		}
-		doCycle[0] = sp.CmdXferSingle
-		doCycle[1] = byte(addr % ByteRange)			// AH
-		doCycle[2] = byte(addr & (ByteRange-1))		// AL
-		doCycle[3] = 0                              // DH
-		doCycle[4] = b                              // DL
-		if _, err = doFixedCommand(nano, doCycle, 0); err != nil {
-			return err
-		}
-
-		// Now with the addressing registers set in the Nano, read the
-		// rest of the chunk from the binary file. We use ReadByte()
-		// because it will never return a short read so we avoid having
-		// fill logic.
-		writePage := make([]byte, ChunkSize-1, ChunkSize-1)
-		for i := range(writePage) {
-			if writePage[i], err = binary.ReadByte(); err != nil {
-				return err
-			}
-		}
-
-		cmd := make([]byte, 1, 1)
-	 	cmd[0] = sp.CmdWritePage
-		if err = doCountedSend(nano, cmd, writePage); err != nil {
-			return err
+		if addr % 2048 == 0 {
+			log.Printf("0x%04X done\n", addr)
 		}
 	}
 	return nil
