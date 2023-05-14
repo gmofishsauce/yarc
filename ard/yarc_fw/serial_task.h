@@ -234,6 +234,7 @@ namespace SerialPrivate {
   typedef struct pollBuffer {
     int remaining;
     int next;
+    byte cmd[4];
     bool inuse;
     byte buf[POLL_BUF_SIZE];
   } PollBuffer;
@@ -419,10 +420,35 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
-  State stWrSlice(RING* const r, byte b) {
-    return stBadCmd(r, b);
+  State writeSliceInProgress() {
+    while (canReceive(1) && pb->remaining > 0) {
+      pb->buf[pb->next] = peek(rcvBuf);
+      consume(rcvBuf, 1);
+      pb->next++;
+      pb->remaining--;
+    }
+    if (pb->remaining == 0) {
+      WriteSlice(pb->cmd[1], pb->cmd[2], pb->buf, pb->cmd[3], true);
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;
   }
 
+  State stWrSlice(RING* const r, byte b) {
+    allocPollBuffer();
+    copy(r, pb->cmd, 4);
+    consume(rcvBuf, 4);
+    pb->remaining = pb->cmd[3];
+    pb->next = 0;
+    inProgress = writeSliceInProgress;
+    sendAck(b);
+    return writeSliceInProgress();
+  }
+
+  // This isn't needed because stWrSlice (writeSlice())
+  // verifies the write internally. I haven't been
+  // consistent about this kind of thing.
   State stRdSlice(RING* const r, byte b) {
     return stBadCmd(r, b);
   }
@@ -440,7 +466,8 @@ namespace SerialPrivate {
     byte cmdBuf[5];
     copy(rcvBuf, cmdBuf, 5);
     consume(rcvBuf, 5);
-    stShadowAHAL = BtoS(cmdBuf[1], cmdBuf[2]);
+    unsigned short addr = BtoS(cmdBuf[1], cmdBuf[2]);
+    stShadowAHAL = addr & 0x7FFF;
     if (stShadowAHAL >= END_MEM) {
       stShadowAHAL = END_MEM;
       sendNak(b);
@@ -449,7 +476,7 @@ namespace SerialPrivate {
 
     byte bir;
 
-    if (stShadowAHAL & 0x8000) {
+    if (addr & 0x8000) {
       WriteK(RDMEM8_TO_NANO);   // read memory byte
       bir = RdMemFast(stShadowAHAL);
     } else {
@@ -545,6 +572,7 @@ namespace SerialPrivate {
     }
   
     sendAck(b);
+    send(n);
     allocPollBuffer();
     inProgress = readPageInProgress;
     pb->remaining = n;
