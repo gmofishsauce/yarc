@@ -28,16 +28,16 @@ import (
 // subslices to the handlers for each section (memory, microcode, and
 // ALU RAM). Each section handler is expected to write and then verify
 // the content. All transfers to the Nano over the wire are done in
-// 64-byte chunkies, an unfortunate compromise to avoid data overrun
-// as the serial line has absolutely no flow control of any kind.
+// 64-byte chunkies, an unfortunate compromise (larger would be faster)
+// to avoid data overrun as the serial line has no flow control.
 
 const memorySectionBase = 0
 const memorySectionSize = 30*1024
 const microcodeSectionBase = memorySectionSize
 const microcodeSectionSize = 32*1024
-const aluRamSectionBase = memorySectionSize + microcodeSectionSize
-const aluRamSectionSize = 8*1024
-const binaryFileSize = memorySectionSize + microcodeSectionSize + aluRamSectionSize
+const aluSectionBase = memorySectionSize + microcodeSectionSize
+const aluSectionSize = 8*1024
+const binaryFileSize = memorySectionSize + microcodeSectionSize + aluSectionSize
 const chunkSize = 64
 
 func readFile(binary *bufio.Reader) ([]byte, error) {
@@ -63,10 +63,10 @@ func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
 	if err := doMemorySection(content[0:microcodeSectionBase], nano); err != nil {
 		return err
 	}
-	if err := doMicrocodeSection(content[microcodeSectionBase:aluRamSectionBase], nano); err != nil {
+	if err := doMicrocodeSection(content[microcodeSectionBase:aluSectionBase], nano); err != nil {
 		return err
 	}
-	if err := doALUSection(content[aluRamSectionBase:binaryFileSize], nano); err != nil {
+	if err := doALUSection(content[aluSectionBase:binaryFileSize], nano); err != nil {
 		return err
 	}
 
@@ -82,7 +82,6 @@ func doMemorySection(content []byte, nano *arduino.Arduino) error {
 		if err := writeMemoryChunk(toWrite, nano, addr); err != nil {
 			return err
 		}
-		log.Println("-")
 		readBack, err := readMemoryChunk(nano, addr)
 		if err != nil {
 			return err
@@ -90,10 +89,11 @@ func doMemorySection(content []byte, nano *arduino.Arduino) error {
 		if bytes.Compare(toWrite, readBack) != 0 {
 			return fmt.Errorf("memory compare fail: wrote %v read %v\n", toWrite, readBack)
 		}
-		if addr % 2048 == 0 {
-			log.Printf("0x%04X done\n", addr)
+		if addr % 4096 == 0 {
+			log.Printf("memory 0x%04X done\n", addr)
 		}
 	}
+	log.Printf("memory done\n")
 	return nil
 }
 
@@ -113,6 +113,7 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 	for op := 0; op < microcodeSectionSize; op += ucodePerOp {
 		for slice := 0; slice < 4; slice++ {
 			var i int = 0
+			// XXX I don't think I need to copy this, ecch.
 			for addr := op + slice; addr < op + ucodePerOp; addr += 4 {
 				body[i] = content[addr]
 				i++
@@ -121,15 +122,61 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 				return err
 			}
 		}
-		if op % 16 == 0 && op > 0 {
+		if op % 4096 == 0 && op > 0 {
 			log.Printf("%d opcodes written\n", op)
 		}
+	}
+	log.Printf("microcode done\n")
+	return nil
+}
+
+// The ALU section is 8k, but it needs to be read back separately
+// from each of the 3 ALU RAMs for verification.
+func doALUSection(content []byte, nano *arduino.Arduino) error {
+	var addr uint16
+
+	for addr = 0; addr < aluSectionSize; addr += chunkSize {
+		toWrite := content[addr:addr+chunkSize]
+        if err := writeAluChunk(nano, toWrite, addr); err != nil {
+            return err
+        }
+		// There are three identical ALU RAMs. They are written
+		// as a unit but must be verified separately.
+		for ram := 0; ram < 3; ram++ {
+			readBack, err := readAluChunk(nano, addr, byte(ram))
+			if err != nil {
+				return err
+			}
+			if bytes.Compare(toWrite, readBack) != 0 {
+				return fmt.Errorf("ALU compare fail, RAM %d: wrote %v read %v\n",
+					ram, toWrite, readBack)
+			}
+		}
+
+        if addr % 2048 == 0 && addr != 0 {
+            log.Printf("ALU 0x%04X done\n", addr)
+        }
 	}
 	return nil
 }
 
-func doALUSection(content []byte, nano *arduino.Arduino) error {
-	return nil
+func writeAluChunk(nano *arduino.Arduino, body []byte, addr uint16) error {
+	var cmdWrAlu []byte = make([]byte, 4, 4)
+	cmdWrAlu[0] = sp.CmdWrAlu
+	cmdWrAlu[1] = byte(addr >> 8)	// AH
+	cmdWrAlu[2] = byte(addr & 0xFF)	// AL
+	cmdWrAlu[3] = byte(len(body))
+	return doCountedSend(nano, cmdWrAlu, body)
+}
+
+func readAluChunk(nano *arduino.Arduino, addr uint16, ram byte) ([]byte, error) {
+	var cmdRdAlu []byte = make([]byte, 5, 5)
+	cmdRdAlu[0] = sp.CmdRdAlu
+	cmdRdAlu[1] = byte(addr >> 8)	// AH
+	cmdRdAlu[2] = byte(addr & 0xFF) // AL
+	cmdRdAlu[3] = byte(ram)
+	cmdRdAlu[4] = byte(chunkSize)
+	return doCountedReceive(nano, cmdRdAlu)
 }
 
 func writeMicrocodeChunk(op int, slice int, body []byte, nano *arduino.Arduino) error {
@@ -137,7 +184,7 @@ func writeMicrocodeChunk(op int, slice int, body []byte, nano *arduino.Arduino) 
 	cmdWrSlice[0] = sp.CmdWrSlice
 	cmdWrSlice[1] = byte(0x80 | op)
 	cmdWrSlice[2] = byte(slice)
-	cmdWrSlice[3] = chunkSize;
+	cmdWrSlice[3] = byte(len(body))
 	return doCountedSend(nano, cmdWrSlice, body)
 }
 
@@ -147,10 +194,10 @@ func writeMemoryChunk(content []byte, nano *arduino.Arduino, addr uint16) error 
 	var response []byte
 
 	doCycle[0] = sp.CmdXferSingle
-	doCycle[1] = byte(addr % chunkSize)	// AH
-	doCycle[2] = byte(addr / chunkSize)	// AL
-	doCycle[3] = 0						// DH
-	doCycle[4] = content[0]				// DL
+	doCycle[1] = byte(addr >> 8)	// AH
+	doCycle[2] = byte(addr & 0xFF)	// AL
+	doCycle[3] = 0					// DH
+	doCycle[4] = content[0]			// DL
 	response, err := doFixedCommand(nano, doCycle, 1)
 	if err != nil {
 		return err
@@ -165,10 +212,11 @@ func writeMemoryChunk(content []byte, nano *arduino.Arduino, addr uint16) error 
 
 	// Now with the addressing registers set in the Nano, send
 	// the rest of the chunk with single transfer
+	theRest := content[1:]
 	cmd := make([]byte, 2, 2)
 	cmd[0] = sp.CmdWritePage
-	cmd[1] = byte(chunkSize - 1)
-	return doCountedSend(nano, cmd, content[1:])
+	cmd[1] = byte(len(theRest))
+	return doCountedSend(nano, cmd, theRest)
 }
 
 func readMemoryChunk(nano *arduino.Arduino, addr uint16) ([]byte, error) {
@@ -176,11 +224,11 @@ func readMemoryChunk(nano *arduino.Arduino, addr uint16) ([]byte, error) {
 	var result bytes.Buffer
 
 	doCycle[0] = sp.CmdXferSingle
-	doCycle[1] = byte(addr % chunkSize)	// AH
-	doCycle[1] |= byte(0x80)			// Read
-	doCycle[2] = byte(addr / chunkSize)	// AL
-	doCycle[3] = 0						// DH
-	doCycle[4] = 0						// DL
+	doCycle[1] = byte(addr >> 8)	// AH
+	doCycle[1] |= byte(0x80)		// Read
+	doCycle[2] = byte(addr & 0xFF)	// AL
+	doCycle[3] = 0					// DH
+	doCycle[4] = 0					// DL
 	response, err := doFixedCommand(nano, doCycle, 1)
 	if err != nil {
 		return nil, err
