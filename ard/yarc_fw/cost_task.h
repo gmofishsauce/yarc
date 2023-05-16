@@ -41,6 +41,8 @@ namespace CostPrivate {
 
 #if COST
 
+  constexpr byte aluChunkSize = 17;
+
   static union {
     struct delayData {
       long int delay;      
@@ -81,10 +83,13 @@ namespace CostPrivate {
       byte location;
     } flagsData;
     struct aluRamData {
+      byte data[aluChunkSize];
+      byte readback[aluChunkSize];
       unsigned short address;
-      byte written;
-      byte readback;
       byte ram;
+      byte b0;
+      byte b1;
+      byte b2;
     } aluRamData;
   };
 
@@ -242,8 +247,8 @@ namespace CostPrivate {
   }
 
   void delayTaskInit() {
-    constexpr long callsPerMillisecond = 12L; // estimate
-    constexpr long delaySeconds = 5L;         // arbitrary
+    constexpr long callsPerMillisecond = 25L; // estimate
+    constexpr long delaySeconds = 1L;         // arbitrary
     constexpr long millisPerSecond = 1000L;    
     delayData.delay = callsPerMillisecond * delaySeconds * millisPerSecond; 
   }
@@ -805,8 +810,31 @@ namespace CostPrivate {
 
     int aluRamCallback(char* bp, int bmax) {
     int result = snprintf_P(bp, bmax,
-      PSTR("  F aluRamTest: ram %d: at 0x%04x wrote 0x%02X read 0x%02X"),
-        aluRamData.ram, aluRamData.address, aluRamData.written, aluRamData.readback);
+      PSTR("  F aluRamTest: ram %d: at 0x%04x [%02X %02X %02X] wrote %02X %02X %02X %02X %02X %02X %02X read %02X %02X %02X %02X %02X %02X %02X"),
+        aluRamData.ram, aluRamData.address,
+        aluRamData.b0, aluRamData.b1, aluRamData.b2,
+        aluRamData.data[0],
+        aluRamData.data[1],
+        aluRamData.data[2],
+        aluRamData.data[3],
+        aluRamData.data[4],
+        aluRamData.data[5],
+        aluRamData.data[6],
+        aluRamData.readback[0],
+        aluRamData.readback[1],
+        aluRamData.readback[2],
+        aluRamData.readback[3],
+        aluRamData.readback[4],
+        aluRamData.readback[5],
+        aluRamData.readback[6]
+        );
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  int aluRamOKCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR(" OK aluRamTest: at 0x%04X"), aluRamData.address);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
@@ -816,32 +844,34 @@ namespace CostPrivate {
   }
 
   bool aluRamTest() {
-    constexpr byte chunksize = 16;
-    byte data[chunksize];
-    byte readback[chunksize];
     byte b = random();
 
-    for (byte i = 0; i < chunksize; ++i) {
-      data[i] = b + 131;
+    for (byte i = 0; i < aluChunkSize; ++i) {
+      aluRamData.data[i] = b + 131;
+      b += 131;
     }
 
-    unsigned short addr = random(0, END_ALU_MEM - chunksize);
-    WriteALU(addr, data, chunksize);
+    unsigned short addr = random(0, END_ALU_MEM - aluChunkSize);
+    WriteALU(addr, aluRamData.data, aluChunkSize);
 
     for (byte ram = 0; ram < 3; ++ram) {
-      ReadALU(addr, readback, chunksize, ram);
-      for (int i = 0; i < chunksize; ++i) {
-        if (readback[i] != data[i]) {
-          aluRamData.address = addr + i;
-          aluRamData.written = data[i];
-          aluRamData.readback = readback[i];
+      ReadALU(addr, aluRamData.readback, aluChunkSize, ram);
+      for (int i = 0; i < aluChunkSize; ++i) {
+        if (aluRamData.readback[i] != aluRamData.data[i]) {
+          aluRamData.address = addr;
           aluRamData.ram = ram;
+          ReadALU(addr+i, &aluRamData.b0, 1, 0);
+          ReadALU(addr+i, &aluRamData.b1, 1, 1);
+          ReadALU(addr+i, &aluRamData.b2, 1, 2);
           queuedLogMessageCount++;
           logQueueCallback(aluRamCallback);
-          break;
+          return false;
         }
       }
     }
+    aluRamData.address = addr;
+    queuedLogMessageCount++;
+    logQueueCallback(aluRamOKCallback);
     return false;
   }
 #endif // COST

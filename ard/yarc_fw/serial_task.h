@@ -234,7 +234,7 @@ namespace SerialPrivate {
   typedef struct pollBuffer {
     int remaining;
     int next;
-    byte cmd[4];
+    byte cmd[6];
     bool inuse;
     byte buf[POLL_BUF_SIZE];
   } PollBuffer;
@@ -420,6 +420,9 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
+  // Collect the bytes to write in the poll buffer to minimize the
+  // number of calls to WriteSlice(), which is slow. WriteSlice()
+  // panics if the write doesn't verify correctly.
   State writeSliceInProgress() {
     while (canReceive(1) && pb->remaining > 0) {
       pb->buf[pb->next] = peek(rcvBuf);
@@ -435,10 +438,17 @@ namespace SerialPrivate {
     return state;
   }
 
+  // Write and internally verify a slice of microcode RAM. The first
+  // argument is the opcode to write. The second byte is the slice.
+  // The third is the byte count.
   State stWrSlice(RING* const r, byte b) {
     allocPollBuffer();
     copy(r, pb->cmd, 4);
     consume(rcvBuf, 4);
+    if (pb->cmd[1] < 0x80 || pb->cmd[2] > 0x03 || pb->cmd[3] > 64) {
+      freePollBuffer();
+      return stBadCmd(r, b);
+    }
     pb->remaining = pb->cmd[3];
     pb->next = 0;
     inProgress = writeSliceInProgress;
@@ -452,8 +462,6 @@ namespace SerialPrivate {
   State stRdSlice(RING* const r, byte b) {
     return stBadCmd(r, b);
   }
-
-  bool OPT = true;
 
   // Do a bus transfer with the given AH, AL, and DL. Save the values
   // of AH, AL, and set the K register (important) so that a following
@@ -523,7 +531,7 @@ namespace SerialPrivate {
     // greater than any possible legal address.
     byte n = peek(r);
     consume(r, 1);
-    if (stShadowAHAL + n >= END_MEM) {
+    if (stShadowAHAL + n > END_MEM) {
       return stBadCmd(r, b); // panic?
     }
 
@@ -567,7 +575,7 @@ namespace SerialPrivate {
     // greater than any possible legal address.
     byte n = peek(r);
     consume(r, 1);
-    if (stShadowAHAL + n >= END_MEM) {
+    if (stShadowAHAL + n > END_MEM) {
       return stBadCmd(r, b); // panic?
     }
   
@@ -577,6 +585,81 @@ namespace SerialPrivate {
     inProgress = readPageInProgress;
     pb->remaining = n;
     return readPageInProgress();
+  }
+
+  State writeAluInProgress() {
+    while (canReceive(1) && pb->remaining > 0) {
+      pb->buf[pb->next] = peek(rcvBuf);
+      consume(rcvBuf, 1);
+      pb->next++;
+      pb->remaining--;
+    }
+    if (pb->remaining == 0) {
+      WriteALU(BtoS(pb->cmd[1], pb->cmd[2]), pb->buf, pb->cmd[3]);
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;
+  }
+
+  // Write the ALU RAMs. After the command byte, the bytes are
+  // the write address high, write address low, and count. The
+  // count "n" must be exactly 64 and the address must be aligned
+  // on a 64-byte boundary so that a specific optimization can be
+  // enabled in yarc_utils. 
+  State stWrALU(RING* const r, byte b) {
+    allocPollBuffer();
+    copy(r, pb->cmd, 4);
+    consume(rcvBuf, 4);
+    unsigned int addr = BtoS(pb->cmd[1], pb->cmd[2]);
+    unsigned int n = pb->cmd[3];
+    if (addr > 0x1FFF || n != 64 || (addr&0x3F) || addr + n > 0x2000) {
+      freePollBuffer();
+      return stBadCmd(r, b);
+    } 
+    pb->remaining = pb->cmd[3];
+    pb->next = 0;
+    inProgress = writeSliceInProgress;
+    sendAck(b);
+    return writeAluInProgress();
+  }
+
+  State readAluInProgress() {
+    while (canSend(1) && pb->remaining > 0) {
+      send(pb->buf[pb->next]);
+      pb->next++;
+      pb->remaining--;
+    }
+    if (pb->remaining == 0) {
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;
+  }
+
+  // Read one of the three ALU RAMs. After the command byte,
+  // the bytes are read address high, read address low, ALU
+  // RAM ID in 0..2, and a count. The count "n" must be exactly
+  // 64 and the address must be aligned on a 64-byte boundary so
+  // that a specific optimization can be enabled in yarc_utils.
+  State stRdALU(RING* const r, byte b) {
+    allocPollBuffer();
+    copy(r, pb->cmd, 5);
+    consume(rcvBuf, 5);
+    unsigned int addr = BtoS(pb->cmd[1], pb->cmd[2]);
+    unsigned int ram = pb->cmd[3];
+    unsigned int n = pb->cmd[4];
+    if (addr > 0x1FFF || n != 64 || (addr&0x3F) || addr + n > 0x2000 || ram > 2) {
+      freePollBuffer();
+      return stBadCmd(r, b);
+    }
+    ReadALU(addr, pb->buf, n, ram);
+    pb->remaining = pb->cmd[4];
+    pb->next = 0;
+    inProgress = readAluInProgress;
+    sendAck(b);
+    send(pb->cmd[4]);
+    return readAluInProgress();
   }
 
   // Set the K register to the four bytes that follow the command.
@@ -646,8 +729,8 @@ namespace SerialPrivate {
     { stSetK,       5 },
     
     { stSetMCR,     2 },
-    { stBadCmd,     1 },
-    { stBadCmd,     1 },
+    { stWrALU,      4 },
+    { stRdALU,      5 },
     { stBadCmd,     1 },
   };
 

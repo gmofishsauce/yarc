@@ -87,7 +87,7 @@ void swizzleAddressToR1R0(unsigned short addr) {
 // but the hardware writes them in parallel with the same data. They can be
 // be read back separately for validation.
 void WriteALU(unsigned short offset, byte *data, unsigned short n) {
-  if (offset >= END_ALU_MEM || n > 256 || offset + n >= END_ALU_MEM) {
+  if (offset >= END_ALU_MEM || n >= 256 || offset + n > END_ALU_MEM) {
     panic(PANIC_ARGUMENT, 10);
   }
 
@@ -100,17 +100,17 @@ void WriteALU(unsigned short offset, byte *data, unsigned short n) {
     // This allows me to check it with a scope. Since -something- always appears
     // there, R0 (00) is as good as any of the other three choices. We remove this
     // for production because writing K is very slow.
-    WriteK(0x3F, 0xFF, 0xFF, 0xFF);
+    // WriteK(0x3F, 0xFF, 0xFF, 0xFF);
 
     // Now the five high order address bits. Address bit 8 is the carry input A8 to
     // all three RAMs when the Nano has control. It comes from the ALU Control
-    // Register (ACR) bit 3.    
+    // Register (ACR) bit 3. The other bits come from the microcode.
     byte acrBits = AcrSetOp(ACR_SAFE, ACR_WRITE);
     acrBits = AcrSetA8(acrBits, (addr & 0x100) ? 1 : 0);
     SetACR(acrBits);
     byte aluBits = (addr >> 9) & 0x000F;
     WriteK(WR_ALU_RAM_FROM_NANO(aluBits));
-    
+
     // Finally do the write - the low order bit of ACR is the enable. We share
     // the "KX" back bus to the ALU RAM with the microcode and K register; the
     // MCR code calls this EnableWCS() (writeable control store).
@@ -144,7 +144,7 @@ void ReadALU(unsigned short offset, byte *data, unsigned short n, byte ramID) {
     // This allows me to check it with a scope. Since -something- always appears
     // there, R0 (00) is as good as any of the other three choices. We remove this
     // for production because writing K is very slow.
-    WriteK(0x3F, 0xFF, 0xFF, 0xFF);
+    // WriteK(0x3F, 0xFF, 0xFF, 0xFF);
 
     // Now the five high order address bits. Address bit 8 is the carry input A8 to
     // all three RAMs when the Nano has control. It comes from the ALU Control
@@ -162,8 +162,6 @@ void ReadALU(unsigned short offset, byte *data, unsigned short n, byte ramID) {
     SetACR(AcrEnable(acrBits));
     SetMCR(McrEnableWcs(MCR_SAFE));
     SetADHL(0xFF, 0xFF, 0xCC, 0xBB);
-    // PortPrivate::nanoStartToggle(PortPrivate::RawNanoClock);
-    // for (;;) {} // ================================ STOP
     SingleClock();
     *data = GetBIR();
     SetACR(ACR_SAFE);
@@ -173,19 +171,7 @@ void ReadALU(unsigned short offset, byte *data, unsigned short n, byte ramID) {
 
 // Write the bytes at *data to microcode memory. The length of the data array
 // must be 4 * nWords bytes, so this function can write as much as 256 bytes
-// of data (in practice, the only place this data could be passed from is the
-// poll buffer in the serial task, which can only hold 255 data bytes; thus,
-// the largest value of nWords in practice is 63 and the last microcode slot
-// of every instruction is unavailable.)
-//
-// IMPORTANT: the YARC is 16-bit big-endian, meaning the byte with the most
-// significant bits of a 16-bit value comes first in memory followed by the
-// byte with the less significant bits. The only place we ever have to deal
-// with 32-bit quantities is the microcode, that is here. So we maintain the
-// big-endian convention. Each microcode word takes 4 bytes in the data array,
-// and the bytes are ordered 3, 2, 1, 0. This puts bits 31:24 of the microcode
-// word in byte 0, bits 23:16 in byte 1, etc., and so on for each 4-byte
-// microcode word. The implementation of this is commented below.
+// of data.
 void WriteMicrocode(byte opcode, byte *data, byte nWords) {
   constexpr byte SIZE = 64;
   constexpr byte nSlices = 4;
