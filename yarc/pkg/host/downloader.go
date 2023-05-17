@@ -104,16 +104,29 @@ func doMemorySection(content []byte, nano *arduino.Arduino) error {
 // bytes 0, 4, 8, ... on the first of the four writes, bytes 1, 5, 9,
 // ... on the second of the four, etc.
 func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
-	var body []byte = make([]byte, chunkSize, chunkSize)
-	const ucodePerOp = 4 * chunkSize
-
 	// There are 2^7 opcodes each with 2^8 bytes of microcode
 	// Each 2^8 is organized as 2^2 slices of 2^6 bytes each
 	// We leverage the fact that the chunk size is also 2^6
+
+	var body []byte = make([]byte, chunkSize, chunkSize)
+	const slicesPerOp = 4
+	const bytesPerSlicePerOp = 64 // == chunkSize
+	const ucodePerOp = slicesPerOp * bytesPerSlicePerOp
+	const numOpcodes = 128
+
+	if chunkSize != 64 {
+		panic("doMicrocodeSection(): chunkSize must be 64")
+	}
+	if numOpcodes != microcodeSectionSize / ucodePerOp {
+		panic("doMicrocodeSection(): constants incorrectly defined")
+	}
+	if len(content) != numOpcodes * ucodePerOp {
+		panic("doMicrocodeSection(): invalid content length")
+	}
+
 	for op := 0; op < microcodeSectionSize; op += ucodePerOp {
-		for slice := 0; slice < 4; slice++ {
+		for slice := 0; slice < slicesPerOp; slice++ {
 			var i int = 0
-			// XXX I don't think I need to copy this, ecch.
 			for addr := op + slice; addr < op + ucodePerOp; addr += 4 {
 				body[i] = content[addr]
 				i++
@@ -140,6 +153,7 @@ func doALUSection(content []byte, nano *arduino.Arduino) error {
         if err := writeAluChunk(nano, toWrite, addr); err != nil {
             return err
         }
+
 		// There are three identical ALU RAMs. They are written
 		// as a unit but must be verified separately.
 		for ram := 0; ram < 3; ram++ {

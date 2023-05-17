@@ -768,41 +768,6 @@ namespace CostPrivate {
       flagsData.location = 2;
       return true; // come back and do the second test
     }
-
-    // May 2023: the rest of this test stopped working when I wired the ALU
-    // because the uninitialized ALU outputs became random, rather than being
-    // zeroes because they were pulled there. Rather than fix the test to be
-    // a full ALU flow-through, I decided to remove it and focus on the downloader.
-    //
-    // Second test: do a conditional move on carry
-    // Note: the ALU output is currently all zeroes.
-    // WriteIR(0xC0, 0);
-    // flagsData.flags = 0x01; // carry set
-    // WriteFlags(flagsData.flags);
-    // WriteReg(0, 0xFFFF);
-    // flagsData.condition = 0; // built into CONDITIONAL_MOVE_ALU_R0
-    // WriteK(CONDITIONAL_MOVE_ALU_R0);
-    // SetMCR(McrEnableYarc((MCR_SAFE)));
-    // // When we issue the clock pulse, YARC will act based
-    // // on K and clock the microcode word at IR into K.
-    // // This should be a noop word with all bits 1.
-    // SingleClock();
-    // SetMCR(MCR_SAFE);
-    // unsigned short u = ReadReg(0, 0x7700);
-    // // Now, in theory, R0 should contain 0 because we moved
-    // // (conditionally moved) 0 from the ALU to R0. But the
-    // // ALU output registers are the only part of the ALU that
-    // // exists. One is a 573 and the other is a 574. Both have
-    // // their inputs strapped to 0 and pin 11 (their "clock"
-    // // or "pulse" inputs) pulled up. As a result the 573 is
-    // // always following the inputs low, but the 574 never sees
-    // // any edges so its content is random. The 573 is on the
-    // // high order bits. So call we can test is that u is 0x00XX,
-    // // not that it's 0x0000.
-    // if ((u&0xFF00) != 0) {
-    //   queuedLogMessageCount++;
-    //   logQueueCallback(flagsCallback);
-    // }
     return false; // done, success or failure
   }
 

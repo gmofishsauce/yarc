@@ -404,7 +404,23 @@ namespace PortPrivate {
     PORTC = PORTC | decoderEnablePin;
     PORTC = PORTC & ~decoderEnablePin;
   }
-  
+
+#if 0 // a failed attempt to speed up downloads by accelerating WriteK()
+  static byte clockDecoderAddress = getAddressFromRegisterID(RawNanoClock);
+  static byte clockEnablePin = getDecoderSelectPinFromRegisterID(RawNanoClock);
+
+  void experimentalNanoEnterWriteBlock() {
+    PORTC &= ~BOTH_DECODERS;
+    nanoPutPort(portSelect, clockDecoderAddress);
+    register byte decoderEnablePin = clockEnablePin;
+    for (int i = 0; i < 64; ++i) {
+      PORTC = PORTC | decoderEnablePin;
+      PORTC = PORTC & ~decoderEnablePin;
+    }
+  }
+ #endif
+
+ #if 0 
   // This function is only for use during debugging. It causes a toggle
   // to instead go low and stay that way.
   void nanoStartToggle(REGISTER_ID reg) {
@@ -416,6 +432,7 @@ namespace PortPrivate {
     byte decoderEnablePin = getDecoderSelectPinFromRegisterID(reg);
     PORTC = PORTC | decoderEnablePin;    
   }
+ #endif
   
   // Enable the specified register for input and call getPort() to read
   // the value. We cannot use nanoTogglePulse() here because we have to
