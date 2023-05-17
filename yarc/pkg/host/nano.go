@@ -234,6 +234,9 @@ func doCountedReceive(nano *arduino.Arduino, fixed []byte) ([]byte, error) {
 	}
 	response := make([]byte, count, count)
 	for i := 0; i < int(count); i++ {
+		response[i] = byte(i)
+	}
+	for i := 0; i < int(count); i++ {
 		b, err := nano.ReadFor(responseDelay)
 		if err != nil {
 			return response, err

@@ -619,7 +619,7 @@ namespace SerialPrivate {
     } 
     pb->remaining = pb->cmd[3];
     pb->next = 0;
-    inProgress = writeSliceInProgress;
+    inProgress = writeAluInProgress;
     sendAck(b);
     return writeAluInProgress();
   }
