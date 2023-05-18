@@ -47,7 +47,7 @@ import (
 
 // TODO generate shared code for Arduino specifics e.g. baud rate
 
-const resetDelay time.Duration = 3 * time.Second
+const resetDelay time.Duration = 4 * time.Second
 
 // Types
 
@@ -76,7 +76,7 @@ func New(deviceName string, baudRate int) (*Arduino, error) {
 	// Here, the time delay is important because otherwise the Nano
 	// will consume the first few bytes in an attempt to see if this
 	// reset is a programming device trying to flash new firmware.
-    log.Printf("serial port is open - delaying %3.0f seconds for Nano reset", resetDelay.Seconds())
+    log.Printf("serial port is open - delaying %.0f seconds for Nano reset", resetDelay.Seconds())
     time.Sleep(resetDelay)
 	return &arduino, nil
 }

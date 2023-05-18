@@ -77,7 +77,23 @@ func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
 func doMemorySection(content []byte, nano *arduino.Arduino) error {
 	var addr uint16
 
-	for addr = 0; addr < memorySectionSize; addr += chunkSize {
+	// Optimization for main memory: we scan backwards from the end of the
+	// memory section in the file until we hit a nonzero value. We download
+	// the 64-byte chunkie containing that nonzero value and all the rest
+	// down to 0. The assembler supports a directive .bes (Block Ended by
+	// Symbol) to place a nonzero value that marks the end of downloadable
+	// memory; very old timers will get the joke.
+
+	var zeroes []byte = bytes.Repeat([]byte{0}, chunkSize)
+	for addr = memorySectionSize - chunkSize; addr >= 0; addr -= chunkSize {
+		if bytes.Compare(content[addr:addr+chunkSize], zeroes) != 0 {
+			break
+		}
+	}
+
+	limit := addr + chunkSize
+
+	for addr = 0; addr < limit; addr += chunkSize {
 		toWrite := content[addr:addr+chunkSize]
 		if err := writeMemoryChunk(toWrite, nano, addr); err != nil {
 			return err
@@ -89,11 +105,8 @@ func doMemorySection(content []byte, nano *arduino.Arduino) error {
 		if bytes.Compare(toWrite, readBack) != 0 {
 			return fmt.Errorf("memory compare fail: wrote %v read %v\n", toWrite, readBack)
 		}
-		if addr % 4096 == 0 {
-			log.Printf("memory 0x%04X done\n", addr)
-		}
 	}
-	log.Printf("memory done\n")
+	log.Printf("wrote %d bytes of main memory\n", limit)
 	return nil
 }
 
@@ -124,7 +137,15 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 		panic("doMicrocodeSection(): invalid content length")
 	}
 
+	
+	var allNoops []byte = bytes.Repeat([]byte{0xFF}, ucodePerOp) 
+	var nWritten int
+
 	for op := 0; op < microcodeSectionSize; op += ucodePerOp {
+		if bytes.Compare(content[op:op+ucodePerOp], allNoops) == 0 {
+            continue
+        }
+		nWritten++
 		for slice := 0; slice < slicesPerOp; slice++ {
 			var i int = 0
 			for addr := op + slice; addr < op + ucodePerOp; addr += 4 {
@@ -135,21 +156,33 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 				return err
 			}
 		}
-		if op % 4096 == 0 && op > 0 {
-			log.Printf("%d opcodes written\n", op)
-		}
 	}
-	log.Printf("microcode done\n")
+	log.Printf("wrote microcode for %d opcodes\n", nWritten)
 	return nil
 }
 
 // The ALU section is 8k, but it needs to be read back separately
-// from each of the 3 ALU RAMs for verification.
+// from each of the 3 ALU RAMs for verification. ALU RAM access is
+// extremely slow - naive byte-at-a-time writes followed by 3 reads
+// for verification takes two minutes to download 8k. Optimizations
+// require trixie low-level programming in the Nano which I'm not
+// in any mood for. So for now, any 64-byte chunk that is all zeroes
+// is not downloaded. This will become less and less effective as the
+// ALU RAMs are fleshed out. The plan is to build an optimized "write
+// and then read for verify" that will make the raw download run in
+// about 1/3 to 1/4 the time (hopefully less than 45 seconds). And
+// that will likely be it.
 func doALUSection(content []byte, nano *arduino.Arduino) error {
 	var addr uint16
+	var nWritten int
 
+	var zeroes []byte = bytes.Repeat([]byte{0}, chunkSize)
 	for addr = 0; addr < aluSectionSize; addr += chunkSize {
 		toWrite := content[addr:addr+chunkSize]
+		if bytes.Compare(toWrite, zeroes) == 0 {
+            continue
+        }
+		nWritten++
         if err := writeAluChunk(nano, toWrite, addr); err != nil {
             return err
         }
@@ -166,11 +199,8 @@ func doALUSection(content []byte, nano *arduino.Arduino) error {
 					ram, toWrite, readBack)
 			}
 		}
-
-        if addr % 2048 == 0 && addr != 0 {
-            log.Printf("ALU 0x%04X done\n", addr)
-        }
 	}
+	log.Printf("wrote %d bytes of ALU RAM\n", nWritten * chunkSize)
 	return nil
 }
 

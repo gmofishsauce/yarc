@@ -433,20 +433,36 @@ namespace PortPrivate {
   }
 
   void callWhenAnyReset() {
-    byte ucodeNoops[64];
+    union {
+      byte bytes[64];
+      unsigned short words[32];
+    };
 
-    for (byte b = 0; b < sizeof(ucodeNoops); ++b) {
-      ucodeNoops[b] = 0xFF;      
+    constexpr short BCOUNT = sizeof(bytes);
+    constexpr short WCOUNT = sizeof(words) >> 1;
+
+    for (byte b = 0; b < BCOUNT; ++b) {
+      bytes[b] = 0xFF;      
     }
 
     for (byte n = 0, b = 0x80; b != 0; b++, n++) {
       SetDisplay(n);
-      WriteSlice(b, 0, ucodeNoops, sizeof(ucodeNoops), true); 
-      WriteSlice(b, 1, ucodeNoops, sizeof(ucodeNoops), true); 
-      WriteSlice(b, 2, ucodeNoops, sizeof(ucodeNoops), true); 
-      WriteSlice(b, 3, ucodeNoops, sizeof(ucodeNoops), true); 
+      WriteSlice(b, 0, bytes, BCOUNT, true); 
+      WriteSlice(b, 1, bytes, BCOUNT, true); 
+      WriteSlice(b, 2, bytes, BCOUNT, true); 
+      WriteSlice(b, 3, bytes, BCOUNT, true); 
     }
 
+    for (byte w = 0; w < WCOUNT; ++w) {
+      words[w] = 0x00;
+    }
+
+    for (unsigned short addr = 0; addr < END_MEM; addr += BCOUNT) {
+      SetDisplay(addr >> 8);
+      WriteMem16(addr, words, WCOUNT);
+    }
+
+    SetDisplay(0xCC);
     MakeSafe();
   }
 }
