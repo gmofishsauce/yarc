@@ -6,22 +6,31 @@ computer with a 16-bit multiplexed address/data bus and extensive
 pipelining.
 
 In December 2021, the design changed to a 16-bit computer with separate
-address and data busses, minimal pipelining, an 8-bit/2-cycle ALU, and
-two hardware stacks. In short, a general register machine with specific
-concessions to the efficient implementation of Charles Moore's FORTH
-programming language.
+address and data busses, minimal pipelining, four general registers, an
+8-bit-wide/2-cycle ALU, and two hardware stacks. In short, a general
+register machine with specific concessions to the efficient implementation
+of Charles Moore's FORTH programming language.
+
+Most recently, I decided not to build the stack hardware and to instead
+focus on developing the basic instruction set using two of the four
+registers for PC and SP. I plan to write a translator for a small subset
+of web assembler to YARC machine language (an "AoT" in their terminology,
+ahead-of-time compiler). This will allow me to program the YARC in a small
+subset any language that can target WASM--like Gnu C or Golang--rather
+than confining YARC programming to the Forth language.
 
 YARC is permanently tethered to a host computer (Mac) through a module
 called the "Downloader" (a misnomer, because communication is supported
 in both directions between host and YARC). The Downloader is based on a
-modern microprocessor (Arduino Nano). The YARC itself is built from
-74HC-series CMOS parts, with a few out-of-period extensions like 8kx8
-static RAMs.
+modern microprocessor (Arduino Nano) which implements serial over USB.
+
+The YARC itself is built from 74HC-series CMOS parts, with a few
+out-of-period extensions like 8kx8 static CMOS RAMs.
 
 ## ard - Arduino code for YARC downloader
 
-Nano IDE (v1.8) project holding C++ code for the "Downloader" (which
-should be renamed to "System Interface" or something).
+Nano IDE (v2.X) project holding C++ code for the Arduino that implements
+the "Downloader" (which should be renamed to "System Interface" or something).
 
 ## doc - YARC documentation
 
@@ -32,7 +41,8 @@ document that describes the assembly language.
 ## forth - Implementation of the FORTH language for YARC.
 
 Forth implementation for YARC. To be based on Jones Forth which can be
-found in a subdirectory.
+found in a subdirectory. Orphan directory now that plans have changed
+to a WASM implementation rather than Forth.
 
 ## ftz - Fritz sketches for YARC.
 
