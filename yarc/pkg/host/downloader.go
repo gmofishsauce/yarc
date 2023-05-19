@@ -161,17 +161,10 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 	return nil
 }
 
-// The ALU section is 8k, but it needs to be read back separately
-// from each of the 3 ALU RAMs for verification. ALU RAM access is
-// extremely slow - naive byte-at-a-time writes followed by 3 reads
-// for verification takes two minutes to download 8k. Optimizations
-// require trixie low-level programming in the Nano which I'm not
-// in any mood for. So for now, any 64-byte chunk that is all zeroes
-// is not downloaded. This will become less and less effective as the
-// ALU RAMs are fleshed out. The plan is to build an optimized "write
-// and then read for verify" that will make the raw download run in
-// about 1/3 to 1/4 the time (hopefully less than 45 seconds). And
-// that will likely be it.
+// The ALU section is 8k. Writes are very slow. Any 64-byte chunkie
+// that is all zeroes is not written (an all-0 byte is impossible
+// because if the value is 0, the zero flag (0x20) should be set,
+// and otherwise the low order four bits are not zero).
 func doALUSection(content []byte, nano *arduino.Arduino) error {
 	var addr uint16
 	var nWritten int
@@ -187,18 +180,25 @@ func doALUSection(content []byte, nano *arduino.Arduino) error {
             return err
         }
 
+		// As an optimization, I modified the Nano side of the
+		// writeAluChunk() call (the sp.CmdWrAlu protocol function)
+		// to write and verify (and panic the Nano if the verify
+		// fails). So it's no longer necessary to read all three
+		// RAMs separately for verification, although it works
+		// just fine to do so. 5/19/2023
+		//
 		// There are three identical ALU RAMs. They are written
 		// as a unit but must be verified separately.
-		for ram := 0; ram < 3; ram++ {
-			readBack, err := readAluChunk(nano, addr, byte(ram))
-			if err != nil {
-				return err
-			}
-			if bytes.Compare(toWrite, readBack) != 0 {
-				return fmt.Errorf("ALU compare fail, RAM %d: wrote %v read %v\n",
-					ram, toWrite, readBack)
-			}
-		}
+		//for ram := 0; ram < 3; ram++ {
+		//	readBack, err := readAluChunk(nano, addr, byte(ram))
+		//	if err != nil {
+		//		return err
+		//	}
+		//	if bytes.Compare(toWrite, readBack) != 0 {
+		//		return fmt.Errorf("ALU compare fail, RAM %d: wrote %v read %v\n",
+		//			ram, toWrite, readBack)
+		//	}
+		//}
 	}
 	log.Printf("wrote %d bytes of ALU RAM\n", nWritten * chunkSize)
 	return nil

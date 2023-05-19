@@ -595,7 +595,10 @@ namespace SerialPrivate {
       pb->remaining--;
     }
     if (pb->remaining == 0) {
-      WriteALU(BtoS(pb->cmd[1], pb->cmd[2]), pb->buf, pb->cmd[3]);
+      // IMPORTANT: as of 5/19/2023, this calls the combined write/verify
+      // function, and the downloader no longer needs to separately read
+      // back each of the three RAMs. WriteCheckALU() panics on failure.
+      WriteCheckALU(BtoS(pb->cmd[1], pb->cmd[2]), pb->buf, pb->cmd[3]);
       freePollBuffer();
       inProgress = 0;              
     }

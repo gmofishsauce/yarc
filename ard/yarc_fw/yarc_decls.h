@@ -24,3 +24,4 @@ void WriteFlags(unsigned char flags);
 byte ReadFlags();
 void WriteALU(unsigned short offset, byte *data, unsigned short n);
 void ReadALU(unsigned short offset, byte *data, unsigned short n, byte reg);
+void WriteCheckALU(unsigned short offset, byte *data, unsigned short n);

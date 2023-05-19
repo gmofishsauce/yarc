@@ -82,6 +82,69 @@ void swizzleAddressToR1R0(unsigned short addr) {
     WriteReg(1, bits);
 }
 
+// Write and then validate up to n bytes of data to the ALU RAM at the given
+// address offset, where offset is a multiple of 64, n is exactly 64, and
+// offset + n <= END_ALU_MEM. There are three ALU RAMs that are written in
+// parallel but read separately, so we do four operations per byte. Doing
+// them together is faster than making a call to WriteALU() and then calling
+// ReadALU() three times, because here we only have to set up the addressing
+// once for each byte that is written and read - thanks to the alignment
+// restriction, none of the four high order address bits nor the carry bit
+// in the ACR will change during a single call.
+void WriteCheckALU(unsigned short offset, byte *data, unsigned short n) {
+  if ((offset&0x1FFC) != offset || n != 64) {
+    panic(PANIC_ARGUMENT, 10);
+  }
+
+  for (unsigned short addr = offset; addr < offset + n; ++addr, ++data) {
+    // Set the low order bits of the RAM address in R1 and R0
+    swizzleAddressToR1R0(addr);
+
+    // Now the four high order address bits. These bits come from the
+    // microcode although they could probably come from the IR if I 
+    // changed the WR_ALU_FROM_NANO microcode word to select it. We
+    // only have to set this once because the write is aligned.
+    byte aluBits = (addr >> 9) & 0x000F;
+    WriteK(WR_ALU_RAM_FROM_NANO(aluBits));
+
+    // Now set the ACR, including address bit :8 (the carry bit),
+    // to do a write. And then do the write.
+    byte acrBits = AcrSetOp(ACR_SAFE, ACR_WRITE);
+    acrBits = AcrSetA8(acrBits, (addr & 0x100) ? 1 : 0);
+    SetACR(AcrEnable(acrBits));
+
+    SetMCR(McrEnableWcs(MCR_SAFE));
+    SetADHL(0x7F, 0xFF, 0xBB, *data);
+    SingleClock();
+    SetACR(ACR_SAFE);
+    SetMCR(MCR_SAFE);
+
+    // Now read back and check all 3 RAMs. Since the high order
+    // address bits won't change within a call, we only need to
+    // set them once, along with setting the control lines to read.
+    WriteK(RD_ALU_RAM_FROM_NANO(aluBits));
+
+    // The key optimization over calling WriteALU() and then three
+    // ReadALU() calls is here: we don't have to WriteK in the loop.
+    for (byte ram = 0; ram < 3; ++ram) {
+      byte acrBits = AcrSetOp(ACR_SAFE, ram);
+      acrBits = AcrSetA8(acrBits, (addr & 0x100) ? 1 : 0);
+      SetACR(AcrEnable(acrBits));
+      SetMCR(McrEnableWcs(MCR_SAFE));
+      SetADHL(0xFF, 0xFF, 0xCC, 0xBB);
+      SingleClock();
+      bool ok = (GetBIR() == *data);
+      SetACR(ACR_SAFE);
+      SetMCR(MCR_SAFE);
+      if (!ok) {
+        // This panic can be confused with statically-allocated
+        // panic codes, but it's worth it to get some information.
+        panic(n, ram);
+      }
+    }
+  }
+}
+
 // Write up to "n" bytes of data to ALU RAM at the given offset. The values
 // are not read back for validation. The ALU contains three physical RAMs,
 // but the hardware writes them in parallel with the same data. They can be
