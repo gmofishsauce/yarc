@@ -18,6 +18,9 @@
 # The "no op" value for all microcode fields is all 1s. We can fill
 # the control store with 0xFF FF FF FF ... and it will be a noop.
 
+.set no  1 # default ; noop ; don't do the action (used for clock enables)
+.set yes 0 # non-default ; do the action
+
 # general registers - these values make sense in src1, src2, or dst
 .set r0 0
 .set r1 1
@@ -81,6 +84,22 @@
 .set alu_phi2   1   # operate on high 8 bits and commit
 .set alu_in     2   # no alu operation; sysdata transceivers inbound
 .set alu_none   3   # no operation
+
+# Register input mux control bit (also flags input control mux)
+.set sysdata	1	# register input from sysdata (noop default)
+.set alu		0	# register input from ALU output
+
+# Memory and I/O read/write control bit rw
+.set read		1
+.set write		0
+
+# 8-bit versus 16-bit cycle control m16_en
+.set bit8		1
+.set bit16		0
+
+# RCW from instruction register IR or from microcode UC?
+.set uc			1
+.set ir			0
 
 # Microcode words, 32 bits
 

@@ -13,9 +13,65 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+# Instruction definitions for yasm
+
+# When rcw_ir_uc is high, the RCW comes from the instruction
+# bits, rather than the microcode; we put "nones" in the fields.
+# We also put "nones" when we're not doing a register operation.
+.set RCW_NONE "src1=src1_none src2=src2_none dst=dst_none"
+.set K3_NONE  "RCW_NONE"
+
+# Similar logic when acn_ir_uc is none.
+.set ACN_NONE "alu_op=alu_0x0F"
+.set ALU_NONE "ACN_NONE alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K2_NONE  "ALU_NONE"
+
+.set K1_NONE "sysdata_src=bus_none reg_in_mux=sysdata dst_wr_en=no"
+
+.set K0_NONE "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=uc carry_en=no load_flgs_mux=sysdata acn_ir_uc=uc"
+
+.set NOOP "K3_NONE K2_NONE K1_NONE K0_NONE"
+
+# Microcode for an instruction fetch cycle (r3) => IR
+# This is just the "naive" fetch, without optimization.
+# This selects R3 (the default) to drive the address bus, allows memory to
+# respond on the system bus, and clocks the instruction register. This means
+# it can be combined with an ALU phase 2 operation that sets R0, R1, or R2
+# and flags. During the decode cycle, we heuristically move the instruction
+# register to the ALU port 2 holding register. Taken together, these choices
+# mean that the common assembler sequence of an ALU operation followed by a
+# branch on the flags is 2 cycles faster that one would naively think.
+.set FETCH_K3 "src1=r3 src2=src2_none dst=dst_none"
+.set FETCH_K2 "K2_NONE"
+.set FETCH_K1 "sysdata_src=bus_mem reg_in_mux=sysdata dst_wr_en=no"
+.set FETCH_K0 "rw=read m16_en=bit16 load_ir=yes rcw_ir_uc=uc carry_en=no load_flgs_mux=sysdata acn_ir_uc=uc"
+.set FETCH "FETCH_K3 FETCH_K2 FETCH_K1 FETCH_K0"
+
+# Microcode for an instruction decode cycle.
+# We move IR to the ALU holding register as a heuristic optimization because
+# it's often useful (this accelerates all branch instructions by 1 cycle plus
+# some other operations, like small immediate ALU operations).
+.set DECODE_K3 "K3_NONE"
+.set DECODE_K2 "alu_op=alu_0x0F alu_ctl=alu_in alu_load_hold=yes alu_load_flgs=no"
+.set DECODE_K1 "sysdata_src=ir reg_in_mux=sysdata dst_wr_en=no"
+.set DECODE_K0 "K0_NONE"
+.set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
+
+# Move the instruction register to R3.
+.opcode JMP 0xFF 0
+.slot "src1=src1_none src2=src2_none dst=r3 K2_NONE sysdata_src=ir reg_in_mux=sysdata dst_wr_en=yes K0_NONE" ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.opcode START 0xEF 0
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
 .opcode ADD 0x80 3 src1 src2 dst
-#.slot TEST ;
-#.slot FETCH ;
-#.slot DECODE ;
+.slot NOOP ; # TODO
+.slot FETCH ;
+.slot DECODE ;
 .endopcode
 
