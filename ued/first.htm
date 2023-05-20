@@ -62,15 +62,11 @@
 		"WriteByteToK(0, 0x" + kmap.get("k0").toString(16) + "); //" + comments.get("k0") + "\n";
 
 	  // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
-	  rsw_from_instruction = gebi("k0-rsw_ir_uc-1-4").value == 0;
-	  gebi("k3-src1-3-6").disabled = rsw_from_instruction;
-	  gebi("k3-src2-7-3").disabled = rsw_from_instruction;
-	  gebi("k3-dst-7-0").disabled = rsw_from_instruction;
-	  gebi("k2-alu_op-15-4").disabled = rsw_from_instruction;
-
-	  if (gebi("k1-stack_up_clk-1-3").value == 0 && gebi("k1-stack_dn_clk-1-2").value == 0) {
-	   alert("stack up clock and stack down clock shouldn't both be active."); 
-	  }
+	  rcw_from_instruction = gebi("k0-rcw_ir_uc-1-4").value == 0;
+	  gebi("k3-src1-3-6").disabled = rcw_from_instruction;
+	  gebi("k3-src2-7-3").disabled = rcw_from_instruction;
+	  gebi("k3-dst-7-0").disabled = rcw_from_instruction;
+	  gebi("k2-alu_op-15-4").disabled = rcw_from_instruction;
 
 	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
 		if (gebi("k0-ir_clk-1-5").value == 0) {
@@ -178,18 +174,6 @@
 	    <option value="0">alu</option>
 	    <option value="1" selected>sysdata</option>
 	  </select> &nbsp;
-	  stack_up_clk: <select id="k1-stack_up_clk-1-3" onchange="collect()">
-	    <option value="0">yes</option>
-	    <option value="1" selected>no</option>
-	  </select> &nbsp;
-	  stack_dn_clk: <select id="k1-stack_dn_clk-1-2" onchange="collect()">
-	    <option value="0">yes</option>
-	    <option value="1" selected>no</option>
-	  </select> &nbsp;
-	  psp_rsp: <select id="k1-psp_rsp-1-1" onchange="collect()">
-		<option value="0">rsp</option>
-		<option value="1" selected>psp</option>
-	  </select> &nbsp;
 	  dst_wr_en: <select id="k1-dst_wr_en-1-0" onchange="collect()">
 		<option value="0">write</option>
 		<option value="1" selected>no write</option>
@@ -210,7 +194,7 @@
 		<option value="0">load IR</option>
 		<option value="1" selected>no load</option>
 	  </select> &nbsp;
-	  rsw_ir_uc: <select id="k0-rsw_ir_uc-1-4" onchange="collect()">
+	  rcw_ir_uc: <select id="k0-rcw_ir_uc-1-4" onchange="collect()">
 		<option value="0">RCW from IR</option>
 		<option value="1" selected>RCW from UC</option>
 	  </select> &nbsp;

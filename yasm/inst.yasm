@@ -12,27 +12,10 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
-# Note: this file is designed to be assembed by yasm, but edited with the
-# microcode editor (ued). It should contain only the following kinds of lines:
-# full line comments like this one, blank lines, and three keywords: .opcode,
-# .slot, and .endopcode. Ued's lexer is very simple minded. When it writes
-# this file back, the top comment block is preserved and .opcode keywords
-# are preceded by a blank line. Nothing else is saved.
-
-
-# Microcode word to test the assembler
-.set TEST_3 "src1=3 src2=7 dst=7"
-.set TEST_2 "alu_op=15 alu_ctl=3 alu_load_hold=1 alu_load_flgs=1"
-.set TEST_1 "sysdata_src=7 reg_in_mux=1 stack_up_clk=1 stack_dn_clk=1 psp_rsp=1 dst_wr_en=1"
-.set TEST_0 "rw=1 rcw_ir_uc=1 m16_en=1 ir_clk=1"
-.set XTEST "TEST_0 TEST_1 TEST_2 TEST_3"
-
-.set TEST "src1=0 src2=0 dst=0 alu_ctl=0 sysdata_src=0 rcw_ir_uc=0"
 
 .opcode ADD 0x80 3 src1 src2 dst
-.slot TEST ;
-.slot FETCH ;
-.slot DECODE ;
+#.slot TEST ;
+#.slot FETCH ;
+#.slot DECODE ;
 .endopcode
 
