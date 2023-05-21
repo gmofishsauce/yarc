@@ -62,8 +62,8 @@ var commands = []protocolCommand {
 	{ sp.CmdGetMcr,      "gm", "GetMcr",      0, false, getMcr   },
 	{ sp.CmdRunCost,     "rc", "RunCost",     0, false, runCost  },
 	{ sp.CmdStopCost,    "sc", "StopCost",    0, false, stopCost },
-	{ sp.CmdRunYarc,     "rn", "Run",         0, false, notImpl  },
-	{ sp.CmdStopYarc,    "st", "Stop",        0, false, notImpl  },
+	{ sp.CmdRunYarc,     "rn", "Run",         0, false, runYarc  },
+	{ sp.CmdStopYarc,    "st", "Stop",        0, false, stopYarc },
 	{ sp.CmdPoll,        "pl", "Poll",        0, false, notImpl  },
 	{ sp.CmdSvcResponse, "sr", "SvcResponse", 1, true,  notImpl  },
 	{ sp.CmdGetVer,      "gv", "GetVer",      0, false, notImpl  },
@@ -72,8 +72,8 @@ var commands = []protocolCommand {
 	{ sp.CmdSetArl,      "al", "SetAddrLow",  1, false, notImpl  },
 	{ sp.CmdSetDrh,      "dh", "SetDataHigh", 1, false, notImpl  },
 	{ sp.CmdSetDrl,      "dl", "SetDataLow",  1, false, notImpl  },
-	{ sp.CmdDoCycle,     "do", "DoCycle",     4, false, notImpl  },
-	{ sp.CmdGetResult,   "gr", "GetResult",   0, false, notImpl  },
+	{ sp.CmdDoCycle,     "dc", "DoCycle",     0, false, doCycle  },
+	{ sp.CmdGetResult,   "gr", "GetResult",   0, false, getBir   },
 	{ sp.CmdWrSlice,     "ws", "WriteSlice",  3, true,  notImpl  },
 	{ sp.CmdRdSlice,     "rs", "ReadSlice",   3, false, notImpl  },
 	{ sp.CmdXferSingle,  "xs", "XferSingle",  5, false, notImpl  },
@@ -128,7 +128,7 @@ func getMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, e
 	if err != nil {
 		return nostr, err
 	}
-	fmt.Printf("0x%02x\n", result[0])
+	fmt.Printf("MCR 0x%02x\n", result[0])
 	return nostr, nil
 }
 
@@ -140,6 +140,36 @@ func runCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, 
 func stopCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	err := doCommand(nano, sp.CmdStopCost)
 	return nostr, err
+}
+
+func runYarc(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	err := doCommand(nano, sp.CmdRunYarc)
+	return nostr, err
+}
+
+func stopYarc(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	err := doCommand(nano, sp.CmdStopYarc)
+	return nostr, err
+}
+
+func doCycle(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	var nanoCmd []byte = []byte{sp.CmdDoCycle}
+	result, err := doFixedCommand(nano, nanoCmd, 1)
+	if err != nil {
+		return nostr, err
+	}
+	fmt.Printf("BIR 0x%02x\n", result[0])
+	return nostr, nil
+}
+
+func getBir(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	var nanoCmd []byte = []byte{sp.CmdGetResult}
+	result, err := doFixedCommand(nano, nanoCmd, 1)
+	if err != nil {
+		return nostr, err
+	}
+	fmt.Printf("BIR 0x%02x\n", result[0])
+	return nostr, nil
 }
 
 func setK(pc *protocolCommand, nano *arduino.Arduino, line string) (string, error) {

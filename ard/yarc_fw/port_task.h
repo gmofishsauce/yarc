@@ -10,6 +10,7 @@ namespace PortPrivate {
 
   void callWhenAnyReset(void);
   void callWhenPowerOnReset(void);
+  void callAfterPostInit(void);
   
   // Ahem. The internal bus that connects the system data bus to the
   // four slice busses is wired backwards. So all the bits written to
@@ -211,15 +212,6 @@ namespace PortPrivate {
     McrMakeSafe();
   }
 
-  // Run the YARC.
-  void internalRunYARC() {
-    kRegMakeSafe();
-    ucrMakeSafe();
-    McrMakeSafe();
-    
-    SetMCR(McrEnableSysbus(McrEnableYarc(McrEnableFastclock(MCR_SAFE))));
-  }
-
   void internalMakeSafe() {
     kRegMakeSafe();
     ucrMakeSafe();
@@ -228,6 +220,17 @@ namespace PortPrivate {
     setAH(0xFF); 
     setAL(0xFF);
     McrMakeSafe();
+  }
+
+  // Run the YARC.
+  void internalRunYARC() {
+    internalMakeSafe();
+    SetMCR(McrEnableSysbus(McrEnableYarc(MCR_SAFE)));
+  }
+
+  void internalStopYARC() {
+    SetMCR(MCR_SAFE);
+    internalMakeSafe();
   }
 
   // PostInit() is called from setup after the init() functions are called for all the firmware tasks.
@@ -326,26 +329,9 @@ namespace PortPrivate {
       // do nothing
     }
     
-    // Write and read the entire 30k space
-    WriteK(WRMEM8_FROM_NANO);  // write memory, byte access
-    for (int i = 0; i < 0x7800; i++) {
-      setAH(i >> 8); setAL(i & 0xFF);
-      setDL(i & 0xFF); singleClock();
-    }
+    callAfterPostInit();
 
-    WriteK(RDMEM8_TO_NANO); // read memory byte    
-    SetMCR(McrEnableSysbus(MCR_SAFE));  
-    for (int i = 0; i < 0x7800; i++) {
-      setAH((i >> 8) | 0x80); setAL(i & 0xFF);
-      singleClock();
-      if (getBIR() != byte(i & 0xFF)) {
-        panic(PANIC_POST, 7);
-      }
-    }
-
-    kRegMakeSafe();
-    ucrMakeSafe();
-    McrMakeSafe();
+    internalMakeSafe();
     SetDisplay(0xC0);
 
     return true;
@@ -425,6 +411,16 @@ void SetADHL(byte ah, byte al, byte dh, byte dl) {
   SetDL(dl);  
 }
 
+// Set the YARC to RUN mode. Do not alter the clock settings, i.e.
+// don't start the clock running.
+void RunYARC() {
+  PortPrivate::internalRunYARC();
+}
+
+void StopYARC() {
+  PortPrivate::internalStopYARC();
+}
+
 // These are convenience functions. Making them functions allows me to stash them
 // at the very bottom of the file.
 namespace PortPrivate {
@@ -433,6 +429,10 @@ namespace PortPrivate {
   }
 
   void callWhenAnyReset() {
+    SerialReset();
+  }
+
+  void callAfterPostInit() {
     union {
       byte bytes[64];
       unsigned short words[32];

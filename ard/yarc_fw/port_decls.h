@@ -22,5 +22,7 @@ byte GetMCR(void);
 byte GetBIR(void);
 void MakeSafe(void);
 void SingleClock(void);
+void RunYARC(void);
+void StopYARC(void);
 
 

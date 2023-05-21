@@ -269,6 +269,14 @@ namespace SerialPrivate {
     pb->inuse = false;
   }
 
+  void internalSerialReset() {
+    stProtoUnsync();
+    pb->inuse = false;
+    pb->remaining = 0;
+    pb->next = 0;
+    pb->buf[POLL_BUF_LAST] = GUARD_BYTE;
+  }
+
   // === end of the "middle layer" ===
 
   // === Protocol command handlers ===
@@ -330,11 +338,17 @@ namespace SerialPrivate {
   }
 
   State stRun(RING* const r, byte b) {
-    return stBadCmd(r, b); // TODO
+    consume(r, 1);
+    RunYARC();
+    sendAck(b);
+    return state;
   }
 
   State stStop(RING* const r, byte b) {
-    return stBadCmd(r, b); // TODO
+    consume(r, 1);
+    StopYARC();
+    sendAck(b);
+    return state;
   }
 
   // In-progress handler for transmitting buffered
@@ -413,11 +427,18 @@ namespace SerialPrivate {
   // TODO - if ever implemented, this function must return
   // the Bus Interface Register (BIR) - spec change, 5/2023.
   State stOneClk(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    consume(r, 1);
+    SingleClock();
+    sendAck(b);
+    send(GetBIR());
+    return state;
   }
 
   State stGetBir(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    consume(r, 1);
+    sendAck(b);
+    send(GetBIR());
+    return state;
   }
 
   // Collect the bytes to write in the poll buffer to minimize the
@@ -814,6 +835,10 @@ namespace SerialPrivate {
 
 void serialShutdown() {
   SerialPrivate::stProtoUnsync();
+}
+
+void SerialReset() {
+  SerialPrivate::internalSerialReset();
 }
 
 void serialTaskInit() {

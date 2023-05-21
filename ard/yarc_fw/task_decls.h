@@ -63,6 +63,9 @@ void panic(byte panicCode, byte subcode);
 constexpr unsigned short END_MEM = 0x7800;      // 30k of RAM, 2k of IO
 constexpr unsigned short END_ALU_MEM = 0x2000;  // 8k bytes of ALU RAM
 
+// Reset the serial protocol (software only). Called on any reset.
+void SerialReset(void);
+
 // I spent some time considering how to represent small chunks of microcode,
 // especially individual K-register values which are single microcode words.
 // I tried some "modern" ways, such as:
