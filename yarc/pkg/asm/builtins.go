@@ -20,7 +20,6 @@ package asm
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"os"
 	"path"
 )
@@ -153,7 +152,7 @@ func actionEndOpcode(gs *globalState) error {
 // forwards are not allowed.
 func actionSlot(gs *globalState) error {
 	if !gs.inOpcode || gs.opcodeValue == 0 {
-		return fmt.Errorf(".slot: not in an opcode declaration")
+		return fmt.Errorf(".slot: not in an opcode definition")
 	}
 	for {
 		tk, err := mustGetBitfield(gs)
@@ -180,7 +179,7 @@ func actionSlot(gs *globalState) error {
 			return fmt.Errorf(".bifield: number expected: %s", err.Error())
 		}
 		size := field[1] - field[2] + 1
-		max := int64(math.Pow(2, float64(size))) - 1
+		var max int64 = (1 << size) - 1
 		if num < 0 || num > max {
 			return fmt.Errorf(".bitfield: %d out of range for %s", num, tk)
 		}
