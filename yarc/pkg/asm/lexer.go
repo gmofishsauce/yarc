@@ -42,20 +42,23 @@ const COMMENT = byte('#')
 // to be an int instead of a struct containing an int, then assignments to the
 // lexerState are no longer type checked - the RHS can be any int.
 
-// Lexer states
+// Lexer states. FYI: A label is a symbol followed by a colon. We recognize
+// the trailing colon when we come to the end of the symbol characters and
+// immediately transistion back to state stBetween, so no "stInLabel" state
+// is required. Also, no white space need follow the colon.
 
 type lexerStateType struct {
 	s int
 }
 
-var stBetween lexerStateType = lexerStateType{0}
-var stInError lexerStateType = lexerStateType{1}
-var stInSymbol lexerStateType = lexerStateType{2}
-var stInString lexerStateType = lexerStateType{3}
-var stInNumber lexerStateType = lexerStateType{4}
+var stBetween    lexerStateType = lexerStateType{0}
+var stInError    lexerStateType = lexerStateType{1}
+var stInSymbol   lexerStateType = lexerStateType{2}
+var stInString   lexerStateType = lexerStateType{3}
+var stInNumber   lexerStateType = lexerStateType{4}
 var stInOperator lexerStateType = lexerStateType{5}
-var stInComment lexerStateType = lexerStateType{6}
-var stEnd lexerStateType = lexerStateType{7}
+var stInComment  lexerStateType = lexerStateType{6}
+var stEnd        lexerStateType = lexerStateType{7}
 
 // Token kinds
 
@@ -63,18 +66,20 @@ type tokenKindType struct {
 	k int
 }
 
-var tkError tokenKindType = tokenKindType{0}
-var tkNewline tokenKindType = tokenKindType{1}
-var tkSymbol tokenKindType = tokenKindType{2}
-var tkString tokenKindType = tokenKindType{3}
-var tkNumber tokenKindType = tokenKindType{4}
-var tkOperator tokenKindType = tokenKindType{5}
-var tkEnd tokenKindType = tokenKindType{6}
+var tkError    tokenKindType = tokenKindType{0}
+var tkNewline  tokenKindType = tokenKindType{1}
+var tkSymbol   tokenKindType = tokenKindType{2}
+var tkLabel    tokenKindType = tokenKindType{3}
+var tkString   tokenKindType = tokenKindType{4}
+var tkNumber   tokenKindType = tokenKindType{5}
+var tkOperator tokenKindType = tokenKindType{6}
+var tkEnd      tokenKindType = tokenKindType{7}
 
 var kindToString = []string{
 	"tkError",
 	"tkNewline",
 	"tkSymbol",
+	"tkLabel",
 	"tkString",
 	"tkNumber",
 	"tkOperator",
@@ -229,13 +234,23 @@ func getToken(gs *globalState) *token {
 			}
 			if isWhiteSpaceChar(b) || isOperatorChar(b) {
 				gs.lexerState = stBetween
-				result := &token{string(accumulator), tkSymbol}
+				var result *token
+				if b == COLON {
+					// Again, here, we end in the BETWEEN state with
+					// no intervening white space. This makes it ok
+					// to write "myLabel:JMP myLabel" with no space
+					// between the colon and the previously defined
+					// assembler mnemonic. Meh.
+					result = &token{string(accumulator), tkLabel}
+				} else {
+					result = &token{string(accumulator), tkSymbol}
+					// Even for whitespace, we need to push it back
+					// and process it next time we're called because
+					// it might be a newline, which gets returned as
+					// a separate token while still being white space.
+					gs.reader.unreadByte(b)
+				}
 				accumulator = nil
-				// Even for whitespace, we need to push it back
-				// and process it next time we're called because
-				// it might be a newline, which gets returned as
-				// a separate token while still being white space.
-				gs.reader.unreadByte(b)
 				return result
 			} else if isSymbolChar(b) {
 				accumulator = append(accumulator, b)
@@ -291,19 +306,20 @@ func getToken(gs *globalState) *token {
 	}
 }
 
-// unget (push back) a token.
-func ungetToken(gs *globalState, tk *token) error {
-	if gs.pbToken != nil {
-		gs.lexerState = stInError
-		return fmt.Errorf("internal error: too many token pushbacks")
-	}
-	if gs.lexerState != stBetween {
-		gs.lexerState = stInError
-		return fmt.Errorf("internal error: invalid token pushback")
-	}
-	gs.pbToken = tk
-	return nil
-}
+// Unget (push back) a token. As far as I know this function
+// works correctly, but it's never used so commented out.
+//func ungetToken(gs *globalState, tk *token) error {
+//	if gs.pbToken != nil {
+//		gs.lexerState = stInError
+//		return fmt.Errorf("internal error: too many token pushbacks")
+//	}
+//	if gs.lexerState != stBetween {
+//		gs.lexerState = stInError
+//		return fmt.Errorf("internal error: invalid token pushback")
+//	}
+//	gs.pbToken = tk
+//	return nil
+//}
 
 func validNumber(num []byte) bool {
 	isHex := false

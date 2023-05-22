@@ -244,7 +244,7 @@ func (s *symbol) action(gs *globalState) error {
 }
 
 func (s *symbol) String() string {
-	return fmt.Sprintf("%s: [%v]", s.name(), s.data())
+	return fmt.Sprintf("%s: [%v] (*%v)", s.name(), s.data(), s.symbolAction)
 }
 
 // symbolTable is the global symbol table for an execution of yasm.
@@ -264,6 +264,10 @@ type globalState struct {
 	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
 	wcsNext     int		 // index of "next" slot in wcs
 	alu			[]byte   // ALU chip contents, 0..8k
+}
+
+func getMemNext(gs *globalState) int {
+	return gs.memNext;
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {

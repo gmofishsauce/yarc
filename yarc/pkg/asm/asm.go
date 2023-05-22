@@ -132,7 +132,7 @@ func process(gs *globalState) int {
 		case tkNewline:
 			break
 		case tkError:
-			log.Printf("error: %s\n", t.tokenText)
+			log.Printf("error: %s\n", t.text())
 			inError = true
 		case tkSymbol:
 			keySymbol, ok := gs.symbols[t.text()]
@@ -148,6 +148,13 @@ func process(gs *globalState) int {
 			}
 			if err := keySymbol.action(gs); err != nil {
 				errMsg(gs, err.Error())
+				inError = true
+			}
+		case tkLabel:
+			// This is a label definition. Label usages are
+			// detected and processed in doOpcode().
+			if err := makeLabel(gs, t.text()); err != nil {
+				errMsg(gs, "error: %s\n", err.Error());
 				inError = true
 			}
 		default:

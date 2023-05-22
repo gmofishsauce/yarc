@@ -186,3 +186,12 @@ func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
 	*target |= byte((operandValue & max) << elements[2])
 	return nil
 }
+
+func makeLabel(gs *globalState, label string) error {
+	if _, trouble := gs.symbols[label]; trouble {
+		return fmt.Errorf("label already defined: %s", label)
+	}
+	gs.symbols[label] = newSymbol(label, getMemNext(gs), actionLabel)
+	fmt.Printf("makeLabel(%s): %s\n", label, gs.symbols[label])
+	return nil
+}
