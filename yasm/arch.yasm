@@ -29,8 +29,8 @@
 
 .set PC r3
 .set SP r2
-.set src1_none 3 # arbitrary value to use when alu_op is none
-.set src2_none 7 # arbitrary value to use when alu_op is none
+.set src1_none 3 # arbitrary value to use when acn is none
+.set src2_none 7 # arbitrary value to use when acn is none
 .set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
 # data bus drivers for memory writes
@@ -129,7 +129,7 @@
 
 # alu 23:16
 # alu_ctl = 2 is called alu_in_xcv_en# in https://circuitverse.org/simulator/edit/alu-controls-second-try
-.bitfield alu_op        32  23:20   # 1 of 16 alu operations
+.bitfield acn           32  23:20   # ALU Condition Nybble - 1 of 16 ALU operations or conditional tests
 .bitfield alu_ctl       32  19:18   # 0 = alu_phi1, 1 = alu_phi2, 2 = sysdata inbound, 3 = none
 .bitfield alu_load_hold 32  17:17   # when low, clock the port 2 ALU holding register
 .bitfield alu_load_flgs 32  16:16   # when low, clock the flags (most ALU phi2 or write to flags)

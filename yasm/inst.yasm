@@ -22,7 +22,7 @@
 .set K3_NONE  "RCW_NONE"
 
 # Similar logic when acn_ir_uc is none.
-.set ACN_NONE "alu_op=alu_0x0F"
+.set ACN_NONE "acn=alu_0x0F"
 .set ALU_NONE "ACN_NONE alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
 .set K2_NONE  "ALU_NONE"
 
@@ -52,14 +52,26 @@
 # it's often useful (this accelerates all branch instructions by 1 cycle plus
 # some other operations, like small immediate ALU operations).
 .set DECODE_K3 "K3_NONE"
-.set DECODE_K2 "alu_op=alu_0x0F alu_ctl=alu_in alu_load_hold=yes alu_load_flgs=no"
+.set DECODE_K2 "acn=alu_0x0F alu_ctl=alu_in alu_load_hold=yes alu_load_flgs=no"
 .set DECODE_K1 "sysdata_src=ir reg_in_mux=sysdata dst_wr_en=no"
 .set DECODE_K0 "K0_NONE"
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 
 # Move the instruction register to R3.
-.opcode JMP 0xFF 0
+.opcode JMP 0xFF 1 .abs
 .slot "src1=src1_none src2=src2_none dst=r3 K2_NONE sysdata_src=ir reg_in_mux=sysdata dst_wr_en=yes K0_NONE" ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.opcode BR 0x90 2 acn .rel
+.slot NOOP ; # TODO
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.opcode ADI 0xC0 1 .imm
+.slot NOOP ; # TODO
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
