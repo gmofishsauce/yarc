@@ -190,13 +190,6 @@ func actionSlot(gs *globalState) error {
 	}
 }
 
-// Process the use of a label. Definition of a label
-// is handled by the lexer.
-func actionLabel(gs *globalState) error {
-	fmt.Printf("actionLabel called\n")
-	return nil
-}
-
 // Key symbols. Most, but not all, appear at the start of a line
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
@@ -204,7 +197,6 @@ var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
 var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
 var builtinEndOpcode *symbol = newSymbol(".endopcode", nil, actionEndOpcode)
 var builtinSlot *symbol = newSymbol(".slot", nil, actionSlot)
-var builtinLabel *symbol = newSymbol(".label", nil, actionLabel)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
@@ -213,5 +205,4 @@ func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinOpcode.name()] = builtinOpcode
 	gs.symbols[builtinEndOpcode.name()] = builtinEndOpcode
 	gs.symbols[builtinSlot.name()] = builtinSlot
-	gs.symbols[builtinLabel.name()] = builtinLabel
 }

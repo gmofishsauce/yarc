@@ -191,7 +191,6 @@ func makeLabel(gs *globalState, label string) error {
 	if _, trouble := gs.symbols[label]; trouble {
 		return fmt.Errorf("label already defined: %s", label)
 	}
-	gs.symbols[label] = newSymbol(label, getMemNext(gs), actionLabel)
-	fmt.Printf("makeLabel(%s): %s\n", label, gs.symbols[label])
+	gs.symbols[label] = newSymbol(label, getMemNext(gs), nil)
 	return nil
 }

@@ -151,8 +151,7 @@ func process(gs *globalState) int {
 				inError = true
 			}
 		case tkLabel:
-			// This is a label definition. Label usages are
-			// detected and processed in doOpcode().
+			// This is a label use (definition)
 			if err := makeLabel(gs, t.text()); err != nil {
 				errMsg(gs, "error: %s\n", err.Error());
 				inError = true

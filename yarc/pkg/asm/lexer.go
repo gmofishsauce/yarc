@@ -236,11 +236,12 @@ func getToken(gs *globalState) *token {
 				gs.lexerState = stBetween
 				var result *token
 				if b == COLON {
+					// Label use (definition)
 					// Again, here, we end in the BETWEEN state with
 					// no intervening white space. This makes it ok
 					// to write "myLabel:JMP myLabel" with no space
 					// between the colon and the previously defined
-					// assembler mnemonic. Meh.
+					// assembler mnemonic.
 					result = &token{string(accumulator), tkLabel}
 				} else {
 					result = &token{string(accumulator), tkSymbol}
