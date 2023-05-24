@@ -36,15 +36,16 @@ import (
 )
 
 type protocolCommand struct {
-	cmdVal int
-	shortCmd string
-	longCmd string
-	nArgBytes int
+	cmdVal          int
+	shortCmd        string
+	longCmd         string
+	nArgBytes       int
 	hasCountedBytes bool
-	handler commandHandler
-} 
+	handler         commandHandler
+}
 
 const nostr = ""
+
 type commandHandler func(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error)
 
 // Because of Golang's quirky "initialization loop" restriction, we cannot
@@ -57,31 +58,31 @@ func seeInitBelow(notUsed1 *protocolCommand, notUsed2 *arduino.Arduino, notUsed3
 	return nostr, nil
 }
 
-var commands = []protocolCommand {
-	{ sp.CmdBase,        "h",  "help",        0, false, seeInitBelow },
-	{ sp.CmdGetMcr,      "gm", "GetMcr",      0, false, getMcr   },
-	{ sp.CmdRunCost,     "rc", "RunCost",     0, false, runCost  },
-	{ sp.CmdStopCost,    "sc", "StopCost",    0, false, stopCost },
-	{ sp.CmdRunYarc,     "rn", "Run",         0, false, runYarc  },
-	{ sp.CmdStopYarc,    "st", "Stop",        0, false, stopYarc },
-	{ sp.CmdPoll,        "pl", "Poll",        0, false, notImpl  },
-	{ sp.CmdSvcResponse, "sr", "SvcResponse", 1, true,  notImpl  },
-	{ sp.CmdGetVer,      "gv", "GetVer",      0, false, notImpl  },
-	{ sp.CmdSync,        "sn", "Sync",        0, false, notImpl  },
-	{ sp.CmdSetArh,      "ah", "SetAddrHigh", 1, false, notImpl  },
-	{ sp.CmdSetArl,      "al", "SetAddrLow",  1, false, notImpl  },
-	{ sp.CmdSetDrh,      "dh", "SetDataHigh", 1, false, notImpl  },
-	{ sp.CmdSetDrl,      "dl", "SetDataLow",  1, false, notImpl  },
-	{ sp.CmdDoCycle,     "dc", "DoCycle",     0, false, doCycle  },
-	{ sp.CmdGetResult,   "gr", "GetResult",   0, false, getBir   },
-	{ sp.CmdWrSlice,     "ws", "WriteSlice",  3, true,  notImpl  },
-	{ sp.CmdRdSlice,     "rs", "ReadSlice",   3, false, notImpl  },
-	{ sp.CmdXferSingle,  "xs", "XferSingle",  5, false, notImpl  },
-	{ sp.CmdWritePage,   "wp", "WritePage",   1, true,  notImpl  },
-	{ sp.CmdReadPage,    "rp", "ReadPage",    1, true,  notImpl  },
-	{ sp.CmdSetK,        "sk", "SetK",        2, true,  setK     },
-	{ sp.CmdSetMcr,      "sm", "SetMCR",      1, false, setMcr   },
-	{ 0,                 "dn", "Download",    0, false, download },
+var commands = []protocolCommand{
+	{sp.CmdBase, "h", "help", 0, false, seeInitBelow},
+	{sp.CmdGetMcr, "gm", "GetMcr", 0, false, getMcr},
+	{sp.CmdRunCost, "rc", "RunCost", 0, false, runCost},
+	{sp.CmdStopCost, "sc", "StopCost", 0, false, stopCost},
+	{sp.CmdRunYarc, "rn", "Run", 0, false, runYarc},
+	{sp.CmdStopYarc, "st", "Stop", 0, false, stopYarc},
+	{sp.CmdPoll, "pl", "Poll", 0, false, notImpl},
+	{sp.CmdSvcResponse, "sr", "SvcResponse", 1, true, notImpl},
+	{sp.CmdGetVer, "gv", "GetVer", 0, false, notImpl},
+	{sp.CmdSync, "sn", "Sync", 0, false, notImpl},
+	{sp.CmdSetArh, "ah", "SetAddrHigh", 1, false, notImpl},
+	{sp.CmdSetArl, "al", "SetAddrLow", 1, false, notImpl},
+	{sp.CmdSetDrh, "dh", "SetDataHigh", 1, false, notImpl},
+	{sp.CmdSetDrl, "dl", "SetDataLow", 1, false, notImpl},
+	{sp.CmdDoCycle, "dc", "DoCycle", 0, false, doCycle},
+	{sp.CmdGetResult, "gr", "GetResult", 0, false, getBir},
+	{sp.CmdWrSlice, "ws", "WriteSlice", 3, true, notImpl},
+	{sp.CmdRdSlice, "rs", "ReadSlice", 3, false, notImpl},
+	{sp.CmdXferSingle, "xs", "XferSingle", 5, false, notImpl},
+	{sp.CmdWritePage, "wp", "WritePage", 1, true, notImpl},
+	{sp.CmdReadPage, "rp", "ReadPage", 1, true, notImpl},
+	{sp.CmdSetK, "sk", "SetK", 2, true, setK},
+	{sp.CmdSetMcr, "sm", "SetMCR", 1, false, setMcr},
+	{0, "dn", "Download", 0, false, download},
 }
 
 func init() {
@@ -108,18 +109,18 @@ func process(line string, nano *arduino.Arduino) error {
 // Command handlers
 
 func download(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-    yarcbin, err := os.Open("./yarc.bin")
-    if err != nil {
+	yarcbin, err := os.Open("./yarc.bin")
+	if err != nil {
 		yarcbin, err = os.Open("../yarc.bin")
 		if err != nil {
-			return nostr, err;
+			return nostr, err
 		}
-    }
-    defer func() {
-        yarcbin.Close()
-    }()
+	}
+	defer func() {
+		yarcbin.Close()
+	}()
 
-    return nostr, doDownload(bufio.NewReader(yarcbin), nano)
+	return nostr, doDownload(bufio.NewReader(yarcbin), nano)
 }
 
 func getMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
@@ -173,9 +174,9 @@ func getBir(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, e
 }
 
 func setK(pc *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	words := strings.Split(line, " ");
+	words := strings.Split(line, " ")
 	if len(words) != 5 {
-		return nostr, fmt.Errorf("usage: sk k3 k2 k1 k0");
+		return nostr, fmt.Errorf("usage: sk k3 k2 k1 k0")
 	}
 
 	cmd := make([]byte, 5, 5)
@@ -188,7 +189,7 @@ func setK(pc *protocolCommand, nano *arduino.Arduino, line string) (string, erro
 		if n > 0xFF {
 			return nostr, fmt.Errorf("illegal value")
 		}
-		cmd[i] = byte(n);
+		cmd[i] = byte(n)
 	}
 
 	_, err := doFixedCommand(nano, cmd, 0)
@@ -196,15 +197,15 @@ func setK(pc *protocolCommand, nano *arduino.Arduino, line string) (string, erro
 }
 
 func setMcr(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	words := strings.Split(line, " ");
+	words := strings.Split(line, " ")
 	if len(words) != 2 {
-		return nostr, fmt.Errorf("usage: sm mcrValue");
+		return nostr, fmt.Errorf("usage: sm mcrValue")
 	}
 	n, err := strconv.ParseInt(words[1], 0, 16)
 	if err != nil {
 		return nostr, err
 	}
-	_, err = doFixedCommand(nano, []byte { sp.CmdSetMcr, byte(n) }, 0)
+	_, err = doFixedCommand(nano, []byte{sp.CmdSetMcr, byte(n)}, 0)
 	return nostr, err
 }
 
@@ -215,7 +216,7 @@ func help(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, err
 
 	fmtStr = "%-6s%-12s%-6d%-8t\n"
 	// This mention of []commands is the cause of the initialization loop issue
-	for _, c := range(commands) {
+	for _, c := range commands {
 		fmt.Printf(fmtStr, c.shortCmd, c.longCmd, c.nArgBytes, c.hasCountedBytes)
 	}
 	return nostr, nil

@@ -165,7 +165,7 @@ func doOpcode(gs *globalState, opName string) error {
 			// one of few kinds. The fixup function will sort out
 			// the rest of the details later, possibly with error.
 			if t.tokenKind != tkSymbol && t.tokenKind != tkLabel &&
-			   t.tokenKind != tkNumber && t.tokenKind != tkString {
+				t.tokenKind != tkNumber && t.tokenKind != tkString {
 				return fmt.Errorf("unexpected: %s", t)
 			}
 			fxm := sym.symbolData.(fixupMaker)

@@ -45,7 +45,7 @@ const baudRate = 115200 // Note: change requires updating the Arduino firmware
 // sleep is in the terminal input code.
 
 func Main() {
-	log.SetFlags(log.Lmsgprefix|log.Lmicroseconds)
+	log.SetFlags(log.Lmsgprefix | log.Lmicroseconds)
 	log.SetPrefix("host: ")
 	log.Println("firing up")
 
@@ -59,7 +59,7 @@ func Main() {
 	for {
 		log.Println("starting a session")
 		nano, err := arduino.New(arduinoNanoDevice, baudRate)
-		if (err == nil) {
+		if err == nil {
 			err = session(input, nano, nanoLog)
 			if err == io.EOF {
 				log.Printf("user quit\n")
@@ -81,7 +81,7 @@ func Main() {
 		// input sleeps for 50mS so this only executes 20 times per
 		// second, which is little enough to avoid heat issues.
 
-		log.Printf("Return to continue...\n");
+		log.Printf("Return to continue...\n")
 		var line string
 		for {
 			line, err = input.CheckFor()
@@ -109,8 +109,7 @@ func Main() {
 // (The USB device doesn't exist in /dev unless Nano is connected.)
 //
 // Connection not established: device open, but protocol broke down
-//
-func session (input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
+func session(input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
 	var err error
 	tries := 3
 	for i := 0; i < tries; i++ {
@@ -119,11 +118,11 @@ func session (input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
 			break
 		}
 
-		log.Printf("connection setup failed: %v: sync retry %d\n", err, i + 1)
+		log.Printf("connection setup failed: %v: sync retry %d\n", err, i+1)
 		time.Sleep(interSessionDelay)
 	}
 	if err != nil {
-		return err	
+		return err
 	}
 
 	log.Println("session in progress")
@@ -149,7 +148,7 @@ func session (input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
 		if line, err = input.CheckFor(); err != nil {
 			return err
 		}
-		if (len(line) > 0) {
+		if len(line) > 0 {
 			if err := process(line[:len(line)-1], nano); err != nil {
 				return err
 			}
@@ -160,4 +159,3 @@ func session (input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
 func nanoSyscall(req string) error {
 	return fmt.Errorf("unexpected syscall from Nano: %s", req)
 }
-

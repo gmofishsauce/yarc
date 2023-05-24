@@ -45,13 +45,13 @@ const SLOT_NOOP = 0xFFFFFFFF
 func WriteResults(gs *globalState) error {
 	writeSymbols(gs)
 
-    yarcbin, err := os.Create("yarc.bin")
-    if err != nil {
-        return err;
-    }
-    defer func() {
-        yarcbin.Close()
-    }()
+	yarcbin, err := os.Create("yarc.bin")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		yarcbin.Close()
+	}()
 
 	return writeBinary(bufio.NewWriter(yarcbin), gs)
 }
@@ -73,7 +73,7 @@ func writeSymbols(gs *globalState) {
 }
 
 func writeBinary(yarcbin *bufio.Writer, gs *globalState) error {
-	fmt.Println("");
+	fmt.Println("")
 	if err := writeMem(yarcbin, gs); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func writeBinary(yarcbin *bufio.Writer, gs *globalState) error {
 		dumpMem(gs)
 	}
 
-	fmt.Println("");
+	fmt.Println("")
 	if err := writeWCS(yarcbin, gs); err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func writeBinary(yarcbin *bufio.Writer, gs *globalState) error {
 		dumpWCS(gs)
 	}
 
-	fmt.Println("");
+	fmt.Println("")
 	if err := writeALU(yarcbin, gs); err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func writeBinary(yarcbin *bufio.Writer, gs *globalState) error {
 
 func writeMem(yarcbin *bufio.Writer, gs *globalState) error {
 	n, err := yarcbin.Write(gs.mem)
-	fmt.Printf("Wrote %d bytes to mem section\n", n);
+	fmt.Printf("Wrote %d bytes to mem section\n", n)
 	return err
 }
 
@@ -134,7 +134,7 @@ func dumpBytes(label string, bytes []byte) {
 
 func writeWCS(yarcbin *bufio.Writer, gs *globalState) error {
 	err := binary.Write(yarcbin, binary.LittleEndian, gs.wcs)
-	fmt.Printf("Wrote %d bytes to wcs section\n", 4 * len(gs.wcs));
+	fmt.Printf("Wrote %d bytes to wcs section\n", 4*len(gs.wcs))
 	return err
 }
 
@@ -152,7 +152,7 @@ func dumpWCS(gs *globalState) {
 			fmt.Printf("Opcode 0x%02X\n", opcode+0x80) // should disassemble, add is a hack, etc.
 			for slot := 0; slot < WCS_SLOTS_PER_OPCODE; slot++ {
 				fmt.Printf("%08X ", gs.wcs[WCS_SLOTS_PER_OPCODE*opcode+slot])
-				if slot & 0x07 == 0x07 {
+				if slot&0x07 == 0x07 {
 					fmt.Println()
 				}
 			}
@@ -162,7 +162,7 @@ func dumpWCS(gs *globalState) {
 
 func writeALU(yarcbin *bufio.Writer, gs *globalState) error {
 	n, err := yarcbin.Write(gs.alu)
-	fmt.Printf("Wrote %d bytes to alu section\n", n);
+	fmt.Printf("Wrote %d bytes to alu section\n", n)
 	return err
 }
 

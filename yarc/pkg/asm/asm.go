@@ -87,7 +87,7 @@ func Assemble(sourceFile string) {
 	gs := newGlobalState(bufio.NewReader(f), sourceFile)
 	numErrors := process(gs)
 	if numErrors == 0 {
-		generateALUcontent(gs);
+		generateALUcontent(gs)
 		WriteResults(gs)
 		fmt.Println("yasm: success")
 	} else {
@@ -153,7 +153,7 @@ func process(gs *globalState) int {
 		case tkLabel:
 			// This is a label use (definition)
 			if err := makeLabel(gs, t.text()); err != nil {
-				errMsg(gs, "error: %s\n", err.Error());
+				errMsg(gs, "error: %s\n", err.Error())
 				inError = true
 			}
 		default:

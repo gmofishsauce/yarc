@@ -21,14 +21,14 @@ import (
 )
 
 type Input struct {
-	channel chan string
+	channel      chan string
 	interactive  bool
 	promptNeeded bool
 }
 
 func NewInput() *Input {
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
-	result := &Input {make(chan string), interactive, interactive}
+	result := &Input{make(chan string), interactive, interactive}
 	go result.reader()
 	return result
 }
@@ -67,7 +67,7 @@ func (input *Input) get() string {
 	const delay = 50 * time.Millisecond
 	input.promptIfTerminal()
 	select {
-	case stdin := <- input.channel:
+	case stdin := <-input.channel:
 		input.promptNeeded = true
 		return stdin
 	case <-time.After(delay):
@@ -86,4 +86,3 @@ func (input *Input) CheckFor() (string, error) {
 	}
 	return "", nil // no input
 }
-

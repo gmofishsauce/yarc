@@ -51,14 +51,14 @@ type lexerStateType struct {
 	s int
 }
 
-var stBetween    lexerStateType = lexerStateType{0}
-var stInError    lexerStateType = lexerStateType{1}
-var stInSymbol   lexerStateType = lexerStateType{2}
-var stInString   lexerStateType = lexerStateType{3}
-var stInNumber   lexerStateType = lexerStateType{4}
+var stBetween lexerStateType = lexerStateType{0}
+var stInError lexerStateType = lexerStateType{1}
+var stInSymbol lexerStateType = lexerStateType{2}
+var stInString lexerStateType = lexerStateType{3}
+var stInNumber lexerStateType = lexerStateType{4}
 var stInOperator lexerStateType = lexerStateType{5}
-var stInComment  lexerStateType = lexerStateType{6}
-var stEnd        lexerStateType = lexerStateType{7}
+var stInComment lexerStateType = lexerStateType{6}
+var stEnd lexerStateType = lexerStateType{7}
 
 // Token kinds
 
@@ -66,14 +66,14 @@ type tokenKindType struct {
 	k int
 }
 
-var tkError    tokenKindType = tokenKindType{0}
-var tkNewline  tokenKindType = tokenKindType{1}
-var tkSymbol   tokenKindType = tokenKindType{2}
-var tkLabel    tokenKindType = tokenKindType{3}
-var tkString   tokenKindType = tokenKindType{4}
-var tkNumber   tokenKindType = tokenKindType{5}
+var tkError tokenKindType = tokenKindType{0}
+var tkNewline tokenKindType = tokenKindType{1}
+var tkSymbol tokenKindType = tokenKindType{2}
+var tkLabel tokenKindType = tokenKindType{3}
+var tkString tokenKindType = tokenKindType{4}
+var tkNumber tokenKindType = tokenKindType{5}
 var tkOperator tokenKindType = tokenKindType{6}
-var tkEnd      tokenKindType = tokenKindType{7}
+var tkEnd tokenKindType = tokenKindType{7}
 
 var kindToString = []string{
 	"tkError",

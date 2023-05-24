@@ -31,29 +31,29 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package asm
 
 // ALU operations (upper four bits of address)
-const alu_add  = 0x00
-const alu_sub  = 0x01
+const alu_add = 0x00
+const alu_sub = 0x01
 const alu_rsub = 0x02
-const alu_adc  = 0x03
-const alu_sbb  = 0x04
+const alu_adc = 0x03
+const alu_sbb = 0x04
 const alu_rsbb = 0x05
 const alu_nand = 0x06
-const alu_or   = 0x07
-const alu_xor  = 0x08
-const alu_not  = 0x09
-const alu_neg  = 0x0A
-const alu_rot  = 0x0B // four operations determined by "B" operand
-const alu_0C   = 0x0C // unassigned
-const alu_0D   = 0x0D // unassigned
-const alu_0E   = 0x0E // unassigned
-const alu_0F   = 0x0F // unassigned
+const alu_or = 0x07
+const alu_xor = 0x08
+const alu_not = 0x09
+const alu_neg = 0x0A
+const alu_rot = 0x0B // four operations determined by "B" operand
+const alu_0C = 0x0C  // unassigned
+const alu_0D = 0x0D  // unassigned
+const alu_0E = 0x0E  // unassigned
+const alu_0F = 0x0F  // unassigned
 
 type aluFunc func(gs *globalState)
 
-var alu_ops = [16]aluFunc{do_add, do_sub,  do_rsub, do_adc,
-                        do_sbb, do_rsbb, do_nand, do_or,
-					    do_xor, do_not,  do_neg,  do_rot,
-					    do_0C,  do_0D,   do_0E,   do_0F}
+var alu_ops = [16]aluFunc{do_add, do_sub, do_rsub, do_adc,
+	do_sbb, do_rsbb, do_nand, do_or,
+	do_xor, do_not, do_neg, do_rot,
+	do_0C, do_0D, do_0E, do_0F}
 
 // Generate the entire 8k byte content of one RAM ALU chip and leave
 // the result in the alu array in the global state.
@@ -82,7 +82,7 @@ func do_add(gs *globalState) {
 			// or both a1 and a2  are negative and the sum is positive.
 			// Or: the arguments have the same sign, and the sign of the
 			// result is different. Remember, the arguments are four bits.
-			overflow := (a1 & 0x08) == (a2 & 0x08) && (sum & 0x08) != (a1 & 0x08)
+			overflow := (a1&0x08) == (a2&0x08) && (sum&0x08) != (a1&0x08)
 			if overflow {
 				result |= 0x80
 			}
@@ -141,4 +141,3 @@ func do_0E(gs *globalState) {
 
 func do_0F(gs *globalState) {
 }
-

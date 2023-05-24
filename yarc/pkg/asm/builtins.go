@@ -128,7 +128,7 @@ func actionOpcode(gs *globalState) error {
 		func(gs *globalState) error { return doOpcode(gs, name.text()) })
 	gs.inOpcode = true
 	gs.opcodeValue = byte(code)
-	gs.wcsNext = int(gs.opcodeValue &^ 0x80) * WCS_SLOTS_PER_OPCODE
+	gs.wcsNext = int(gs.opcodeValue&^0x80) * WCS_SLOTS_PER_OPCODE
 	return nil
 }
 
@@ -139,7 +139,7 @@ func actionEndOpcode(gs *globalState) error {
 	}
 	gs.inOpcode = false
 	gs.opcodeValue = 0
-	gs.wcsNext = -1;
+	gs.wcsNext = -1
 	return nil
 }
 
@@ -160,7 +160,7 @@ func actionSlot(gs *globalState) error {
 			return err
 		}
 		if tk.kind() == tkOperator && tk.text() == ";" {
-			gs.wcsNext++;
+			gs.wcsNext++
 			return nil
 		}
 		field, ok := gs.symbols[tk.text()].symbolData.([]int64)
@@ -183,7 +183,7 @@ func actionSlot(gs *globalState) error {
 		if num < 0 || num > max {
 			return fmt.Errorf(".bitfield: %d out of range for %s", num, tk)
 		}
-		gs.wcs[gs.wcsNext] &^= uint32(max << field[2]);
+		gs.wcs[gs.wcsNext] &^= uint32(max << field[2])
 		gs.wcs[gs.wcsNext] |= uint32((num & max) << field[2])
 		//fmt.Printf("set opcode 0x%02x slot %d bit offset %d to 0x%02X value 0x%08x\n",
 		//	gs.opcodeValue, gs.wcsNext, field[2], uint32(num & max), gs.wcs[gs.wcsNext])
@@ -213,22 +213,22 @@ func actionFixup(gs *globalState) error {
 }
 
 // Return a fixup entry for a .abs (absolute label reference)
-func createAbsFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+func createAbsFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".abs", loc, fixupAbs, ref, t)
 }
 
 // Return a fixup entry for a .rel (relative label reference)
-func createRelFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+func createRelFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".rel", loc, fixupRel, ref, t)
 }
 
 // Return a fixup entry for a .immb (immediate byte)
-func createImmbFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+func createImmbFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".immb", loc, fixupImmb, ref, t)
 }
 
 // Return a fixup entry for a .immw (immediate word)
-func createImmwFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+func createImmwFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".immw", loc, fixupImmw, ref, t)
 }
 
@@ -261,18 +261,18 @@ func fixupImmw(gs *globalState, fx *fixup) error {
 }
 
 // Key symbols. Most, but not all, appear at the start of a line
-var builtinSet       *symbol = newSymbol(".set", nil, actionSet)
-var builtinInclude   *symbol = newSymbol(".include", nil, actionInclude)
-var builtinBitfield  *symbol = newSymbol(".bitfield", nil, actionBitfield)
-var builtinOpcode    *symbol = newSymbol(".opcode", nil, actionOpcode)
+var builtinSet *symbol = newSymbol(".set", nil, actionSet)
+var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
+var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
+var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
 var builtinEndOpcode *symbol = newSymbol(".endopcode", nil, actionEndOpcode)
-var builtinSlot      *symbol = newSymbol(".slot", nil, actionSlot)
+var builtinSlot *symbol = newSymbol(".slot", nil, actionSlot)
 
 // Embedded key symbols that specify fixups when used in opcode definitions
-var builtinAbs       *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
-var builtinRel       *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
-var builtinImmb      *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
-var builtinImmw      *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
+var builtinAbs *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
+var builtinRel *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
+var builtinImmb *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
+var builtinImmw *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet

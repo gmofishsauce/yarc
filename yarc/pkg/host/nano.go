@@ -9,12 +9,12 @@ package host
 // no millisecond delays imposed by code in this file.
 
 import (
-    "github.com/gmofishsauce/yarc/pkg/arduino"
-    sp "github.com/gmofishsauce/yarc/pkg/proto"
+	"github.com/gmofishsauce/yarc/pkg/arduino"
+	sp "github.com/gmofishsauce/yarc/pkg/proto"
 
-    "fmt"
-    "log"
-    "time"
+	"fmt"
+	"log"
+	"time"
 )
 
 func establishConnection(nano *arduino.Arduino, wasReset bool) error {
@@ -31,7 +31,7 @@ func establishConnection(nano *arduino.Arduino, wasReset bool) error {
 	if err := checkProtocolVersion(nano); err != nil {
 		return err
 	}
-	if (debug) {
+	if debug {
 		log.Println("protocol version OK")
 	}
 	return nil
@@ -89,7 +89,7 @@ func checkProtocolVersion(nano *arduino.Arduino) error {
 }
 
 func getNanoRequest(nano *arduino.Arduino) (string, error) {
-	bytes, err := doCountedReceive(nano, []byte{sp.CmdPoll});
+	bytes, err := doCountedReceive(nano, []byte{sp.CmdPoll})
 	if err != nil {
 		return nostr, err
 	}
@@ -112,7 +112,7 @@ func isLogRequest(req string) bool {
 }
 
 type UnexpectedResponseError struct {
-	Command byte
+	Command  byte
 	Response byte
 }
 
@@ -128,14 +128,14 @@ func doCommand(nano *arduino.Arduino, cmd byte) error {
 }
 
 func getAck(nano *arduino.Arduino, cmd byte) error {
-    b, err := nano.ReadFor(responseDelay)
-    if err != nil {
-        return err
-    }
-    if b != sp.Ack(cmd) {
-        return &UnexpectedResponseError {cmd, b}
-    }
-    return nil
+	b, err := nano.ReadFor(responseDelay)
+	if err != nil {
+		return err
+	}
+	if b != sp.Ack(cmd) {
+		return &UnexpectedResponseError{cmd, b}
+	}
+	return nil
 }
 
 // Do the fixed part of a command, which may be the entire command, and optionally
@@ -161,20 +161,20 @@ func getAck(nano *arduino.Arduino, cmd byte) error {
 func doFixedCommand(nano *arduino.Arduino, fixed []byte, expected int) ([]byte, error) {
 	var response []byte
 
-    if len(fixed) < 1 || len(fixed) > 8 {
-        return response, fmt.Errorf("invalid fixed command length")
-    }
+	if len(fixed) < 1 || len(fixed) > 8 {
+		return response, fmt.Errorf("invalid fixed command length")
+	}
 	if expected < 0 || expected > 8 {
 		return response, fmt.Errorf("invalid fixed response expected")
 	}
-    if debug && fixed[0] != sp.CmdPoll {
+	if debug && fixed[0] != sp.CmdPoll {
 		// Don't log poll commands - there are too many
 		log.Printf("doFixedCommand: sending %v\n", fixed)
-    }
-    if err := nano.Write(fixed); err != nil {
-        return response, err
-    }
-    if err := getAck(nano, fixed[0]); err != nil {
+	}
+	if err := nano.Write(fixed); err != nil {
+		return response, err
+	}
+	if err := getAck(nano, fixed[0]); err != nil {
 		return response, err
 	}
 
@@ -200,7 +200,7 @@ func doFixedCommand(nano *arduino.Arduino, fixed []byte, expected int) ([]byte, 
 // stuffed down the pipe. If a nak or other error occurs, it is returned.
 // No counted command has fixed response so only the error is returned.
 func doCountedSend(nano *arduino.Arduino, fixed []byte, counted []byte) error {
-	count := fixed[len(fixed)-1];
+	count := fixed[len(fixed)-1]
 	if debug {
 		log.Printf("doCountedSend(): counted len = %d\n", count)
 	}

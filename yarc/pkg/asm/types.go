@@ -266,16 +266,16 @@ type fixupMaker = func(loc int, ref *symbol, t *token) *fixup
 type fixupFunc = func(gs *globalState, fx *fixup) error
 
 type fixup struct {
-	kind string
-	location int
+	kind        string
+	location    int
 	fixupAction fixupFunc
-	ref *symbol
-	t *token
+	ref         *symbol
+	t           *token
 }
 
 type fixupTable []*fixup
 
-func newFixup(k string, l int, fx fixupFunc, r *symbol, t *token) (*fixup) {
+func newFixup(k string, l int, fx fixupFunc, r *symbol, t *token) *fixup {
 	return &fixup{k, l, fx, r, t}
 }
 
@@ -288,16 +288,16 @@ type globalState struct {
 	inOpcode    bool
 	opcodeValue byte
 	symbols     symbolTable
-	fixups		fixupTable
-	mem         []byte   // memory, 0x0000 .. 0x77FF
+	fixups      fixupTable
+	mem         []byte // memory, 0x0000 .. 0x77FF
 	memNext     int
 	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
-	wcsNext     int		 // index of "next" slot in wcs
-	alu			[]byte   // ALU chip contents, 0..8k
+	wcsNext     int      // index of "next" slot in wcs
+	alu         []byte   // ALU chip contents, 0..8k
 }
 
 func getMemNext(gs *globalState) int {
-	return gs.memNext;
+	return gs.memNext
 }
 
 func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
@@ -307,7 +307,7 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs.memNext = 0
 	gs.wcs = make([]uint32, 0x2000, 0x2000)
 	for i := 0; i < len(gs.wcs); i++ {
-		gs.wcs[i] = SLOT_NOOP;
+		gs.wcs[i] = SLOT_NOOP
 	}
 	gs.wcsNext = -1
 	gs.alu = make([]byte, 0x2000, 0x2000)

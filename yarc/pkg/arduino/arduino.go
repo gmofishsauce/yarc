@@ -32,9 +32,9 @@
 package arduino
 
 import (
-    "fmt"
-    "log"
-    "go.bug.st/serial"
+	"fmt"
+	"go.bug.st/serial"
+	"log"
 	"syscall"
 	"time"
 )
@@ -76,8 +76,8 @@ func New(deviceName string, baudRate int) (*Arduino, error) {
 	// Here, the time delay is important because otherwise the Nano
 	// will consume the first few bytes in an attempt to see if this
 	// reset is a programming device trying to flash new firmware.
-    log.Printf("serial port is open - delaying %.0f seconds for Nano reset", resetDelay.Seconds())
-    time.Sleep(resetDelay)
+	log.Printf("serial port is open - delaying %.0f seconds for Nano reset", resetDelay.Seconds())
+	time.Sleep(resetDelay)
 	return &arduino, nil
 }
 
@@ -173,4 +173,3 @@ func isRetryableSyscallError(err error) bool {
 	}
 	return false
 }
-
