@@ -37,7 +37,7 @@ func TestLexer2(t *testing.T) {
 	gs := newGlobalState(strings.NewReader(data), t.Name())
 	tk := getToken(gs)
 	assert.Equal(t, tkError, tk.tokenKind)
-	assert.Equal(t, "character 0x22 (\") unexpected", tk.tokenText)
+	assert.Equal(t, "character 0x22 (34) unexpected [2]", tk.tokenText)
 }
 
 func TestLexer3(t *testing.T) {

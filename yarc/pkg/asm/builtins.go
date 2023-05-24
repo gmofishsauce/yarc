@@ -235,28 +235,28 @@ func createImmwFixupAction(loc int, ref *symbol, t *token) (*fixup) {
 // Lexing is complete. Fix up an absolute value symbol (".abs")
 // found in an opcode definition
 func fixupAbs(gs *globalState, fx *fixup) error {
-	fmt.Println("fixupAbs(%v, %v)", gs, fx)
+	fmt.Printf("fixupAbs(%v, %v)\n", gs, fx)
 	return nil
 }
 
 // Lexing is complete. Fix up a relative offset (".rel") found
 // in an opcode definition
 func fixupRel(gs *globalState, fx *fixup) error {
-	fmt.Println("fixupRel(%v, %v)", gs, fx)
+	fmt.Printf("fixupRel(%v, %v)\n", gs, fx)
 	return nil
 }
 
 // Lexing is complete. Fix up a byte immediate (".immb") found
 // in an opcode definition
 func fixupImmb(gs *globalState, fx *fixup) error {
-	fmt.Println("fixupImmb(%v, %v)", gs, fx)
+	fmt.Printf("fixupImmb(%v, %v)\n", gs, fx)
 	return nil
 }
 
 // Lexing is complete. Fix up a word immediate (".immw") found in
 // an opcode definition
 func fixupImmw(gs *globalState, fx *fixup) error {
-	fmt.Println("fixupImmw(%v, %v)", gs, fx)
+	fmt.Printf("fixupImmw(%v, %v)\n", gs, fx)
 	return nil
 }
 
