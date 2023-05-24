@@ -18,5 +18,8 @@
 aLabel: 
 	ADD r0 r1 r2
 labelWithValue2:
+	JMP aLabel
+	BR  0 aLabel
+	ADI 42
 # an error
 # aLabel:

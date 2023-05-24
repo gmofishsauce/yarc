@@ -190,13 +190,89 @@ func actionSlot(gs *globalState) error {
 	}
 }
 
+// Symbol actions were originally conceived as a way to implement the main loop
+// in asm.go: it largely grabs a symbol and then delegates to the action function.
+// As a result the action functions take only the global state and return only an
+// error. When I implemented fixups for labels (e.g. jump forward to as-yet unseen
+// label, relative branches, etc.) I wanted to add key symbols that were processed
+// not in the main loop, but in the course of handling an opcode. And the processing
+// for these symbols didn't occur when they were encountered. Rather I wanted to
+// stash away some state in a fixup structure, add the fixup to a list, and process
+// the entire list after lexing was complete. Finally, key symbols are identified
+// by the presence of an action function. I could change that, but I don't want to
+// crap up the relatively clean structure of the key symbols that trigger processing
+// during the lex pass. So these new fixup-style key symbols (.abs, .rel, .imm, and
+// maybe others in the future) are implemented as key symbols with action functions
+// that just report an error. Their static symbol data is a function that takes
+// arguments for all the state any fixup might need, creates the fixup entry, adds
+// the correct deferred processing function to the entry, and then adds the fixup
+// to the fixup list. The fixup list is processed after lexing completes successfully.
+
+func actionFixup(gs *globalState) error {
+	return fmt.Errorf("internal error: fixup action called")
+}
+
+// Return a fixup entry for a .abs (absolute label reference)
+func createAbsFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+	return newFixup(".abs", loc, fixupAbs, ref, t)
+}
+
+// Return a fixup entry for a .rel (relative label reference)
+func createRelFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+	return newFixup(".rel", loc, fixupRel, ref, t)
+}
+
+// Return a fixup entry for a .immb (immediate byte)
+func createImmbFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+	return newFixup(".immb", loc, fixupImmb, ref, t)
+}
+
+// Return a fixup entry for a .immw (immediate word)
+func createImmwFixupAction(loc int, ref *symbol, t *token) (*fixup) {
+	return newFixup(".immw", loc, fixupImmw, ref, t)
+}
+
+// Lexing is complete. Fix up an absolute value symbol (".abs")
+// found in an opcode definition
+func fixupAbs(gs *globalState, fx *fixup) error {
+	fmt.Println("fixupAbs(%v, %v)", gs, fx)
+	return nil
+}
+
+// Lexing is complete. Fix up a relative offset (".rel") found
+// in an opcode definition
+func fixupRel(gs *globalState, fx *fixup) error {
+	fmt.Println("fixupRel(%v, %v)", gs, fx)
+	return nil
+}
+
+// Lexing is complete. Fix up a byte immediate (".immb") found
+// in an opcode definition
+func fixupImmb(gs *globalState, fx *fixup) error {
+	fmt.Println("fixupImmb(%v, %v)", gs, fx)
+	return nil
+}
+
+// Lexing is complete. Fix up a word immediate (".immw") found in
+// an opcode definition
+func fixupImmw(gs *globalState, fx *fixup) error {
+	fmt.Println("fixupImmw(%v, %v)", gs, fx)
+	return nil
+}
+
 // Key symbols. Most, but not all, appear at the start of a line
-var builtinSet *symbol = newSymbol(".set", nil, actionSet)
-var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
-var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
-var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
+var builtinSet       *symbol = newSymbol(".set", nil, actionSet)
+var builtinInclude   *symbol = newSymbol(".include", nil, actionInclude)
+var builtinBitfield  *symbol = newSymbol(".bitfield", nil, actionBitfield)
+var builtinOpcode    *symbol = newSymbol(".opcode", nil, actionOpcode)
 var builtinEndOpcode *symbol = newSymbol(".endopcode", nil, actionEndOpcode)
-var builtinSlot *symbol = newSymbol(".slot", nil, actionSlot)
+var builtinSlot      *symbol = newSymbol(".slot", nil, actionSlot)
+
+// Embedded key symbols that specify fixups when used in opcode definitions
+var builtinAbs       *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
+var builtinRel       *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
+var builtinImmb      *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
+var builtinImmw      *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
@@ -205,4 +281,8 @@ func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinOpcode.name()] = builtinOpcode
 	gs.symbols[builtinEndOpcode.name()] = builtinEndOpcode
 	gs.symbols[builtinSlot.name()] = builtinSlot
+	gs.symbols[builtinAbs.name()] = builtinAbs
+	gs.symbols[builtinRel.name()] = builtinRel
+	gs.symbols[builtinImmb.name()] = builtinImmb
+	gs.symbols[builtinImmw.name()] = builtinImmw
 }

@@ -70,7 +70,7 @@
 .slot DECODE ;
 .endopcode
 
-.opcode ADI 0xC0 1 .imm
+.opcode ADI 0xC0 1 .immb
 .slot NOOP ; # TODO
 .slot FETCH ;
 .slot DECODE ;

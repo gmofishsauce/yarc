@@ -146,16 +146,37 @@ func expand(gs *globalState, symToExpand string) error {
 
 // An opcode has been recognized as a key symbol by the main loop.
 // The next token(s) should be the operands, which serve as actuals
-// for the formals that were defined in the .opcode builtin.
-func doOpcode(gs *globalState, symOpcode string) error {
-	op := *gs.symbols[symOpcode].data().(*opcode)
+// for the formals that were defined in the .opcode builtin. If we
+// encounter a key symbol in the argument definitions, it specifies
+// a fixup to be done after lexing; we create a fixup table entry.
+func doOpcode(gs *globalState, opName string) error {
+	opSym := gs.symbols[opName]
+	op := *opSym.data().(*opcode)
 	var lowbyte byte
+
 	for i := 0; i < len(op.args); i++ {
-		n, err := mustGetNumber(gs)
-		if err != nil {
-			return err
+		arg := op.args[i]
+		sym, found := gs.symbols[arg.text()]
+		if found && sym.symbolAction != nil {
+			// It's a .abs, .immX, etc. Grab the next token and
+			// stash it in a fixup struct for later.
+			t := getToken(gs)
+			// The matching token for a .abs, .imm, etc., must be
+			// one of few kinds. The fixup function will sort out
+			// the rest of the details later, possibly with error.
+			if t.tokenKind != tkSymbol && t.tokenKind != tkLabel &&
+			   t.tokenKind != tkNumber && t.tokenKind != tkString {
+				return fmt.Errorf("unexpected: %s", t)
+			}
+			fxm := sym.symbolData.(fixupMaker)
+			gs.fixups = append(gs.fixups, fxm(gs.memNext, opSym, t))
+		} else {
+			n, err := mustGetNumber(gs)
+			if err != nil {
+				return err
+			}
+			pack(gs, n, &lowbyte, arg)
 		}
-		pack(gs, n, &lowbyte, op.args[i])
 	}
 	gs.mem[gs.memNext] = lowbyte
 	gs.memNext++
@@ -187,10 +208,14 @@ func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
 	return nil
 }
 
+// A label use has been found. Check that the same label isn't
+// previously defined. Define it as ".set <label> getMemNext(gs)"
 func makeLabel(gs *globalState, label string) error {
 	if _, trouble := gs.symbols[label]; trouble {
 		return fmt.Errorf("label already defined: %s", label)
 	}
-	gs.symbols[label] = newSymbol(label, getMemNext(gs), nil)
+	set := fmt.Sprintf("%d", getMemNext(gs))
+	gs.symbols[label] = newSymbol(label, set,
+		func(gs *globalState) error { return expand(gs, label) })
 	return nil
 }

@@ -239,7 +239,7 @@ func (s *symbol) data() interface{} {
 
 // Execute the symbol's action. The action will typically (but
 // not necessarily) consume from the scanState and act on it
-func (s *symbol) action(gs *globalState) error {
+func (s *symbol) doAction(gs *globalState) error {
 	return s.symbolAction(gs)
 }
 
@@ -250,6 +250,35 @@ func (s *symbol) String() string {
 // symbolTable is the global symbol table for an execution of yasm.
 type symbolTable map[string]*symbol
 
+// Fixups are used to install jump addresses, branch offsets, immediate
+// values, and possibly other similar late-bound values in the code stream
+// after lexing is complete. The fixup struct is a grab bag of data that
+// is needed by one fixup routine or another. Fixups are created during
+// opcode processing (doOpcode()) when special symbols like .abs or .imm
+// are found in the argument definition of an instruction. The table of
+// all fixups is in the global state.
+
+// Fixups are created by a fixupMaker which is stored in the type-agnostic
+// symbolData field of the special symbol. The maker calls newFixup(), below.
+type fixupMaker = func(loc int, ref *symbol, t *token) *fixup
+
+// Fixups are applied by a fixupFunc
+type fixupFunc = func(gs *globalState, fx *fixup) error
+
+type fixup struct {
+	kind string
+	location int
+	fixupAction fixupFunc
+	ref *symbol
+	t *token
+}
+
+type fixupTable []*fixup
+
+func newFixup(k string, l int, fx fixupFunc, r *symbol, t *token) (*fixup) {
+	return &fixup{k, l, fx, r, t}
+}
+
 // globalState is the state of the assembler.
 type globalState struct {
 	reader      *stackingNameLineByteReader
@@ -259,6 +288,7 @@ type globalState struct {
 	inOpcode    bool
 	opcodeValue byte
 	symbols     symbolTable
+	fixups		fixupTable
 	mem         []byte   // memory, 0x0000 .. 0x77FF
 	memNext     int
 	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
@@ -282,6 +312,7 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs.wcsNext = -1
 	gs.alu = make([]byte, 0x2000, 0x2000)
 	gs.reader = new(stackingNameLineByteReader)
+	gs.fixups = make([]*fixup, 10, 10)
 	gs.symbols = make(symbolTable)
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))
 	registerBuiltins(gs)

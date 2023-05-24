@@ -155,6 +155,13 @@ var nlToken = token{"\n", tkNewline} // const
 // And for the initial version of the lexer, that's it.
 
 func getToken(gs *globalState) *token {
+	// This function allows printing of the token stream
+	result := internalGetToken(gs)
+	// fmt.Printf("[ %s ]\n", result)
+	return result
+}
+
+func internalGetToken(gs *globalState) *token {
 	if gs.lexerState == stEnd {
 		return &eofToken
 	}
@@ -224,7 +231,7 @@ func getToken(gs *globalState) *token {
 				gs.lexerState = stBetween
 				return &token{string(b), tkOperator}
 			} else {
-				msg := fmt.Sprintf("character 0x%02x (%c) unexpected", b, rune(b))
+				msg := fmt.Sprintf("character 0x%02x (%d) unexpected [1]", b, b)
 				gs.lexerState = stInError
 				return &token{msg, tkError}
 			}
@@ -236,7 +243,7 @@ func getToken(gs *globalState) *token {
 				gs.lexerState = stBetween
 				var result *token
 				if b == COLON {
-					// Label use (definition)
+					// Label definition, e.g. "myLabel:"
 					// Again, here, we end in the BETWEEN state with
 					// no intervening white space. This makes it ok
 					// to write "myLabel:JMP myLabel" with no space
@@ -256,7 +263,7 @@ func getToken(gs *globalState) *token {
 			} else if isSymbolChar(b) {
 				accumulator = append(accumulator, b)
 			} else {
-				msg := fmt.Sprintf("character 0x%02x (%c) unexpected", b, rune(b))
+				msg := fmt.Sprintf("character 0x%02x (%d) unexpected [2]", b, b)
 				gs.lexerState = stInError
 				return &token{msg, tkError}
 			}
@@ -298,7 +305,7 @@ func getToken(gs *globalState) *token {
 				gs.reader.unreadByte(b)
 				return result
 			} else {
-				msg := fmt.Sprintf("character 0x%02x (%c) unexpected in number", b, rune(b))
+				msg := fmt.Sprintf("character 0x%02x (%d) unexpected in number", b, b)
 				gs.lexerState = stInError
 				return &token{msg, tkError}
 			}

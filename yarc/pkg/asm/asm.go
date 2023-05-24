@@ -146,7 +146,7 @@ func process(gs *globalState) int {
 				inError = true
 				break
 			}
-			if err := keySymbol.action(gs); err != nil {
+			if err := keySymbol.doAction(gs); err != nil {
 				errMsg(gs, err.Error())
 				inError = true
 			}
