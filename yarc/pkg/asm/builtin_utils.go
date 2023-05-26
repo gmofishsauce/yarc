@@ -168,8 +168,8 @@ func doOpcode(gs *globalState, opName string) error {
 				t.tokenKind != tkNumber && t.tokenKind != tkString {
 				return fmt.Errorf("unexpected: %s", t)
 			}
-			fxm := sym.symbolData.(fixupMaker)
-			gs.fixups = append(gs.fixups, fxm(gs.memNext, opSym, t))
+			fxmaker := sym.symbolData.(fixupMaker)
+			gs.fixups = append(gs.fixups, fxmaker(gs.memNext, opSym, t))
 		} else {
 			n, err := mustGetNumber(gs)
 			if err != nil {
@@ -209,13 +209,13 @@ func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
 }
 
 // A label use has been found. Check that the same label isn't
-// previously defined. Define it as ".set <label> getMemNext(gs)"
+// previously defined. Define it as the string value of the location.
+// Labels are not key symbols.
 func makeLabel(gs *globalState, label string) error {
 	if _, trouble := gs.symbols[label]; trouble {
 		return fmt.Errorf("label already defined: %s", label)
 	}
-	set := fmt.Sprintf("%d", getMemNext(gs))
-	gs.symbols[label] = newSymbol(label, set,
-		func(gs *globalState) error { return expand(gs, label) })
+	location := fmt.Sprintf("%d", getMemNext(gs))
+	gs.symbols[label] = newSymbol(label, location, nil)
 	return nil
 }

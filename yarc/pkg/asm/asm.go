@@ -85,21 +85,37 @@ func Assemble(sourceFile string) {
 	}
 
 	gs := newGlobalState(bufio.NewReader(f), sourceFile)
-	numErrors := process(gs)
-	if numErrors == 0 {
-		generateALUcontent(gs)
-		WriteResults(gs)
-		fmt.Println("yasm: success")
-	} else {
+	if numErrors := lex(gs); numErrors != 0 {
 		s := "s"
 		if numErrors == 1 {
 			s = ""
 		}
-		fmt.Printf("yasm: failed (%d error%s)\n", numErrors, s)
+		log.Fatalf("yasm: lex failed (%d error%s)\n", numErrors, s)
 	}
+
+	// Put a reader in the globalState for evaluation purposes.
+	// You are not expected to understand this.
+	gs.reader = new(stackingNameLineByteReader)
+
+	if numErrors := applyFixups(gs); numErrors != 0 {
+		s := "s"
+		if numErrors == 1 {
+			s = ""
+		}
+		log.Fatalf("yasm: fixups failed (%d error%s)\n", numErrors, s)
+	}
+
+	generateALUcontent(gs)
+	if err := WriteResults(gs); err != nil {
+		log.Fatalf("yasm: assembly succeeded by write results file failed: %s", err)
+	}
+
+	fmt.Println("yasm: success")
 }
 
-func process(gs *globalState) int {
+// Lex the source. This is the entire assembler, except for
+// applying the fixups and writing out the results.
+func lex(gs *globalState) int {
 	inError := false
 	numErrors := 0
 
@@ -137,7 +153,7 @@ func process(gs *globalState) int {
 		case tkSymbol:
 			keySymbol, ok := gs.symbols[t.text()]
 			if !ok {
-				errMsg(gs, "expected symbol, found %s", t)
+				errMsg(gs, "expected key symbol, found %s", t)
 				inError = true
 				break
 			}
@@ -151,7 +167,7 @@ func process(gs *globalState) int {
 				inError = true
 			}
 		case tkLabel:
-			// This is a label use (definition)
+			// Label definition, e.g. LABLE:
 			if err := makeLabel(gs, t.text()); err != nil {
 				errMsg(gs, "error: %s\n", err.Error())
 				inError = true
@@ -161,6 +177,15 @@ func process(gs *globalState) int {
 			inError = true
 		}
 	}
+}
+
+func applyFixups(gs *globalState) int {
+	errors := 0
+	for _, fx := range(gs.fixups) {
+		log.Printf("%v\n", fx)
+		fx.fixupAction(gs, fx)
+	}
+	return errors
 }
 
 func errMsg(gs *globalState, format string, args ...interface{}) {

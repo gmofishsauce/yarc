@@ -312,7 +312,7 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs.wcsNext = -1
 	gs.alu = make([]byte, 0x2000, 0x2000)
 	gs.reader = new(stackingNameLineByteReader)
-	gs.fixups = make([]*fixup, 10, 10)
+	gs.fixups = []*fixup{}
 	gs.symbols = make(symbolTable)
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))
 	registerBuiltins(gs)
