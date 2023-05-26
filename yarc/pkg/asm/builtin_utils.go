@@ -219,3 +219,131 @@ func makeLabel(gs *globalState, label string) error {
 	gs.symbols[label] = newSymbol(label, location, nil)
 	return nil
 }
+
+// Evaluate a token for an integer value. This function is used after
+// lexing is complete (i.e. during the fixup "pass"). The lex-time
+// functions like mustGetValue(), etc., can't be used at fixup time
+// because they work by pushing expansion values on the input reader
+// stack; the input reader has reached EOF at this point. So the token
+// t must have a value that can be obtained without expansion, which
+// makes sense since all the expansions were done during the lex pass.
+func evaluateToken(gs *globalState, t *token) (int, error) {
+	switch t.kind() {
+		case tkString: // TODO implement inline byte strings in memory
+			return 0, fmt.Errorf("%s: not implemented as token value", t)
+		case tkError, tkNewline, tkOperator, tkEnd:
+			return 0, fmt.Errorf("%s: unexpected token type", t)
+		case tkNumber:
+			n, e := strconv.ParseInt(t.text(), 0, 0)
+			if e != nil {
+				return 0, e
+			}
+			return int(n), nil
+		case tkSymbol, tkLabel:
+			sym, ok := gs.symbols[t.text()]
+			if !ok {
+				return 0, fmt.Errorf("%s: undefined symbol", t.text)
+			}
+			s, ok := sym.data().(string)
+			if !ok {
+				return 0, fmt.Errorf("%s: invalid value (\"%v\"", sym.name(), sym.data())
+			}
+			n, e := strconv.ParseInt(s, 0, 0)
+			if e != nil {
+				return 0, e
+			}
+			return int(n), nil
+	}
+	return 0, fmt.Errorf("internal error: evaluateToken(): missing case in type switch")
+}
+
+// Lexing is complete. Fix up an absolute value symbol (".abs")
+// found in an opcode definition
+func fixupAbs(gs *globalState, fx *fixup) error {
+	// absolute jump or call fixup: the value of token t is the absolute
+	// address of the target. In YARC, target addresses are their own
+	// opcodes, so the value replaces the entire 16-bit opcode.
+	val, err := evaluateToken(gs, fx.t)
+	if err != nil {
+		return err
+	}
+	// Maybe the maximum value should be END_MEM = 30k instead of 32k
+	if val > math.MaxInt16 || val < 0 {
+		return fmt.Errorf("absolute address: value out of range: %d\n", val)
+	}
+	if val & 1 != 0 {
+		return fmt.Errorf("absolute address: odd addresses not allowed: %d", val)
+	}
+	fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n",
+		fx, uint16(val), fx.location)
+	gs.mem[fx.location] = byte(val&0xFF)
+	gs.mem[fx.location+1] = byte((val&0xFF00) >> 8)
+	return nil
+}
+
+// Lexing is complete. Fix up a relative offset (".rel") found
+// in an opcode definition
+func fixupRel(gs *globalState, fx *fixup) error {
+	// relative branch fixup: the difference between the value of the
+	// token t and (memNext + 2) at the point of the instruction must
+	// fit in a signed byte. The value replaces the low byte of the
+	// instruction.
+	val, err := evaluateToken(gs, fx.t)
+	if err != nil {
+		return err
+	}
+
+	// As in most computers, the program counter has already been incremented
+	// when the branch offset is added to the PC. YARC uses byte addressing,
+	// but all instructions and immediate values are 16 bits each. So the reach
+	// of a branch is effectively halved and the value -2 is "branch to self".
+	if val & 1 != 0 {
+		return fmt.Errorf("relative address: odd values not allowed: %d\n", val)
+	}
+	val -= 2
+	if val > math.MaxInt8 || val < math.MinInt8 {
+		return fmt.Errorf("relative address: value out of range: %d\n", val)
+	}
+	fmt.Printf("fixupRel(%v): write value 0x%02X at location %d\n",
+		fx, uint8(val), fx.location)
+	gs.mem[fx.location] = byte(val)
+	return nil
+}
+
+// Lexing is complete. Fix up a byte immediate (".immb") found
+// in an opcode definition
+func fixupImmb(gs *globalState, fx *fixup) error {
+	// immediate byte fixup: the value of the token t must fit in a
+	// signed byte. The value replaces the low byte of the instruction.
+	val, err := evaluateToken(gs, fx.t)
+	if err != nil {
+		return err
+	}
+	if val > math.MaxInt8 || val < math.MinInt8 {
+		return fmt.Errorf("immediate byte: value out of range: %d\n", val)
+	}
+	fmt.Printf("fixupImmb(%v): write value 0x%02X at location %d\n",
+		fx, uint8(val), fx.location)
+	gs.mem[fx.location] = byte(val)
+	return nil
+}
+
+// Lexing is complete. Fix up a word immediate (".immw") found in
+// an opcode definition
+func fixupImmw(gs *globalState, fx *fixup) error {
+	// Immediate word fixup: the value of token t replaces the word at
+	// (memnext + 2) from the point of the instruction.
+	val, err := evaluateToken(gs, fx.t)
+	if err != nil {
+		return err
+	}
+	if val > math.MaxInt16 || val < math.MinInt16 {
+		return fmt.Errorf("immediate word: value out of range: %d\n", val)
+	}
+	fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n",
+		fx, uint16(val), fx.location+2)
+	gs.mem[fx.location+2] = byte(val&0xFF)
+	gs.mem[fx.location+3] = byte((val&0xFF00) >> 8)
+	return nil
+}
+

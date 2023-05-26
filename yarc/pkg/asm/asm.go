@@ -93,10 +93,6 @@ func Assemble(sourceFile string) {
 		log.Fatalf("yasm: lex failed (%d error%s)\n", numErrors, s)
 	}
 
-	// Put a reader in the globalState for evaluation purposes.
-	// You are not expected to understand this.
-	gs.reader = new(stackingNameLineByteReader)
-
 	if numErrors := applyFixups(gs); numErrors != 0 {
 		s := "s"
 		if numErrors == 1 {
@@ -107,7 +103,7 @@ func Assemble(sourceFile string) {
 
 	generateALUcontent(gs)
 	if err := WriteResults(gs); err != nil {
-		log.Fatalf("yasm: assembly succeeded by write results file failed: %s", err)
+		log.Fatalf("yasm: assembly succeeded but write results file failed: %s", err)
 	}
 
 	fmt.Println("yasm: success")
@@ -167,7 +163,7 @@ func lex(gs *globalState) int {
 				inError = true
 			}
 		case tkLabel:
-			// Label definition, e.g. LABLE:
+			// Label definition, e.g. LABEL:
 			if err := makeLabel(gs, t.text()); err != nil {
 				errMsg(gs, "error: %s\n", err.Error())
 				inError = true
@@ -182,8 +178,11 @@ func lex(gs *globalState) int {
 func applyFixups(gs *globalState) int {
 	errors := 0
 	for _, fx := range(gs.fixups) {
-		log.Printf("%v\n", fx)
-		fx.fixupAction(gs, fx)
+		log.Printf("apply fixup %v\n", fx)
+		if err := fx.fixupAction(gs, fx); err != nil {
+			log.Printf("fixup error: %s\n", err)
+			errors++
+		}
 	}
 	return errors
 }

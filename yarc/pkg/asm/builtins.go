@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 )
 
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
@@ -191,7 +190,7 @@ func actionSlot(gs *globalState) error {
 	}
 }
 
-// Symbol actions were originally conceived as a way to implement the main loop
+// Symbol actions were originally conceived as a way to implement the lexer loop
 // in asm.go: it largely grabs a symbol and then delegates to the action function.
 // As a result the action functions take only the global state and return only an
 // error. When I implemented fixups for labels (e.g. jump forward to as-yet unseen
@@ -209,7 +208,8 @@ func actionSlot(gs *globalState) error {
 // error. Their static symbol data is a function that takes arguments for all the state
 // any fixup might need, creates the fixup entry, adds the correct deferred processing
 // function to the entry, and then adds the fixup to the fixup list. The fixup list is
-// processed if and after lexing completes successfully.
+// processed if and after lexing completes successfully. The fixup functions themselves
+// are found in builtin_utils.go.
 
 func actionFixup(gs *globalState) error {
 	return fmt.Errorf("internal error: fixup action called")
@@ -235,84 +235,6 @@ func createImmwFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".immw", loc, fixupImmw, ref, t)
 }
 
-// Lexing is complete. Fix up an absolute value symbol (".abs")
-// found in an opcode definition
-func fixupAbs(gs *globalState, fx *fixup) error {
-	// absolute jump or call fixup: the value of token t is the absolute
-	// address of the target. In YARC, target addresses are their own
-	// opcodes, so the value replaces the entire 16-bit opcode.
-	val, err := evaluateToken(gs, fx.t)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n",
-		fx, val, fx.location)
-	gs.mem[fx.location] = byte(val&0xFF)
-	gs.mem[fx.location+1] = byte((val&0xFF00) >> 8)
-	return nil
-}
-
-func evaluateToken(gs *globalState, t *token) (int, error) {
-	switch t.kind() {
-		case tkString:
-			return 0, fmt.Errorf("%s: not implemented as token value", t)
-		case tkError, tkNewline, tkOperator, tkEnd:
-			return 0, fmt.Errorf("%s: unexpected token type", t)
-		case tkNumber:
-			n, e := strconv.ParseInt(t.text(), 0, 0)
-			if e != nil {
-				return 0, e
-			}
-			return int(n), nil
-		case tkSymbol, tkLabel:
-			sym, ok := gs.symbols[t.text()]
-			if !ok {
-				return 0, fmt.Errorf("%s: undefined symbol", t.text)
-			}
-			s, ok := sym.data().(string)
-			if !ok {
-				return 0, fmt.Errorf("%s: invalid value (\"%v\"", sym.name(), sym.data())
-			}
-			n, e := strconv.ParseInt(s, 0, 0)
-			if e != nil {
-				return 0, e
-			}
-			return int(n), nil
-	}
-	return 0, fmt.Errorf("internal error: evaluateToken(): missing case in type switch")
-}
-
-// Lexing is complete. Fix up a relative offset (".rel") found
-// in an opcode definition
-func fixupRel(gs *globalState, fx *fixup) error {
-	// relative branch fixup: the difference between the value of the
-	// symbol identified by token t and (memNext + 2) at the point of
-	// the instruction must fit in a signed byte. The value replaces
-	// the low byte of the instruction.
-	fmt.Printf("fixupRel(%v)\n", fx)
-	return nil
-}
-
-// Lexing is complete. Fix up a byte immediate (".immb") found
-// in an opcode definition
-func fixupImmb(gs *globalState, fx *fixup) error {
-	// immediate byte fixup: the value of the symbol identified by
-	// token t must fit in a signed byte. The value replaces the low
-	// byte of the instruction.
-	fmt.Printf("fixupImmb(%v)\n", fx)
-	return nil
-}
-
-// Lexing is complete. Fix up a word immediate (".immw") found in
-// an opcode definition
-func fixupImmw(gs *globalState, fx *fixup) error {
-	// Immediate word fixup: the value of the symbol identified by
-	// token t replaces the word at (memnext + 2) from the point
-	// of the instruction.
-	fmt.Printf("fixupImmw(%v)\n", fx)
-	return nil
-}
-
 // Key symbols. Most, but not all, appear at the start of a line
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
@@ -322,6 +244,7 @@ var builtinEndOpcode *symbol = newSymbol(".endopcode", nil, actionEndOpcode)
 var builtinSlot *symbol = newSymbol(".slot", nil, actionSlot)
 
 // Embedded key symbols that specify fixups when used in opcode definitions
+// These are recognized and processed in doOpcode(), not the main loop.
 var builtinAbs *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
 var builtinRel *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
 var builtinImmb *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
