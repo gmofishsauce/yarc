@@ -61,7 +61,7 @@
 .set from_bus  1    # register input from sysdata
 .set from_alu  0    # register input from ALU output
 
-# ALU operations
+# ALU operations (ACN values for use with .acn)
 .set alu_add   0x00
 .set alu_sub   0x01 # src2 - src1
 .set alu_rsub  0x02 # reverse subtract src1 - src2
@@ -85,10 +85,6 @@
 .set alu_in     2   # no alu operation; sysdata transceivers inbound
 .set alu_none   3   # no operation
 
-# Register input mux control bit (also flags input control mux)
-.set sysdata	1	# register input from sysdata (noop default)
-.set alu		0	# register input from ALU output
-
 # Memory and I/O read/write control bit rw
 .set read		1
 .set write		0
@@ -100,6 +96,24 @@
 # RCW from instruction register IR or from microcode UC?
 .set uc			1
 .set ir			0
+
+# Branch conditions (ACN values for use with .acn)
+.set c   0x00
+.set z   0x01
+.set n   0x02
+.set v   0x03
+.set always 0x04
+.set ule 0x05
+.set slt 0x06
+.set sle 0x07
+.set nc  0x08
+.set nz  0x09
+.set nn  0x0A
+.set nv  0x0B
+.set never 0x0C
+.set ugt 0x0D
+.set sge 0x0E
+.set sgt 0x0F
 
 # Microcode words, 32 bits
 

@@ -152,33 +152,29 @@ func expand(gs *globalState, symToExpand string) error {
 func doOpcode(gs *globalState, opName string) error {
 	opSym := gs.symbols[opName]
 	op := *opSym.data().(*opcode)
-	var lowbyte byte
 
 	for i := 0; i < len(op.args); i++ {
 		arg := op.args[i]
 		sym, found := gs.symbols[arg.text()]
-		if found && sym.symbolAction != nil {
-			// It's a .abs, .immX, etc. Grab the next token and
-			// stash it in a fixup struct for later.
-			t := getToken(gs)
-			// The matching token for a .abs, .imm, etc., must be
-			// one of few kinds. The fixup function will sort out
-			// the rest of the details later, possibly with error.
-			if t.tokenKind != tkSymbol && t.tokenKind != tkLabel &&
-				t.tokenKind != tkNumber && t.tokenKind != tkString {
-				return fmt.Errorf("unexpected: %s", t)
-			}
-			fxmaker := sym.symbolData.(fixupMaker)
-			gs.fixups = append(gs.fixups, fxmaker(gs.memNext, opSym, t))
-		} else {
-			n, err := mustGetNumber(gs)
-			if err != nil {
-				return err
-			}
-			pack(gs, n, &lowbyte, arg)
+		if !found || sym.symbolAction == nil {
+			return fmt.Errorf("unrecognized: %s", arg.text())
 		}
+
+		// It's a .abs, .immX, .src1, etc. Grab the next token
+		// and stash it in a fixup struct for later.
+		t := getToken(gs)
+
+		// The matching token for a .abs, .imm, etc., must be
+		// one of few kinds. The fixup function will sort out
+		// the rest of the details later, possibly with error.
+		if t.tokenKind != tkSymbol && t.tokenKind != tkLabel &&
+			t.tokenKind != tkNumber && t.tokenKind != tkString {
+			return fmt.Errorf("unexpected: %s", t)
+		}
+		fxmaker := sym.symbolData.(fixupMaker)
+		gs.fixups = append(gs.fixups, fxmaker(gs.memNext, opSym, t))
 	}
-	gs.mem[gs.memNext] = lowbyte
+	gs.mem[gs.memNext] = 0
 	gs.memNext++
 	gs.mem[gs.memNext] = op.code
 	gs.memNext++
@@ -186,27 +182,29 @@ func doOpcode(gs *globalState, opName string) error {
 }
 
 // Pack the value of an operand into a field
-func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
-	sym := gs.symbols[arg.text()]
-	var elements []int64
-	var ok bool
-	if elements, ok = sym.data().([]int64); !ok {
-		return fmt.Errorf("%s: not a bitfield", arg.text())
-	}
-	if len(elements) != 3 {
-		return fmt.Errorf("%s: not a bitfield", arg.text())
-	}
-	if elements[0] != 8 {
-		return fmt.Errorf("%s: not in an 8-bit field", arg.text())
-	}
-	size := elements[1] - elements[2] + 1
-	max := int64(math.Pow(2, float64(size))) - 1
-	if operandValue < 0 || operandValue > max {
-		return fmt.Errorf("%s: invalid value", arg.text())
-	}
-	*target |= byte((operandValue & max) << elements[2])
-	return nil
-}
+//func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
+//	fmt.Printf("pack(gs, operandValue %d, target 0x%02X, token %s\n", operandValue, *target, arg)
+//	sym := gs.symbols[arg.text()]
+//	var elements []int64
+//	var ok bool
+//	if elements, ok = sym.data().([]int64); !ok {
+//		return fmt.Errorf("%s: not a bitfield", arg.text())
+//	}
+//	if len(elements) != 3 {
+//		return fmt.Errorf("%s: not a bitfield", arg.text())
+//	}
+//	if elements[0] != 8 {
+//		return fmt.Errorf("%s: not in an 8-bit field", arg.text())
+//	}
+//	size := elements[1] - elements[2] + 1
+//	max := int64(math.Pow(2, float64(size))) - 1
+//	if operandValue < 0 || operandValue > max {
+//		return fmt.Errorf("%s: invalid value", arg.text())
+//	}
+//	fmt.Printf("pack(): field size %d max %d\n", size, max)
+//	*target |= byte((operandValue & max) << elements[2])
+//	return nil
+//}
 
 // A label use has been found. Check that the same label isn't
 // previously defined. Define it as the string value of the location.
@@ -227,32 +225,42 @@ func makeLabel(gs *globalState, label string) error {
 // stack; the input reader has reached EOF at this point. So the token
 // t must have a value that can be obtained without expansion, which
 // makes sense since all the expansions were done during the lex pass.
-func evaluateToken(gs *globalState, t *token) (int, error) {
+func evaluateToken(gs *globalState, t *token, min int, max int) (int, error) {
 	switch t.kind() {
 		case tkString: // TODO implement inline byte strings in memory
 			return 0, fmt.Errorf("%s: not implemented as token value", t)
 		case tkError, tkNewline, tkOperator, tkEnd:
 			return 0, fmt.Errorf("%s: unexpected token type", t)
 		case tkNumber:
-			n, e := strconv.ParseInt(t.text(), 0, 0)
+			n64, e := strconv.ParseInt(t.text(), 0, 0)
 			if e != nil {
 				return 0, e
 			}
-			return int(n), nil
+			n := int(n64)
+			if n < min || n > max {
+				return 0, fmt.Errorf("%s: value (%d) of range (%d, %d)",
+					t.text(), n, min, max)
+			}
+			return n, nil
 		case tkSymbol, tkLabel:
 			sym, ok := gs.symbols[t.text()]
 			if !ok {
-				return 0, fmt.Errorf("%s: undefined symbol", t.text)
+				return 0, fmt.Errorf("%s: undefined symbol", t.text())
 			}
 			s, ok := sym.data().(string)
 			if !ok {
 				return 0, fmt.Errorf("%s: invalid value (\"%v\"", sym.name(), sym.data())
 			}
-			n, e := strconv.ParseInt(s, 0, 0)
+			n64, e := strconv.ParseInt(s, 0, 0)
 			if e != nil {
 				return 0, e
 			}
-			return int(n), nil
+			n := int(n64)
+			if n < min || n > max {
+				return 0, fmt.Errorf("%s: value (%d) of range (%d, %d)",
+					t.text(), n, min, max)
+			}
+			return n, nil
 	}
 	return 0, fmt.Errorf("internal error: evaluateToken(): missing case in type switch")
 }
@@ -263,19 +271,14 @@ func fixupAbs(gs *globalState, fx *fixup) error {
 	// absolute jump or call fixup: the value of token t is the absolute
 	// address of the target. In YARC, target addresses are their own
 	// opcodes, so the value replaces the entire 16-bit opcode.
-	val, err := evaluateToken(gs, fx.t)
+	val, err := evaluateToken(gs, fx.t, 0, 30*1024-1) // END_MEM
 	if err != nil {
 		return err
-	}
-	// Maybe the maximum value should be END_MEM = 30k instead of 32k
-	if val > math.MaxInt16 || val < 0 {
-		return fmt.Errorf("absolute address: value out of range: %d\n", val)
 	}
 	if val & 1 != 0 {
 		return fmt.Errorf("absolute address: odd addresses not allowed: %d", val)
 	}
-	fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n",
-		fx, uint16(val), fx.location)
+	//fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n", fx, uint16(val), fx.location)
 	gs.mem[fx.location] = byte(val&0xFF)
 	gs.mem[fx.location+1] = byte((val&0xFF00) >> 8)
 	return nil
@@ -288,7 +291,7 @@ func fixupRel(gs *globalState, fx *fixup) error {
 	// token t and (memNext + 2) at the point of the instruction must
 	// fit in a signed byte. The value replaces the low byte of the
 	// instruction.
-	val, err := evaluateToken(gs, fx.t)
+	val, err := evaluateToken(gs, fx.t, 0, 30*1024-1)
 	if err != nil {
 		return err
 	}
@@ -300,13 +303,12 @@ func fixupRel(gs *globalState, fx *fixup) error {
 	if val & 1 != 0 {
 		return fmt.Errorf("relative address: odd values not allowed: %d\n", val)
 	}
-	val -= 2
-	if val > math.MaxInt8 || val < math.MinInt8 {
+	offset := val - fx.location - 2
+	if offset > math.MaxInt8 || offset < math.MinInt8 {
 		return fmt.Errorf("relative address: value out of range: %d\n", val)
 	}
-	fmt.Printf("fixupRel(%v): write value 0x%02X at location %d\n",
-		fx, uint8(val), fx.location)
-	gs.mem[fx.location] = byte(val)
+	//fmt.Printf("fixupRel(%v): write value 0x%02X at location %d\n", fx, uint8(offset), fx.location)
+	gs.mem[fx.location] = byte(offset)
 	return nil
 }
 
@@ -315,15 +317,11 @@ func fixupRel(gs *globalState, fx *fixup) error {
 func fixupImmb(gs *globalState, fx *fixup) error {
 	// immediate byte fixup: the value of the token t must fit in a
 	// signed byte. The value replaces the low byte of the instruction.
-	val, err := evaluateToken(gs, fx.t)
+	val, err := evaluateToken(gs, fx.t, math.MinInt8, math.MaxInt8)
 	if err != nil {
 		return err
 	}
-	if val > math.MaxInt8 || val < math.MinInt8 {
-		return fmt.Errorf("immediate byte: value out of range: %d\n", val)
-	}
-	fmt.Printf("fixupImmb(%v): write value 0x%02X at location %d\n",
-		fx, uint8(val), fx.location)
+	//fmt.Printf("fixupImmb(%v): write value 0x%02X at location %d\n", fx, uint8(val), fx.location)
 	gs.mem[fx.location] = byte(val)
 	return nil
 }
@@ -333,17 +331,56 @@ func fixupImmb(gs *globalState, fx *fixup) error {
 func fixupImmw(gs *globalState, fx *fixup) error {
 	// Immediate word fixup: the value of token t replaces the word at
 	// (memnext + 2) from the point of the instruction.
-	val, err := evaluateToken(gs, fx.t)
+	val, err := evaluateToken(gs, fx.t, math.MinInt16, math.MaxInt16)
 	if err != nil {
 		return err
 	}
-	if val > math.MaxInt16 || val < math.MinInt16 {
-		return fmt.Errorf("immediate word: value out of range: %d\n", val)
-	}
-	fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n",
-		fx, uint16(val), fx.location+2)
+	//fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n", fx, uint16(val), fx.location+2)
 	gs.mem[fx.location+2] = byte(val&0xFF)
 	gs.mem[fx.location+3] = byte((val&0xFF00) >> 8)
 	return nil
 }
 
+// Lexing is complete. Fix up an acn (alu condition nybble), the
+// value 0..15 in the low order 4 bits of the instruction opcode.
+func fixupAcn(gs *globalState, fx *fixup) error {
+	val, err := evaluateToken(gs, fx.t, 0, 0xF)
+	if err != nil {
+		return err
+	}
+	msByteLocation := fx.location+1
+	//fmt.Printf("fixupAcn: write value 0x%1X in low order bits at location %d\n", val, msByteLocation)
+	gs.mem[msByteLocation] &^= 0x0F
+	gs.mem[msByteLocation] |= byte(val)
+	return nil
+}
+
+func fixupSrc1(gs *globalState, fx *fixup) error {
+	val, err := evaluateToken(gs, fx.t, 0, 3)
+	if err != nil {
+		return err
+	}
+	gs.mem[fx.location] &^= byte(0xC0)
+	gs.mem[fx.location] |= byte(val << 6)
+	return nil
+}
+
+func fixupSrc2(gs *globalState, fx *fixup) error {
+	val, err := evaluateToken(gs, fx.t, 0, 7)
+	if err != nil {
+		return err
+	}
+	gs.mem[fx.location] &^= byte(0x38)
+	gs.mem[fx.location] |= byte(val << 3)
+	return nil
+}
+
+func fixupDst(gs *globalState, fx *fixup) error {
+	val, err := evaluateToken(gs, fx.t, 0, 7)
+	if err != nil {
+		return err
+	}
+	gs.mem[fx.location] &^= byte(0x07)
+	gs.mem[fx.location] |= byte(val)
+	return nil
+}

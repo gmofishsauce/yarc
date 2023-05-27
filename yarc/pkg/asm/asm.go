@@ -178,7 +178,7 @@ func lex(gs *globalState) int {
 func applyFixups(gs *globalState) int {
 	errors := 0
 	for _, fx := range(gs.fixups) {
-		log.Printf("apply fixup %v\n", fx)
+		// log.Printf("apply fixup %v\n", fx)
 		if err := fx.fixupAction(gs, fx); err != nil {
 			log.Printf("fixup error: %s\n", err)
 			errors++

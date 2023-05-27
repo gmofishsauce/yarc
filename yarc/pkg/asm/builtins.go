@@ -235,6 +235,26 @@ func createImmwFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".immw", loc, fixupImmw, ref, t)
 }
 
+// Return a fixup entry for a .acn (alu condition nybble)
+func createAcnFixupAction(loc int, ref *symbol, t *token) *fixup {
+	return newFixup(".acn", loc, fixupAcn, ref, t)
+}
+
+// Return a fixup entry for the src1 field of the RCW
+func createSrc1FixupAction(loc int, ref *symbol, t *token) *fixup {
+	return newFixup(".src1", loc, fixupSrc1, ref, t)
+}
+
+// Return a fixup entry for the src2 field of the RCW
+func createSrc2FixupAction(loc int, ref *symbol, t *token) *fixup {
+	return newFixup(".src2", loc, fixupSrc2, ref, t)
+}
+
+// Return a fixup entry for the dest field of the RCW
+func createDstFixupAction(loc int, ref *symbol, t *token) *fixup {
+	return newFixup(".dst", loc, fixupDst, ref, t)
+}
+
 // Key symbols. Most, but not all, appear at the start of a line
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
@@ -249,6 +269,10 @@ var builtinAbs *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
 var builtinRel *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
 var builtinImmb *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
 var builtinImmw *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
+var builtinAcn *symbol = newSymbol(".acn", createAcnFixupAction, actionFixup)
+var builtinSrc1 *symbol = newSymbol(".src1", createSrc1FixupAction, actionFixup)
+var builtinSrc2 *symbol = newSymbol(".src2", createSrc2FixupAction, actionFixup)
+var builtinDst *symbol = newSymbol(".dst", createDstFixupAction, actionFixup)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
@@ -261,4 +285,8 @@ func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinRel.name()] = builtinRel
 	gs.symbols[builtinImmb.name()] = builtinImmb
 	gs.symbols[builtinImmw.name()] = builtinImmw
+	gs.symbols[builtinAcn.name()] = builtinAcn
+	gs.symbols[builtinSrc1.name()] = builtinSrc1
+	gs.symbols[builtinSrc2.name()] = builtinSrc2
+	gs.symbols[builtinDst.name()] = builtinDst
 }
