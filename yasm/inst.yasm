@@ -28,7 +28,7 @@
 
 .set K1_NONE "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
 
-.set K0_NONE "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=uc carry_en=no load_flgs_mux=from_bus acn_ir_uc=uc"
+.set K0_NONE "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=uc carry_en=no load_flgs_mux=from_bus acn_ir_uc=uc ir0_en=no"
 
 .set NOOP "K3_NONE K2_NONE K1_NONE K0_NONE"
 
@@ -57,9 +57,11 @@
 .set DECODE_K0 "K0_NONE"
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 
-# Move the instruction register to R3.
+# Absolute jump. The instruction register contains the target address, which
+# is necessarily <= 2^15. The hardware translates that to opcode 0xFF, where
+# we place the microcode to move the instruction register to R3.
 .opcode jmp 0xFF 1 .abs
-.slot "src1=src1_none src2=src2_none dst=r3 K2_NONE sysdata_src=ir reg_in_mux=from_bus dst_wr_en=yes K0_NONE" ;
+.slot "src1=src1_none src2=src2_none dst=r3 K2_NONE sysdata_src=ir reg_in_mux=from_bus dst_wr_en=yes K0_NONE" ir0_en=yes;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode

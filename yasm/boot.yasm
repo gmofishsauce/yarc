@@ -13,7 +13,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-# boostrap code
+# boostrap code. Well, for now, it isn't really, it's just some garbage
+# that helps me test assembler features. But it will be the bootstrap.
+
+test1:
+	jmp test1
 aLabel: 
 	alu alu_add r0 r1 r2
 labelWithValue2:
