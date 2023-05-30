@@ -18,6 +18,7 @@
 
 test1:
 	jmp test1
+	adiw 0x1111
 aLabel: 
 	alu alu_add r0 r1 r2
 labelWithValue2:
@@ -25,6 +26,6 @@ labelWithValue2:
 self:br c self
     br n labelWithValue2
 	br z aLabel
-	adi 42
+	adib 42
 # an error
 # aLabel:

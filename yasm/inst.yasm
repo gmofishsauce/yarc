@@ -72,11 +72,16 @@
 .slot DECODE ;
 .endopcode
 
-.opcode adi 0xC0 1 .immb
+.opcode adib 0xC0 1 .immb # add immediate byte
 .slot NOOP ; # TODO
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
+
+.opcode adiw 0xC1 1 .immw # add immediate word
+.slot NOOP ; # TODO
+.slot FETCH ;
+.slot DECODE ;
 
 .opcode start 0xEF 0
 .slot FETCH ;
