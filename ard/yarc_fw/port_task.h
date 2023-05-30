@@ -226,14 +226,15 @@ namespace PortPrivate {
   // PC in R3, but for now it's just a zero. This function loads 0x01 into the IR,
   // which is a jmp to address 0. The first clock will the microcode address 
   // 0b1_1111_1100_0000, the base of the last group of 64 slots, which contains
-  // the microcode for JMP. This will load the IR into R3 and fetch from there.
+  // the microcode for JMP. This will load the IR (nanded with 0x0001) into R3
+  // and fetch from there.
   void internalRunYARC() {
     WriteReg(0, 0);
     WriteReg(1, 0);
     WriteReg(2, 0);
     WriteReg(3, 0);
-    WriteIR(0, 0);
     internalMakeSafe();
+    WriteIR(0, 1);
     SetMCR(McrEnableSysbus(McrEnableYarc(MCR_SAFE)));
   }
 
