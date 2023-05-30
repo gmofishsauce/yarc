@@ -152,6 +152,7 @@ func expand(gs *globalState, symToExpand string) error {
 func doOpcode(gs *globalState, opName string) error {
 	opSym := gs.symbols[opName]
 	op := *opSym.data().(*opcode)
+	var allocateWord bool = false
 
 	for i := 0; i < len(op.args); i++ {
 		arg := op.args[i]
@@ -171,6 +172,16 @@ func doOpcode(gs *globalState, opName string) error {
 			t.tokenKind != tkNumber && t.tokenKind != tkString {
 			return fmt.Errorf("unexpected: %s", t)
 		}
+
+		// The code fixups happen after lexing is complete, but
+		// here in the lex pass we need to allocated space for
+		// the code. Normally that's one word for each instruction,
+		// but if there is an immediate word (".immw") metasymbol
+		// then we need to allocate space for it.
+		if arg.text() == ".immw" {
+			allocateWord = true
+		}
+
 		fxmaker := sym.symbolData.(fixupMaker)
 		gs.fixups = append(gs.fixups, fxmaker(gs.memNext, opSym, t))
 	}
@@ -178,6 +189,9 @@ func doOpcode(gs *globalState, opName string) error {
 	gs.memNext++
 	gs.mem[gs.memNext] = op.code
 	gs.memNext++
+	if allocateWord {
+		gs.memNext += 2
+	}
 	return nil
 }
 
@@ -271,12 +285,34 @@ func fixupAbs(gs *globalState, fx *fixup) error {
 	// absolute jump or call fixup: the value of token t is the absolute
 	// address of the target. In YARC, target addresses are their own
 	// opcodes, so the value replaces the entire 16-bit opcode.
-	val, err := evaluateToken(gs, fx.t, 0, 30*1024-1) // END_MEM
+	val, err := evaluateToken(gs, fx.t, 0, 30*1024) // END_MEM
 	if err != nil {
 		return err
 	}
 	if val & 1 != 0 {
 		return fmt.Errorf("absolute address: odd addresses not allowed: %d", val)
+	}
+	// This is a total hack. The assembler is all supposed to be driven by these
+	// metasymbols like ".abs" that specify generic behaviors like placing the
+	// absolute value of a symbol in the code stream. Unfortunately, there is
+	// one specific feature of the YARC's partially-not-microcoded instruction
+	// set that defeats this: jump instructions are distinguished from calls
+	// by the LSB of the 16-bit word being set. No other instruction puts what
+	// is essentially a fixed opcode bit in the low-order bit; the low-order
+	// byte usually contains operands. I could have e.g. ".abseven" and ".absodd"
+	// but that's just as much of a hack. So I just special case it here.
+	opsym := fx.ref
+	if opsym == nil {
+		return fmt.Errorf("internal error: .abs: no opcode symbols found")
+	}
+	op, ok := opsym.data().(*opcode)
+	if !ok {
+		return fmt.Errorf("internal error: .abs: no opcode in opcode symbol")
+	}
+	if op.code == 0xFF {
+		// It's a jump instruction
+		// Set the LS bit to distinguish it from a call instruction
+		val |= 1
 	}
 	//fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n", fx, uint16(val), fx.location)
 	gs.mem[fx.location] = byte(val&0xFF)
