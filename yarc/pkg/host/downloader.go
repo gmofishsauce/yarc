@@ -145,13 +145,14 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 			continue
 		}
 		nWritten++
+		log.Printf("write microcode for opcode 0x%02X\n", ((op >> 8)|0x80) & 0xFF)
 		for slice := 0; slice < slicesPerOp; slice++ {
 			var i int = 0
 			for addr := op + slice; addr < op+ucodePerOp; addr += 4 {
 				body[i] = content[addr]
 				i++
 			}
-			if err := writeMicrocodeChunk(op, slice, body, nano); err != nil {
+			if err := writeMicrocodeChunk(((op >> 8)|0x80) & 0xFF, slice, body, nano); err != nil {
 				return err
 			}
 		}
@@ -181,7 +182,7 @@ func doALUSection(content []byte, nano *arduino.Arduino) error {
 
 		// As an optimization, I modified the Nano side of the
 		// writeAluChunk() call (the sp.CmdWrAlu protocol function)
-		// to write and verify (and panic the Nano if the verify
+		// to write with verify (and panic the Nano if the verify
 		// fails). So it's no longer necessary to read all three
 		// RAMs separately for verification, although it works
 		// just fine to do so. 5/19/2023
@@ -223,12 +224,38 @@ func readAluChunk(nano *arduino.Arduino, addr uint16, ram byte) ([]byte, error) 
 }
 
 func writeMicrocodeChunk(op int, slice int, body []byte, nano *arduino.Arduino) error {
+	// log.Printf("writeMicrocode op 0x%02x slice %d\n", op, slice)
+	// var cmdRdSlice []byte = make([]byte, 4, 4)
+	// cmdRdSlice[0] = sp.CmdRdSlice
+	// cmdRdSlice[1] = byte(0x80 | op)
+	// cmdRdSlice[2] = byte(slice)
+	// cmdRdSlice[3] = byte(len(body))
+	// before, err := doCountedReceive(nano, cmdRdSlice)
+	// if err != nil {
+	// 	return fmt.Errorf("BEFORE read error: %s", err)
+	// }
+	// log.Printf("BEFORE: 0x%02X 0x%02X 0x%02X 0x%02X\n", before[0], before[1], before[2], before[3])
+
 	var cmdWrSlice []byte = make([]byte, 4, 4)
 	cmdWrSlice[0] = sp.CmdWrSlice
 	cmdWrSlice[1] = byte(0x80 | op)
 	cmdWrSlice[2] = byte(slice)
 	cmdWrSlice[3] = byte(len(body))
-	return doCountedSend(nano, cmdWrSlice, body)
+	if result := doCountedSend(nano, cmdWrSlice, body); result != nil {
+		return fmt.Errorf("microcode write failed: %s", result)
+	}
+
+    // cmdRdSlice[0] = sp.CmdRdSlice
+    // cmdRdSlice[1] = byte(0x80 | op)
+    // cmdRdSlice[2] = byte(slice)
+    // cmdRdSlice[3] = byte(len(body))
+    // after, err := doCountedReceive(nano, cmdRdSlice)
+    // if err != nil {
+	// 	return fmt.Errorf("AFTER read error: %s", err)
+    // }
+	// log.Printf("AFTER: 0x%02X 0x%02X 0x%02X 0x%02X\n", after[0], after[1], after[2], after[3])
+
+	return nil
 }
 
 func writeMemoryChunk(content []byte, nano *arduino.Arduino, addr uint16) error {
