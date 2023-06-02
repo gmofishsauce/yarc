@@ -28,7 +28,9 @@
 
 .set K1_NONE "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
 
-.set K0_NONE "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=uc carry_en=no load_flgs_mux=from_bus acn_ir_uc=uc ir0_en=no"
+.set K0_NONE_A "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=no"
+.set K0_NONE_B "load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=no"
+.set K0_NONE "K0_NONE_A K0_NONE_B"
 
 .set NOOP "K3_NONE K2_NONE K1_NONE K0_NONE"
 
@@ -41,10 +43,12 @@
 # register to the ALU port 2 holding register. Taken together, these choices
 # mean that the common assembler sequence of an ALU operation followed by a
 # branch on the flags is 2 cycles faster that one would naively think.
-.set FETCH_K3 "src1=r3 src2=src2_none dst=dst_none"
-.set FETCH_K2 "K2_NONE"
-.set FETCH_K1 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=no"
-.set FETCH_K0 "rw=read m16_en=bit16 load_ir=yes rcw_ir_uc=uc carry_en=no load_flgs_mux=from_bus acn_ir_uc=uc"
+.set FETCH_K3 "src1=r3 src2=src2_none dst=dst_none" # 0xFF
+.set FETCH_K2 "K2_NONE" # 0xFF
+.set FETCH_K1 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=no" # 9F
+.set FETCH_K0_A "rw=read m16_en=bit16 load_ir=yes rcw_ir_uc=rcw_from_uc"
+.set FETCH_K0_B "carry_en=no load_flgs_mux=from_bus acn_ir_uc=acn_from_uc" # 9F
+.set FETCH_K0 "FETCH_K0_A FETCH_K0_B"
 .set FETCH "FETCH_K3 FETCH_K2 FETCH_K1 FETCH_K0"
 
 # Microcode for an instruction decode cycle.
@@ -53,7 +57,7 @@
 # some other operations, like small immediate ALU operations).
 .set DECODE_K3 "K3_NONE"
 .set DECODE_K2 "acn=alu_0x0F alu_ctl=alu_in alu_load_hold=yes alu_load_flgs=no"
-.set DECODE_K1 "sysdata_src=ir reg_in_mux=from_bus dst_wr_en=no"
+.set DECODE_K1 "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
 .set DECODE_K0 "K0_NONE"
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 
@@ -61,7 +65,7 @@
 # is necessarily <= 2^15. The hardware translates that to opcode 0xFF, where
 # we place the microcode to move the instruction register to R3.
 .opcode jmp 0xFF 1 .abs
-.slot "src1=src1_none src2=src2_none dst=r3 K2_NONE sysdata_src=ir reg_in_mux=from_bus dst_wr_en=yes K0_NONE" ir0_en=yes;
+.slot "src1=src1_none src2=src2_none dst=r3 K2_NONE sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=yes K0_NONE" ir0_en=yes;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode

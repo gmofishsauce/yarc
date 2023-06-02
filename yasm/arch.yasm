@@ -18,8 +18,8 @@
 # The "no op" value for all microcode fields is all 1s. We can fill
 # the control store with 0xFF FF FF FF ... and it will be a noop.
 
-.set no  1 # default ; noop ; don't do the action (used for clock enables)
-.set yes 0 # non-default ; do the action
+.set no  1 # default ; noop ; don't do the action (clock enables, etc.)
+.set yes 0 # non-default ; do the non-default action
 
 # general registers - these values make sense in src1, src2, or dst
 .set r0 0
@@ -94,8 +94,11 @@
 .set bit16		0
 
 # RCW from instruction register IR or from microcode UC?
-.set uc			1
-.set ir			0
+.set rcw_from_uc 1
+.set rcw_from_ir 0
+# Similarly for the ALU Condition Nybble (ACN)
+.set acn_from_uc 1
+.set acn_from_ir 0
 
 # Branch conditions (ACN values for use with .acn)
 .set c   0x00
