@@ -477,11 +477,37 @@ namespace SerialPrivate {
     return writeSliceInProgress();
   }
 
-  // This isn't needed because stWrSlice (writeSlice())
-  // verifies the write internally. I haven't been
-  // consistent about this kind of thing.
+  // Send the bytes from the poll buffer
+  State readSliceInProgress() {
+    while (canSend(1) && pb->remaining > 0) {
+      send(pb->buf[pb->next]);
+      pb->next++;
+      pb->remaining--;
+    }
+    if (pb->remaining == 0) {
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;
+  }
+
+  // Read a slice. Not used by the downloader because stWrSlice()
+  // performs a write with verify.
   State stRdSlice(RING* const r, byte b) {
-    return stBadCmd(r, b);
+    allocPollBuffer();
+    copy(r, pb->cmd, 4);
+    consume(rcvBuf, 4);
+    if (pb->cmd[1] < 0x80 || pb->cmd[2] > 0x03 || pb->cmd[3] > 64) {
+      freePollBuffer();
+      return stBadCmd(r, b);
+    }
+    ReadSlice(pb->cmd[1] | 0x80, pb->cmd[2], pb->buf, pb->cmd[3]);
+    pb->remaining = pb->cmd[3];
+    pb->next = 0;
+    inProgress = readSliceInProgress;
+    sendAck(b);
+    send(pb->cmd[3]);
+    return readSliceInProgress();
   }
 
   // Do a bus transfer with the given AH, AL, and DL. Save the values

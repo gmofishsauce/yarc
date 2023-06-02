@@ -10,6 +10,7 @@
 void WriteIR(byte high, byte low);
 void WriteK(byte k3, byte k2, byte k1, byte k0);
 void WriteK(byte *k); // k3 at offset 0, k0 at offset 3
+void ReadSlice(byte opcode, byte slice, byte *data, byte n);
 int WriteSlice(byte opcode, byte slice, byte *data, byte n, bool panicOnFail);
 void WriteMicrocode(byte opcode, byte *data, byte nWords);
 void WriteMem16(unsigned short addr, unsigned short *data, short nWords);

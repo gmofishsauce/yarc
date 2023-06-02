@@ -31,6 +31,11 @@ void WriteK(byte k3, byte k2, byte k1, byte k0) {
   PortPrivate::internalWriteK(k3, k2, k1, k0);
 }
 
+// Read n bytes from the given slice of the given opcode.
+void ReadSlice(byte opcode, byte slice, byte *data, byte n) {
+  PortPrivate::readBytesFromSlice(opcode | 0x80, slice, data, n);
+}
+
 // Write the microcode RAM for slice s [0..3] of opcode n [0x80..0xFF]
 // with up to n [usefully, 1 to 64] bytes at *data and verify them. If
 // the panic argument is true and verification fails, panic with UCODE_VERIFY
