@@ -31,6 +31,8 @@ const interSessionDelay = 3000 * time.Millisecond
 const arduinoNanoDevice = "/dev/cu.usbserial-AQ0169PT"
 const baudRate = 115200 // Note: change requires updating the Arduino firmware
 
+var nanoLog *log.Logger
+
 // When the Arduino (the "Nano") is connected by USB-serial, opening the port
 // from the Mac side forces a hard reset to the device (the Arduino restarts).
 // If the Nano is connected by two-wire serial, it doesn't. Both possibilities
@@ -49,18 +51,19 @@ func Main() {
 	log.SetPrefix("host: ")
 	log.Println("firing up")
 
+	// The Nano's log is opened first and remains open always.
 	nanoLogFile, err := os.OpenFile("Nano.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal("opening Nano.log: ", err)
 	}
-	nanoLog := log.New(nanoLogFile, "", log.Lmsgprefix|log.Lmicroseconds)
+	nanoLog = log.New(nanoLogFile, "", log.Lmsgprefix|log.Lmicroseconds)
 	input := NewInput()
 
 	for {
 		log.Println("starting a session")
 		nano, err := arduino.New(arduinoNanoDevice, baudRate)
 		if err == nil {
-			err = session(input, nano, nanoLog)
+			err = session(input, nano)
 			if err == io.EOF {
 				log.Printf("user quit\n")
 				os.Exit(0)
@@ -109,7 +112,7 @@ func Main() {
 // (The USB device doesn't exist in /dev unless Nano is connected.)
 //
 // Connection not established: device open, but protocol broke down
-func session(input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
+func session(input *Input, nano *arduino.Arduino) error {
 	var err error
 	tries := 3
 	for i := 0; i < tries; i++ {
@@ -128,27 +131,15 @@ func session(input *Input, nano *arduino.Arduino, nanoLog *log.Logger) error {
 	log.Println("session in progress")
 
 	for {
-		// Poll the Nano
-		msg, err := getNanoRequest(nano)
-		if err != nil {
-			// should session end on -any- error? Yes for now.
+		if err := doPoll(nano); err != nil {
 			return err
-		}
-		if len(msg) != 0 {
-			if isLogRequest(msg) {
-				nanoLog.Printf(msg)
-			} else {
-				if trouble := nanoSyscall(msg); trouble != nil {
-					fmt.Printf("session: handling Nano sycall: %v\n", trouble)
-				}
-			}
 		}
 
 		var line string
 		if line, err = input.CheckFor(); err != nil {
 			return err
 		}
-		if len(line) > 0 {
+		if len(line) > 1 { // 1 for the newline
 			if err := process(line[:len(line)-1], nano); err != nil {
 				return err
 			}

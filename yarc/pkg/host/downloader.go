@@ -30,6 +30,11 @@ import (
 // the content. All transfers to the Nano over the wire are done in
 // 64-byte chunkies, an unfortunate compromise (larger would be faster)
 // to avoid data overrun as the serial line has no flow control.
+//
+// Since doDownload() can run for a long time, we must intersperse some
+// calls to doPoll() in order to keep consuming the Nano's log. We could
+// spin off a Goroutine but we'd need fancy locking; it's easier to do
+// everything synchronously.
 
 const memorySectionBase = 0
 const memorySectionSize = 30 * 1024
@@ -39,6 +44,44 @@ const aluSectionBase = memorySectionSize + microcodeSectionSize
 const aluSectionSize = 8 * 1024
 const binaryFileSize = memorySectionSize + microcodeSectionSize + aluSectionSize
 const chunkSize = 64
+
+// Download the entire yarc.bin file (the "binary") to the Nano.
+func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
+	log.Println("downloading...")
+	var content []byte
+	var err error
+
+	if content, err = readFile(binary); err != nil {
+		return err
+	}
+	if err := doPoll(nano); err != nil {
+		return fmt.Errorf("during download: doPoll(): %s", err)
+	}
+
+	if err := doMemorySection(content[0:microcodeSectionBase], nano); err != nil {
+		return err
+	}
+	if err := doPoll(nano); err != nil {
+		return fmt.Errorf("during download: doPoll(): %s", err)
+	}
+
+	if err := doMicrocodeSection(content[microcodeSectionBase:aluSectionBase], nano); err != nil {
+		return err
+	}
+	if err := doPoll(nano); err != nil {
+		return fmt.Errorf("during download: doPoll(): %s", err)
+	}
+
+	if err := doALUSection(content[aluSectionBase:binaryFileSize], nano); err != nil {
+		return err
+	}
+	if err := doPoll(nano); err != nil {
+		return fmt.Errorf("during download: doPoll(): %s", err)
+	}
+
+	log.Println("download complete")
+	return nil
+}
 
 func readFile(binary *bufio.Reader) ([]byte, error) {
 	var result []byte = make([]byte, binaryFileSize, binaryFileSize)
@@ -50,28 +93,6 @@ func readFile(binary *bufio.Reader) ([]byte, error) {
 		}
 	}
 	return result, nil
-}
-
-func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
-	log.Println("downloading...")
-	var content []byte
-	var err error
-
-	if content, err = readFile(binary); err != nil {
-		return err
-	}
-	if err := doMemorySection(content[0:microcodeSectionBase], nano); err != nil {
-		return err
-	}
-	if err := doMicrocodeSection(content[microcodeSectionBase:aluSectionBase], nano); err != nil {
-		return err
-	}
-	if err := doALUSection(content[aluSectionBase:binaryFileSize], nano); err != nil {
-		return err
-	}
-
-	log.Println("download complete")
-	return nil
 }
 
 func doMemorySection(content []byte, nano *arduino.Arduino) error {
@@ -104,6 +125,11 @@ func doMemorySection(content []byte, nano *arduino.Arduino) error {
 		}
 		if bytes.Compare(toWrite, readBack) != 0 {
 			return fmt.Errorf("memory compare fail: wrote %v read %v\n", toWrite, readBack)
+		}
+		if addr & 0x1FF == 0 {
+			if err := doPoll(nano); err != nil {
+				return fmt.Errorf("during download (memory section): doPoll(): %s", err)
+			}
 		}
 	}
 	log.Printf("wrote %d bytes of main memory\n", limit)
@@ -156,6 +182,9 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 				return err
 			}
 		}
+		if err := doPoll(nano); err != nil {
+			return fmt.Errorf("during download (microcode section): doPoll(): %s", err)
+		}
 	}
 	log.Printf("wrote microcode for %d opcodes\n", nWritten)
 	return nil
@@ -199,6 +228,12 @@ func doALUSection(content []byte, nano *arduino.Arduino) error {
 		//			ram, toWrite, readBack)
 		//	}
 		//}
+
+		if nWritten&3 == 0 {
+			if err := doPoll(nano); err != nil {
+				return fmt.Errorf("during download (microcode section): doPoll(): %s", err)
+			}
+		}
 	}
 	log.Printf("wrote %d bytes of ALU RAM\n", nWritten*chunkSize)
 	return nil

@@ -96,6 +96,25 @@ func getNanoRequest(nano *arduino.Arduino) (string, error) {
 	return string(bytes), nil
 }
 
+func doPoll(nano *arduino.Arduino) error {
+	// Poll the Nano
+	msg, err := getNanoRequest(nano)
+	if err != nil {
+		// should session end on -any- error? Yes for now.
+		return err
+	}
+	if len(msg) != 0 {
+		if isLogRequest(msg) {
+			nanoLog.Printf(msg)
+		} else {
+			if trouble := nanoSyscall(msg); trouble != nil {
+				fmt.Printf("session: handling Nano sycall: %v\n", trouble)
+			}
+		}
+	}
+	return nil
+}
+
 // There are two general kinds of requests from the Nano: "log a message" and
 // "everything else". Everything else is system call requests, etc. Requests
 // other than log messages have a punctuation mark in the first column, while
