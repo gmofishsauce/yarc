@@ -15,11 +15,17 @@
 
 # Architecture file for YARC
 
-# The "no op" value for all microcode fields is all 1s. We can fill
-# the control store with 0xFF FF FF FF ... and it will be a noop.
+# The "no op" value for all microcode fields is all 1s. We fill the
+# control store with 0xFF FF FF FF ... before writing any microcode.
 
 .set no  1 # default ; noop ; don't do the action (clock enables, etc.)
 .set yes 0 # non-default ; do the non-default action
+
+# For the carry-in enable carry_en and the instruction register bit
+# zero enable ir0_en, the alternatives are pass (enable the value of
+# the carry flag or IR bit 0 to the destination) or force_low.
+.set pass 1       # default - pass the carry or IR bit
+.set force_low 0  # non-default - force the bit to zero
 
 # general registers - these values make sense in src1, src2, or dst
 .set r0 0

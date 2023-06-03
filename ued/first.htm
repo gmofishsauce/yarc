@@ -94,36 +94,36 @@
 	  <p>
 	  K3:
 	  src1: <select id="k3-src1-3-6" onchange="collect()">
-		<option value="0">R0</option>
-		<option value="1">R1</option>
-		<option value="2">R2</option>
-		<option value="3" selected>R3</option>
+		<option value="0">r0</option>
+		<option value="1">r1</option>
+		<option value="2">r2</option>
+		<option value="3" selected>r3</option>
 	  </select> &nbsp;
 	  src2: <select id="k3-src2-7-3" onchange="collect()">
-		<option value="0">R0</option>
-		<option value="1">R1</option>
-		<option value="2">R2</option>
-		<option value="3">R3</option>
-		<option value="4">+2</option>
-		<option value="5">+1</option>
-		<option value="6">-2</option>
-		<option value="7" selected>-1</option>
+		<option value="0">r0</option>
+		<option value="1">r1</option>
+		<option value="2">r2</option>
+		<option value="3">r3</option>
+		<option value="4">const_p2</option>
+		<option value="5">const_p1</option>
+		<option value="6">const_n2</option>
+		<option value="7" selected>const_n1</option>
 	  </select> &nbsp;
 	  dst: <select id="k3-dst-7-0" onchange="collect()">
-		<option value="0">R0</option>
-		<option value="1">R1</option>
-		<option value="2">R2</option>
-		<option value="3">R3</option>
-		<option value="4">?R0</option>
-		<option value="5">?R1</option>
-		<option value="6">?R2</option>
-		<option value="7" selected>?R3</option>
+		<option value="0">r0</option>
+		<option value="1">r1</option>
+		<option value="2">r2</option>
+		<option value="3">r3</option>
+		<option value="4">cond_r0</option>
+		<option value="5">cond_r1</option>
+		<option value="6">cond_r2</option>
+		<option value="7" selected>cond_r3</option>
 	  </select>
 	  </p>
 
 	  <p id="k2">
 	  K2:
-	  alu_op: <select id="k2-alu_op-15-4" onchange="collect()">
+	  acn: <select id="k2-acn-15-4" onchange="collect()">
         <option value="0">alu_add</option>
         <option value="1">alu_sub</option>
         <option value="2">alu_rsub</option>
@@ -161,22 +161,22 @@
 	  <p id="k1">
 	  K1:
 	  sysdata_src: <select id="k1-sysdata_src-7-5" onchange="collect()">
-	    <option value="0">gr</option>
-	    <option value="1">sp</option>
-	    <option value="2">ir</option>
-	    <option value="3">f</option>
-	    <option value="4">mem</option>
-	    <option value="5">TBD5</option>
-	    <option value="6">TBD6</option>
-	    <option value="7" selected>none</option>
+	    <option value="0">bus_gr</option>
+	    <option value="1">bus_sp</option>
+	    <option value="2">bus_ir</option>
+	    <option value="3">bus_f</option>
+	    <option value="4">bus_mem</option>
+	    <option value="5">bus_tbd_5</option>
+	    <option value="6">bus_tbd_6</option>
+	    <option value="7" selected>bus_none</option>
 	  </select> &nbsp;
 	  reg_in_mux: <select id="k1-reg_in_mux-1-4" onchange="collect()">
-	    <option value="0">alu</option>
-	    <option value="1" selected>sysdata</option>
+	    <option value="0">from_alu</option>
+	    <option value="1" selected>from_bus</option>
 	  </select> &nbsp;
 	  dst_wr_en: <select id="k1-dst_wr_en-1-0" onchange="collect()">
-		<option value="0">write</option>
-		<option value="1" selected>no write</option>
+		<option value="0">yes</option>
+		<option value="1" selected>no</option>
 	  </select>
 	  </p>
 
@@ -187,32 +187,32 @@
 		<option value="1" selected>read</option>
 	  </select> &nbsp;
 	  m16_en: <select id="k0-m16_en-1-6" onchange="collect()">
-		<option value="0">16-bit</option>
-		<option value="1" selected>8-bit</option>
+		<option value="0">bit16</option>
+		<option value="1" selected>bit8</option>
 	  </select> &nbsp;
-	  ir_clk: <select id="k0-ir_clk-1-5" onchange="collect()">
-		<option value="0">load IR</option>
-		<option value="1" selected>no load</option>
+	  load_ir: <select id="k0-load_ir-1-5" onchange="collect()">
+		<option value="0">yes</option>
+		<option value="1" selected>no</option>
 	  </select> &nbsp;
 	  rcw_ir_uc: <select id="k0-rcw_ir_uc-1-4" onchange="collect()">
-		<option value="0">RCW from IR</option>
-		<option value="1" selected>RCW from UC</option>
+		<option value="0">rcw_from_ir</option>
+		<option value="1" selected>rcw_from_uc</option>
 	  </select> &nbsp;
 	  carry_en: <select id="k0-carry_en-1-3" onchange="collect()">
-		<option value="0">Force Cin=0</option>
-		<option value="1" selected>Cin=Cflag</option>
+		<option value="0">force_low</option>
+		<option value="1" selected>pass</option>
 	  </select>
-	  ld_flgs_mux: <select id="k0-ld_flags_mux-1-2" onchange="collect()">
-		<option value="0">flags</option>
-		<option value="1" selected>sysdata</option>
+	  load_flgs_mux: <select id="k0-load_flgs_mux-1-2" onchange="collect()">
+		<option value="0">from_alu</option>
+		<option value="1" selected>from_bus</option>
 	  </select>
-	  acn_mux: <select id="k0-acn_mux-1-1" onchange="collect()">
-		<option value="0">ACN from IR</option>
-		<option value="1" selected>ACN from UC</option>
+	  acn_ir_uc: <select id="k0-acn_ir_uc-1-1" onchange="collect()">
+		<option value="0">acn_from_ir</option>
+		<option value="1" selected>acn_from_uc</option>
 	  </select>
 	  ir0_en: <select id="k0-ir0_en-1-0" onchange="collect()">
-		<option value="0">IR0 is 0</option>
-		<option value="1" selected>pass IR0</option>
+		<option value="0">force_low</option>
+		<option value="1" selected>pass</option>
 	  </select>
 	  </p>
 	</form>
