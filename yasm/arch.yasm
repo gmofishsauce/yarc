@@ -165,10 +165,10 @@
 
 # control lines 7:0
 .bitfield rw            32    7:7   # read/write# line for all memory and I/O transfers
-.bitfield m16_en        32    6:6   # enable 16-bit memory or I/O cycle
+.bitfield m16_en        32    6:6   # enable 16-bit memory or I/O cycle (default 8 bit)
 .bitfield load_ir       32    5:5   # clock the IR
 .bitfield rcw_ir_uc     32    4:4   # RCW from IRL7:0 when low, from K31:24 when high
-.bitfield carry_en		32	  3:3   # Force carry-in low when low
+.bitfield carry_en		32	  3:3   # Force carry-in low when low (for add vs adc)
 .bitfield load_flgs_mux	32	  2:2	# From sysdata when high else from ALU result flags
 .bitfield acn_ir_uc		32    1:1   # ACN from IRH11:8 when low, from K23:30 when high
 .bitfield ir0_en        32    0:0   # Force IR:0 to sysdata low when low (for jumps)
