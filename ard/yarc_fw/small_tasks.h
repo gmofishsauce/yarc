@@ -218,3 +218,82 @@ byte logQueueCallback(logCallback callback) {
 int logGetPending(char *next, int maxCount) {
   return LogPrivate::internalLogGetPending(next, maxCount);
 }
+
+// Clock control byte. If 0, clock is off. If less than
+// 0x80, the number of remaining slow clocks to generate.
+// If 0xFF, the fast clock is enabled. If 0xFE, the slow
+// clock is enabled. Values between 0x80 and 0xFD are
+// converted to zeroes (stop the clock).
+// 
+static byte rtClockControl = 0; 
+
+// This is the RuntimeTask, which takes action when the
+// YARC/NANO# bit is set to YARC. It operates the soft
+// clock, if required, and checks the request flip-flop
+// for Nano service requests.
+
+namespace RuntimePrivate {
+  static bool yarcRun = false;
+  static bool yarcRequest = false;
+
+  // We use stateless callbacks to avoid the problem of overwriting
+  // the state variable (in this case yarcRun) between the time the
+  // callback is queued and the time it is executed.
+  int runtimeYarcRunStateCallback(char *bp, int bmax) {
+    int n = snprintf_P(bp, bmax, PSTR("YARC run state changed"));
+    return (n > bmax) ? bmax : n;
+  }
+
+  int runtimeYarcRequestStateCallback(char *bp, int bmax) {
+    int n = snprintf_P(bp, bmax, PSTR("YARC request state changed"));
+    return (n > bmax) ? bmax : n;
+  }
+}
+
+void runtimeInit() {
+}
+
+int runtimeTask() {
+  bool newYarcRun = YarcIsRunning();
+  bool newYarcRequest = YarcRequestsService();
+
+  if (newYarcRun != RuntimePrivate::yarcRun) {
+    logQueueCallback(RuntimePrivate::runtimeYarcRunStateCallback);
+    // TODO run state change handling here
+    RuntimePrivate::yarcRun = newYarcRun;
+  }
+  if (newYarcRequest != RuntimePrivate::yarcRequest) {
+    logQueueCallback(RuntimePrivate::runtimeYarcRequestStateCallback);
+    // TODO request state change handling here
+    RuntimePrivate::yarcRequest = newYarcRequest;
+  }
+
+  // We don't detect state transitions. We just do this stuff
+  // every time, because getting and setting the MCR is fast.
+  if (rtClockControl == 0) {
+    SetMCR(McrDisableFastclock(GetMCR()));
+  } else if (rtClockControl == 0xFF) {
+    SetMCR(McrEnableFastclock(GetMCR()));
+  } else if (rtClockControl == 0x80) {
+    SingleClock();
+  } else if (rtClockControl < 0x80) {
+    rtClockControl--;
+    SingleClock();
+  } else {
+    // undefined value
+    rtClockControl = 0;
+    SetMCR(McrDisableFastclock(GetMCR()));
+  }
+
+  if (RuntimePrivate::yarcRun) {
+    return 0; // come back here soonest
+  }
+  return 97; // take a breath
+}
+
+void SetClockControl(byte b) {
+  if (b > 0x80 and b < 0xFD) {
+    b = 0;
+  }
+  rtClockControl = b;
+}

@@ -302,6 +302,14 @@ inline bool YarcRequestsService() {
   return (GetMCR() & MCR_BIT_SERVICE_STATUS) != 0;
 }
 
+inline bool YarcIsRunning() {
+  return (GetMCR() & MCR_BIT_YARC_NANO_L) != 0;
+}
+
+inline bool YarcIsFastClock() {
+  return (GetMCR() & MCR_BIT_FASTCLKEN_L) == 0;
+}
+
 // Make the MCR "safe" (from bus conflicts) and put
 // the Nano in control of the system D and A busses.
 void McrMakeSafe() {

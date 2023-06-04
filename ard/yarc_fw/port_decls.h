@@ -24,5 +24,8 @@ void MakeSafe(void);
 void SingleClock(void);
 void RunYARC(void);
 void StopYARC(void);
+bool IsYarcRun(void);
+bool IsYarcRequest(void);
+
 
 

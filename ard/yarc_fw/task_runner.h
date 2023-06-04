@@ -29,7 +29,8 @@ namespace TaskPrivate {
     {0,              heartbeatTask },
     {logInit,        0             },
     {serialTaskInit, serialTaskBody},
-    {costTaskInit,   costTask      },    
+    {costTaskInit,   costTask      },
+    {runtimeInit,    runtimeTask   },
   };
 
   const int N_TASKS = (sizeof(Tasks) / sizeof(TaskInfo));

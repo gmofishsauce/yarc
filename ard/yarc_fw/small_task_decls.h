@@ -10,7 +10,6 @@ void hbIncIterationCount();
 void ledPlayStandardHeartbeat();
 void ledPlaySos();
 
-
 /*
  * Log users have to implement a callback function that places a
  * messages in the buffer "bp" passed as an argument, staying within
@@ -42,3 +41,7 @@ byte logQueueCallback(logCallback callback);
 // the serial task when the host polls it for messages. The
 // next queued callback is called from this function.
 int logGetPending(char *next, int maxCount);
+
+// Clock control API (consumed by runtime task)
+
+void SetClockControl(byte b);

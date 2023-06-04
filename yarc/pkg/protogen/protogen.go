@@ -18,8 +18,9 @@ import (
 //                     Removed the two argument form of command 0xFB.
 //                     Added already-implemented SetMCR 0xFC to spec.
 //                     Write and read ALU RAM added as Command 0xFD and 0xFE.
+// Protocol version 9. Add Clock Control command 0xE4 (but leave 0xF4).
 
-const protocolVersion = 8
+const protocolVersion = 9
 
 var names = []struct {
 	name string
@@ -29,6 +30,7 @@ var names = []struct {
 	{"STCMD_GET_MCR", 0xE1},
 	{"STCMD_RUN_COST", 0xE2},
 	{"STCMD_STOP_COST", 0xE3},
+	{"STCMD_CLOCK_CTL", 0xE4},
 	{"STCMD_RUN_YARC", 0xE7},
 	{"STCMD_STOP_YARC", 0xE8},
 	{"STCMD_POLL", 0xE9},

@@ -351,6 +351,26 @@ namespace SerialPrivate {
     return state;
   }
 
+  // This implementation is maximally decoupled - we just set
+  // the clock control byte to a value, and the runtime task
+  // eventually notices and does something about it. All values
+  // are treated as meaningful.
+  //
+  // The spec says the MCR is returned. Unfortunately we have no
+  // way to know when the command will take effect, so we return
+  // the MCR from -before- we change any state. This might be
+  // marginally useful.
+  State stClockCtl(RING* const r, byte b) {
+    byte cmd[2];
+    copy(r, cmd, 2);
+    consume(rcvBuf, 2);
+    byte result = GetMCR();
+    SetClockControl(cmd[1]);
+    sendAck(b);
+    send(result);
+    return state;
+  }
+
   // In-progress handler for transmitting buffered
   // messages from the poll buffer to the host. Transmit
   // as much of the poll buffer as possible. If finished,
@@ -748,7 +768,7 @@ namespace SerialPrivate {
     { stRunCost,    1 },
     { stStopCost,   1 },
 
-    { stUndef,      1 },
+    { stClockCtl,   1 },
     { stUndef,      1 },
     { stUndef,      1 },
     { stRun,        1 },
