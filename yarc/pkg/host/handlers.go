@@ -65,6 +65,7 @@ var commands = []protocolCommand{
 	{sp.CmdStopCost, "sc", "StopCost", 0, false, stopCost},
 	{sp.CmdRunYarc, "rn", "Run", 0, false, runYarc},
 	{sp.CmdStopYarc, "st", "Stop", 0, false, stopYarc},
+	{sp.CmdClockCtl, "cc", "Clock", 1, false, clockCtl},
 	{sp.CmdPoll, "pl", "Poll", 0, false, notImpl},
 	{sp.CmdSvcResponse, "sr", "SvcResponse", 1, true, notImpl},
 	{sp.CmdGetVer, "gv", "GetVer", 0, false, notImpl},
@@ -151,6 +152,31 @@ func runYarc(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, 
 func stopYarc(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	err := doCommand(nano, sp.CmdStopYarc)
 	return nostr, err
+}
+
+func clockCtl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+    words := strings.Split(line, " ")
+    if len(words) != 2 {
+        return nostr, fmt.Errorf("usage: cc arg")
+    }
+
+    nanoCmd := make([]byte, 2, 2)
+    nanoCmd[0] = sp.CmdClockCtl
+	n, err := strconv.ParseInt(words[1], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	if n > 0xFF {
+		return nostr, fmt.Errorf("illegal value")
+	}
+	nanoCmd[1] = byte(n)
+
+    result, err := doFixedCommand(nano, nanoCmd, 1)
+	if err != nil {
+		return nostr, err
+	}
+	fmt.Printf("old MCR 0x%02x\n", result[0])
+    return nostr, nil
 }
 
 func doCycle(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {

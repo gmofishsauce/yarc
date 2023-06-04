@@ -363,7 +363,7 @@ namespace SerialPrivate {
   State stClockCtl(RING* const r, byte b) {
     byte cmd[2];
     copy(r, cmd, 2);
-    consume(rcvBuf, 2);
+    consume(r, 2);
     byte result = GetMCR();
     SetClockControl(cmd[1]);
     sendAck(b);
@@ -768,7 +768,7 @@ namespace SerialPrivate {
     { stRunCost,    1 },
     { stStopCost,   1 },
 
-    { stClockCtl,   1 },
+    { stClockCtl,   2 },
     { stUndef,      1 },
     { stUndef,      1 },
     { stRun,        1 },
