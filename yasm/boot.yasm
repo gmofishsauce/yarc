@@ -19,11 +19,12 @@
 test1:
 	jmp test1
 aLabel: 
-	alu alu_add r0 r1 r2
+	add r0 r1 r2
+	sub r1 r0 r2
 labelWithValue2:
 	jmp aLabel
-self:br c self
-    br n labelWithValue2
-	br z aLabel
+#self:br c self
+#    brn labelWithValue2
+#	brz aLabel
 # an error
 # aLabel:

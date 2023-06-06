@@ -92,9 +92,16 @@ type opcode struct {
 	args []*token
 }
 
+func opcodeToWcsOffset(opVal byte) int {
+	return int(opVal&^0x80) * WCS_SLOTS_PER_OPCODE
+}
+
 // actionFunc for the .opcode builtin. Define an opcode symbol
 // .opcode symbol opcode nargs arg0 ... argNargs - 1
 func actionOpcode(gs *globalState) error {
+	if gs.inOpcode || gs.opcodeValue != 0 {
+		return fmt.Errorf(".opcode: not allowed in an opcode definition")
+	}
 	name, err := mustGetNewSymbol(gs)
 	if err != nil {
 		return fmt.Errorf(".opcode: name expected: %s", err)
@@ -128,7 +135,7 @@ func actionOpcode(gs *globalState) error {
 		func(gs *globalState) error { return doOpcode(gs, name.text()) })
 	gs.inOpcode = true
 	gs.opcodeValue = byte(code)
-	gs.wcsNext = int(gs.opcodeValue&^0x80) * WCS_SLOTS_PER_OPCODE
+	gs.wcsNext = opcodeToWcsOffset(gs.opcodeValue)
 	return nil
 }
 
@@ -190,6 +197,58 @@ func actionSlot(gs *globalState) error {
 	}
 }
 
+// The dup builtin duplicates the microcode for a previously-defined opcode
+// under a new opcode symbol name. Because of the partial hardware decoding
+// of instructions, many instructions can share the same microcode. Syntax
+// is .dup newOpcodeName opcodeValue previouslyDefinedOpcodeName
+func actionDup(gs *globalState) error {
+	if gs.inOpcode || gs.opcodeValue != 0 {
+		return fmt.Errorf(".dup: not allowed in an opcode definition")
+	}
+	newName, err := mustGetNewSymbol(gs)
+	if err != nil {
+		return fmt.Errorf(".dup: new name expected: %s", err)
+	}
+
+	n, err := mustGetNumber(gs)
+	if err != nil {
+		return fmt.Errorf(".dup: numeric new opcode expected: %s", err)
+	}
+	if n < 0 || n > 0xFF {
+		return fmt.Errorf(".dup: byte value expected: got 0x%X", n)
+	}
+	newOpcodeValue := byte(n)
+
+	// Extract the opcode structure for the old opcode. Reuse the
+	// arguments (the list of metasymbols, not the actuals which are
+	// specified when the opcode is used), but with the new opcode.
+
+	existingOpcodeSymbol, err := mustGetDefinedSymbol(gs)
+	if err != nil {
+		return fmt.Errorf(".dup: existing opcode name expected: %s", err)
+	}
+	existingOpcode, ok := gs.symbols[existingOpcodeSymbol.text()].data().(*opcode)
+	if !ok {
+		return fmt.Errorf(".dup: not a defined opcode: %s", existingOpcodeSymbol.text())
+	}
+	newOpcode := &opcode{newOpcodeValue, existingOpcode.args}
+
+	// Create the new opcode and copy the microcode
+
+	gs.symbols[newName.text()] = newSymbol(newName.text(), newOpcode,
+		func(gs *globalState) error { return doOpcode(gs, newName.text()) })
+	wcsSource := opcodeToWcsOffset(existingOpcode.code)
+	wcsDest := opcodeToWcsOffset(newOpcode.code)
+	wcsEnd := wcsSource + WCS_SLOTS_PER_OPCODE;
+	for ; wcsSource < wcsEnd ; {
+		gs.wcs[wcsDest] = gs.wcs[wcsSource]
+		wcsSource++
+		wcsDest++
+	}
+
+	return nil
+}
+
 // Symbol actions were originally conceived as a way to implement the lexer loop
 // in asm.go: it largely grabs a symbol and then delegates to the action function.
 // As a result the action functions take only the global state and return only an
@@ -236,9 +295,9 @@ func createImmwFixupAction(loc int, ref *symbol, t *token) *fixup {
 }
 
 // Return a fixup entry for a .acn (alu condition nybble)
-func createAcnFixupAction(loc int, ref *symbol, t *token) *fixup {
-	return newFixup(".acn", loc, fixupAcn, ref, t)
-}
+//func createAcnFixupAction(loc int, ref *symbol, t *token) *fixup {
+//	return newFixup(".acn", loc, fixupAcn, ref, t)
+//}
 
 // Return a fixup entry for the src1 field of the RCW
 func createSrc1FixupAction(loc int, ref *symbol, t *token) *fixup {
@@ -262,6 +321,7 @@ var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
 var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
 var builtinEndOpcode *symbol = newSymbol(".endopcode", nil, actionEndOpcode)
 var builtinSlot *symbol = newSymbol(".slot", nil, actionSlot)
+var builtinDup *symbol = newSymbol(".dup", nil, actionDup)
 
 // Embedded key symbols that specify fixups when used in opcode definitions
 // These are recognized and processed in doOpcode(), not the main loop.
@@ -269,7 +329,7 @@ var builtinAbs *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
 var builtinRel *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
 var builtinImmb *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
 var builtinImmw *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
-var builtinAcn *symbol = newSymbol(".acn", createAcnFixupAction, actionFixup)
+// var builtinAcn *symbol = newSymbol(".acn", createAcnFixupAction, actionFixup)
 var builtinSrc1 *symbol = newSymbol(".src1", createSrc1FixupAction, actionFixup)
 var builtinSrc2 *symbol = newSymbol(".src2", createSrc2FixupAction, actionFixup)
 var builtinDst *symbol = newSymbol(".dst", createDstFixupAction, actionFixup)
@@ -281,11 +341,12 @@ func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinOpcode.name()] = builtinOpcode
 	gs.symbols[builtinEndOpcode.name()] = builtinEndOpcode
 	gs.symbols[builtinSlot.name()] = builtinSlot
+	gs.symbols[builtinDup.name()] = builtinDup
 	gs.symbols[builtinAbs.name()] = builtinAbs
 	gs.symbols[builtinRel.name()] = builtinRel
 	gs.symbols[builtinImmb.name()] = builtinImmb
 	gs.symbols[builtinImmw.name()] = builtinImmw
-	gs.symbols[builtinAcn.name()] = builtinAcn
+// 	gs.symbols[builtinAcn.name()] = builtinAcn
 	gs.symbols[builtinSrc1.name()] = builtinSrc1
 	gs.symbols[builtinSrc2.name()] = builtinSrc2
 	gs.symbols[builtinDst.name()] = builtinDst

@@ -379,17 +379,17 @@ func fixupImmw(gs *globalState, fx *fixup) error {
 
 // Lexing is complete. Fix up an acn (alu condition nybble), the
 // value 0..15 in the low order 4 bits of the instruction opcode.
-func fixupAcn(gs *globalState, fx *fixup) error {
-	val, err := evaluateToken(gs, fx.t, 0, 0xF)
-	if err != nil {
-		return err
-	}
-	msByteLocation := fx.location+1
-	//fmt.Printf("fixupAcn: write value 0x%1X in low order bits at location %d\n", val, msByteLocation)
-	gs.mem[msByteLocation] &^= 0x0F
-	gs.mem[msByteLocation] |= byte(val)
-	return nil
-}
+//func fixupAcn(gs *globalState, fx *fixup) error {
+//	val, err := evaluateToken(gs, fx.t, 0, 0xF)
+//	if err != nil {
+//		return err
+//	}
+//	msByteLocation := fx.location+1
+//	//fmt.Printf("fixupAcn: write value 0x%1X in low order bits at location %d\n", val, msByteLocation)
+//	gs.mem[msByteLocation] &^= 0x0F
+//	gs.mem[msByteLocation] |= byte(val)
+//	return nil
+//}
 
 func fixupSrc1(gs *globalState, fx *fixup) error {
 	val, err := evaluateToken(gs, fx.t, 0, 3)

@@ -41,6 +41,7 @@
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 
 # Absolute call.
+
 .opcode call 0xFE 1 .abs
 .slot NOOP ; # TODO - push R3 to @R2; phi1 R2 -= 2
 .slot NOOP ; # TODO - phi2 and store result in R2
@@ -52,6 +53,7 @@
 # is necessarily <= 2^15. The hardware translates that to opcode 0xFF, where
 # we place the microcode to move the instruction register to R3. We suppress
 # bit 0, which has to be a 1 for a jump, to construct the target address.
+
 .set K3_JMP "src1=r3 src2=const_n1 dst=r3"
 .set K2_JMP "K2_NONE"
 .set K1_JMP "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=yes"
@@ -63,31 +65,90 @@
 .slot DECODE ;
 .endopcode
 
-# TODO ALU operations
-.opcode alu 0x80 4 .acn .src1 .src2 .dst
+# ALU operations. Both the RCW and the ACN come from the instruction register for
+# these instructions, so K3 and high order bits 23:20 of K2 are not regarded.
+
+.set ALU_PHI1_K2 "acn=alu_0x0F alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
+.set ALU_PHI1_K0_NO_CARRY "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
+.set ALU_PHI2_K2 "acn=alu_0x0F alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=yes"
+.set ALU_PHI2_K1 "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=yes"
+.set ALU_PHI2_K0 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
+
+# Most of the microcode is the same for every ALU instruction. The exception is
+# that carry-in must be forced low for some operations and must not for others;
+# the definition of ALU_PHI_K0, above, forces it low, so some ALU operations need
+# separate microcode that sets it to PASS. Note: the carry flag input is only
+# regarded when an ALU operation starts (phi1); in the second clock (phi2), the
+# carry in always comes from the result of the first step (phi1). This is done
+# in hardware and can't be changed by microcode.
+
+.opcode add 0x80 3 .src1 .src2 .dst
+.slot "K3_NONE ALU_PHI1_K2 K1_NONE ALU_PHI1_K0_NO_CARRY" ;
+.slot "K3_NONE ALU_PHI2_K2 ALU_PHI2_K1 ALU_PHI2_K0" ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.dup sub  0x81 add
+# .dup rsub 0x82 add
+
+.set ALU_PHI1_K0_WITH_CARRY "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
+
+# add with carry
+.opcode adc 0x83 3 .src1 .src2 .dst
+.slot "K3_NONE ALU_PHI1_K2 K1_NONE ALU_PHI1_K0_WITH_CARRY" ;
+.slot "K3_NONE ALU_PHI2_K2 ALU_PHI2_K1 ALU_PHI2_K0" ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# .dup sbb  0x84 adc # subtract with carry (borrow)
+# .dup rsbb 0x85 adc # reverse subtract with carry (borrow)
+
+# .dup nand 0x86 add
+# .dup or   0x87 add
+# .dup xor  0x88 add
+# .dup not  0x89 add
+# .dup neg  0x8A add
+
+# rotate instruction - we need the carry input, which we either use or not,
+# depending on the src2 argument. See the instruction set document for more.
+
+# .dup rot  0x8B adc # rotate "with carry" (which is either regarded or not)
+
+# ALU operatons 0x0C, 0x0D, 0x0E, and 0x0F not (yet) defined.
+
+# Branch instructions.
+
+.opcode br 0x90 1 .rel
 .slot NOOP ; # TODO
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# TODO branches
-.opcode br 0x90 2 .acn .rel
-.slot NOOP ; # TODO
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
-
-# I need to add a feature to the assembler before I can define these
-# move immediate byte to register instructions correctly - it needs
-# to OR the register ID in the low-order 2 bits of the high byte,
-# kind of like .acn.
+# Move immediate byte to R0
 .opcode movib0 0xA8 1 .immb
 .slot NOOP ; # TODO
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
+# Move immediate byte to R1
 .opcode movib1 0xA9 1 .immb
+.slot NOOP ; # TODO
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# Move immediate word to R0
+.opcode moviw0 0xA8 1 .immw
+.slot NOOP ; # TODO
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# Move immediate word to R1
+.opcode moviw1 0xA9 1 .immw
 .slot NOOP ; # TODO
 .slot FETCH ;
 .slot DECODE ;
