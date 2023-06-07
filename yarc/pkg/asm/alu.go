@@ -46,14 +46,19 @@ const alu_rot = 0x0B // four operations determined by "B" operand
 const alu_0C = 0x0C  // unassigned
 const alu_0D = 0x0D  // unassigned
 const alu_0E = 0x0E  // unassigned
-const alu_0F = 0x0F  // unassigned
+const alu_pass = 0x0F
+
+const CarryFlag = 0x10
+const ZeroFlag = 0x20
+const NegativeFlag = 0x40
+const OverflowFlag = 0x80
 
 type aluFunc func(gs *globalState)
 
 var alu_ops = [16]aluFunc{do_add, do_sub, do_rsub, do_adc,
 	do_sbb, do_rsbb, do_nand, do_or,
 	do_xor, do_not, do_neg, do_rot,
-	do_0C, do_0D, do_0E, do_0F}
+	do_0C, do_0D, do_0E, do_pass}
 
 // Generate the entire 8k byte content of one RAM ALU chip and leave
 // the result in the alu array in the global state.
@@ -64,34 +69,34 @@ func generateALUcontent(gs *globalState) {
 }
 
 func do_add(gs *globalState) {
-	for a1 := 0; a1 < 16; a1++ {
-		for a2 := 0; a2 < 16; a2++ {
-			sum := a1 + a2
+	for a_bus := 0; a_bus < 16; a_bus++ {
+		for b_bus := 0; b_bus < 16; b_bus++ {
+			sum := a_bus + b_bus
 			result := sum & 0xF
 			// Carry
-			result |= sum & 0x10
+			result |= sum & CarryFlag
 			// Zero
 			if z := sum & 0x0F; z == 0 {
-				result |= 0x20
+				result |= ZeroFlag
 			}
 			// Negative
 			if n := sum & 0x08; n != 0 {
-				result |= 0x40
+				result |= NegativeFlag
 			}
-			// Overflow: both a1 and a2 are positive and the sum is negative,
-			// or both a1 and a2  are negative and the sum is positive.
+			// Overflow: both a_bus and b_bus are positive and the sum is negative,
+			// or both a_bus and b_bus  are negative and the sum is positive.
 			// Or: the arguments have the same sign, and the sign of the
 			// result is different. Remember, the arguments are four bits.
-			overflow := (a1&0x08) == (a2&0x08) && (sum&0x08) != (a1&0x08)
+			overflow := (a_bus&0x08) == (b_bus&0x08) && (sum&0x08) != (a_bus&0x08)
 			if overflow {
-				result |= 0x80
+				result |= OverflowFlag
 			}
 
 			// Ignore carry in (see ADC) - set both possibilities the same
-			offset := a1 | (a2 << 4) | (0 << 8) | (alu_add << 9)
+			offset := a_bus | (b_bus << 4) | (0 << 8) | (alu_add << 9)
 			gs.alu[offset] = byte(result)
 
-			offset = a1 | (a2 << 4) | (1 << 8) | (alu_add << 9)
+			offset = a_bus | (b_bus << 4) | (1 << 8) | (alu_add << 9)
 			gs.alu[offset] = byte(result)
 		}
 	}
@@ -139,5 +144,28 @@ func do_0D(gs *globalState) {
 func do_0E(gs *globalState) {
 }
 
-func do_0F(gs *globalState) {
+// Generate the PASS function f(a_bus, b_bus) = b_bus
+// An immediate byte has to be sign-extended which requires moving it
+// through ALU port 2 rather than just moving it from the IR to register.
+func do_pass(gs *globalState) {
+	for a_bus := 0; a_bus < 16; a_bus++ {
+		for b_bus := 0; b_bus < 16; b_bus++ {
+			// Set the result to be b_bus - somewhat weirdly, it's the
+			// inner index; maybe I should change this.
+			// Set the zero flag for zero bits so that the downloader
+			// won't see a bunch of 0 bytes that it might ignore; the
+			// flags aren't set by the microcode for alu_pass.
+			// Ignore carry in - set both possibilities the same
+			result := b_bus
+			if result == 0 {
+				result |= ZeroFlag
+			}
+			offset := a_bus | (b_bus << 4) | (0 << 8) | (alu_pass << 9)
+			gs.alu[offset] = byte(result)
+
+			offset = a_bus | (b_bus << 4) | (1 << 8) | (alu_pass << 9)
+			gs.alu[offset] = byte(result)
+		}
+	}
 }
+

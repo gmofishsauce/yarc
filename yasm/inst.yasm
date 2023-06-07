@@ -119,37 +119,106 @@
 # ALU operatons 0x0C, 0x0D, 0x0E, and 0x0F not (yet) defined.
 
 # Branch instructions.
+# TODO
+#.opcode br 0x90 1 .rel
+#.slot NOOP ; # TODO
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
 
-.opcode br 0x90 1 .rel
-.slot NOOP ; # TODO
+# Move immediate byte to register: mvib rN, value
+# Opcodes are 0xA8 .. 0xAB for r0, 1, 2, 3
+# The register is encoded in the low-order 2 bits of the high order
+# byte since the immediate value is in the low order byte (this is
+# done by the .rt action). To sign-extend a byte we have to pass it
+# through the ALU, which makes this instruction much slower than
+# simply moving a word immediate to a register; but it's similar to
+# an add small immediate or a branch (just the ALU operation is
+# different, it's "pass" here).
+
+.set MVIB_LD_K2 "acn=alu_0x0F alu_ctl=alu_in alu_load_hold=yes alu_load_flgs=no"
+.set MVIB_LD_K1 "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
+
+.set MVIB_LOAD_HOLD "K3_NONE MVIB_LD_K2 MVIB_LD_K1 K0_NONE"
+
+.set ALU_PHI1_K2_PASS "acn=alu_pass alu_ctl=alu_phi1 alu_load_hold=no alu_load_flgs=no"
+.set MVIB_PASS_PHI1   "K3_NONE ALU_PHI1_K2_PASS K1_NONE K0_NONE"
+
+# ALU phase 2 and store result of ALU "pass" operation
+.set MVIB_PASS_PHI2_K3 "src1=r3 src2=const_n1 dst=r0"
+.set MVIB_PASS_PHI2_K2 "acn=alu_0x0F alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=no"
+.set MVIB_PASS_PHI2_K1 "sysdata_src=bus_none reg_in_mux=from_alu dst_wr_en=yes"
+.set MVIB_PASS_PHI2    "MVIB_PASS_PHI2_K3 MVIB_PASS_PHI2_K2 MVIB_PASS_PHI2_K1 K0_NONE"
+
+.opcode mvib 0xA8 2 .rt .immb
+.slot "MVIB_LOAD_HOLD" ;
+.slot "MVIB_PASS_PHI1" ;
+.slot "MVIB_PASS_PHI2" ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# Move immediate byte to R0
-.opcode movib0 0xA8 1 .immb
-.slot NOOP ; # TODO
+# Now unfortunately since the target register is in the opcode byte
+# we need to explicitly define the microcode for the four registers.
+# These double-underscore opcodes won't be used: in the assembly
+# language, the programmer (that's me) will write e.g. "mvib r1, 5"
+# and the .rt fixup will change the opcode byte from 0xA8 to 0xA9.
+# But we need to separately define the microcode for opcode 0xA9 here.
+.opcode __mvibr1 0xA9 2 .rt .immb
+.slot "MVIB_LOAD_HOLD" ;
+.slot "MVIB_PASS_PHI1" ;
+.slot "MVIB_PASS_PHI2 dst=r1" ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# Move immediate byte to R1
-.opcode movib1 0xA9 1 .immb
-.slot NOOP ; # TODO
+.opcode __mvibr2 0xAA 2 .rt .immb
+.slot "MVIB_LOAD_HOLD" ;
+.slot "MVIB_PASS_PHI1" ;
+.slot "MVIB_PASS_PHI2 dst=r2" ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# Move immediate word to R0
-.opcode moviw0 0xA8 1 .immw
-.slot NOOP ; # TODO
+.opcode __mvibr3 0xAB 2 .rt .immb
+.slot "MVIB_LOAD_HOLD" ;
+.slot "MVIB_PASS_PHI1" ;
+.slot "MVIB_PASS_PHI2 dst=r3" ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# Move immediate word to R1
-.opcode moviw1 0xA9 1 .immw
-.slot NOOP ; # TODO
+# Move immediate word to register: mviw rN, value
+# Opcodes are 0xAC .. AF for r0, 1, 2, 3, so again we need to
+# separately define the four opcodes. The microcode for a word
+# move to register is much simpler because sign extentions isn't
+# required so the data can move directly from IR to the target.
+
+.set MVIW_LD_K3 "src1=r3 src2=const_n1 dst=r0"
+.set MVIW_LD_K1 "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=yes"
+.set MVIW_LD_TARGET "MVIW_LD_K3 K2_NONE MVIW_LD_K1 K0_NONE"
+
+.opcode mviw 0xAC 2 .rt .immw
+.slot MVIW_LD_TARGET ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
+
+.opcode __mviwr1 0xAD 2 .rt .immw
+.slot MVIW_LD_TARGET dst=r1 ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.opcode __mviwr2 0xAE 2 .rt .immw
+.slot MVIW_LD_TARGET dst=r2 ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.opcode __mviwr3 0xAF 2 .rt .immw
+.slot MVIW_LD_TARGET dst=r3 ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+

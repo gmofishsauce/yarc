@@ -257,6 +257,7 @@ func evaluateToken(gs *globalState, t *token, min int, max int) (int, error) {
 			}
 			return n, nil
 		case tkSymbol, tkLabel:
+			// XXX need a loop here for .set sym (.set sym ...)
 			sym, ok := gs.symbols[t.text()]
 			if !ok {
 				return 0, fmt.Errorf("%s: undefined symbol", t.text())
@@ -285,7 +286,7 @@ func fixupAbs(gs *globalState, fx *fixup) error {
 	// absolute jump or call fixup: the value of token t is the absolute
 	// address of the target. In YARC, target addresses are their own
 	// opcodes, so the value replaces the entire 16-bit opcode.
-	val, err := evaluateToken(gs, fx.t, 0, 30*1024) // END_MEM
+	val, err := evaluateToken(gs, fx.t, 0, 30*1024-1) // END_MEM
 	if err != nil {
 		return err
 	}
@@ -352,8 +353,8 @@ func fixupRel(gs *globalState, fx *fixup) error {
 // in an opcode definition
 func fixupImmb(gs *globalState, fx *fixup) error {
 	// immediate byte fixup: the value of the token t must fit in a
-	// signed byte. The value replaces the low byte of the instruction.
-	val, err := evaluateToken(gs, fx.t, math.MinInt8, math.MaxInt8)
+	// byte. The value replaces the low byte of the instruction.
+	val, err := evaluateToken(gs, fx.t, math.MinInt8, math.MaxUint8)
 	if err != nil {
 		return err
 	}
@@ -367,13 +368,28 @@ func fixupImmb(gs *globalState, fx *fixup) error {
 func fixupImmw(gs *globalState, fx *fixup) error {
 	// Immediate word fixup: the value of token t replaces the word at
 	// (memnext + 2) from the point of the instruction.
-	val, err := evaluateToken(gs, fx.t, math.MinInt16, math.MaxInt16)
+	val, err := evaluateToken(gs, fx.t, math.MinInt16, math.MaxUint16)
 	if err != nil {
 		return err
 	}
 	//fmt.Printf("fixupAbs(%v): write value 0x%04X at location %d\n", fx, uint16(val), fx.location+2)
 	gs.mem[fx.location+2] = byte(val&0xFF)
 	gs.mem[fx.location+3] = byte((val&0xFF00) >> 8)
+	return nil
+}
+
+// Fix up an rt (register target) by placing a general register
+// (in 0..3) in the low order 2 bits of the high byte of the opcode.
+// This is used for mvi reg, value (move immediate to register)
+func fixupRt(gs *globalState, fx *fixup) error {
+	val, err := evaluateToken(gs, fx.t, 0, 3)
+	if err != nil {
+		return err
+	}
+	lsByteLocation := 1 + fx.location // high order byte
+	fmt.Printf("fixupRt: write value 0x%1X in low order 2 bits at location %d\n", val, lsByteLocation)
+	gs.mem[lsByteLocation] &^= 0x03
+	gs.mem[lsByteLocation] |= byte(val)
 	return nil
 }
 

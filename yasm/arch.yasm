@@ -83,7 +83,8 @@
 .set alu_0x0C  0x0C # unassigned
 .set alu_0x0D  0x0D # unassigned
 .set alu_0x0E  0x0E # unassigned
-.set alu_0x0F  0x0F # unassigned
+.set alu_pass  0x0F # pass port2 to output - default when all FFs
+.set alu_0x0F  0x0F # same - for use when ALU is a noop
 
 # ALU control
 .set alu_phi1   0   # operate on low 8 bits
