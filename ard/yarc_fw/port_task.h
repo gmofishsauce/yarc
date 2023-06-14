@@ -8,9 +8,19 @@
 
 namespace PortPrivate {
 
-  void callWhenAnyReset(void);
-  void callWhenPowerOnReset(void);
-  void callAfterPostInit(void);
+  // Initialization: I've never been able to make up my mind about how it
+  // should work. This much is clear: yarc_fw.ino::setup() calls InitTasks()
+  // which calls the init functions of all the tasks, in the order specified
+  // in the static task definition table in task_runner.h. At this point all
+  // the system facilities are usable. Then InitTasks() calls postInit() which
+  // just calls PortPrivate::internalPostInit() near line 270 in this file.
+  // If postInit() returns false, InitTasks() calls panic(). internalPostInit()
+  // has some built-in functionality and calls out to the following three
+  // functions.
+
+  void callWhenAnyReset(void);      // Called from the top of postInit() always
+  void callWhenPowerOnReset(void);  // Called only when power-on reset occurring
+  void callAfterPostInit(void);     // Called from the end of postInit() always
   
   // Ahem. The internal bus that connects the system data bus to the
   // four slice busses is wired backwards. So all the bits written to
@@ -64,19 +74,18 @@ namespace PortPrivate {
       return pgm_read_ptr_near(&table[b]);
   }
 
+  void disableMicrocodeRamOutputs() {
+    nanoTogglePulse(DisableUCRamOut);
+  }
+
+  void enableMicrocodeRamOutputs() {
+    nanoTogglePulse(EnableUCRamOut);
+  }
+
   // Write the K register. The arguments follow the big-endian
   // convention we have for microcode.
   void internalWriteK(byte k3, byte k2, byte k1, byte k0) {
-    // "write block trick"
-    // BEFORE setting the UCR to write, load the IR and then
-    // clock it 64 times to raise the OE# signal on the RAMs.
-    // This sets the RAM location that will be overwritten;
-	  // currently it's set to 0xFC, which is not used; we could
-	  // carefully write the RAM "last" if necessary.
-    WriteIR(0xFC, 0x00);
-    for (int i = 0; i < 64; ++i) {
-      singleClock();
-    }
+    disableMicrocodeRamOutputs();
 
     ucrSetDirectionWrite();
     ucrEnableSliceTransceiver();
@@ -115,7 +124,7 @@ namespace PortPrivate {
     SetMCR(MCR_SAFE);
 
     ucrMakeSafe();
-    WriteIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
+    enableMicrocodeRamOutputs();
     setAH(0xFF); 
     McrMakeSafe();
   }
@@ -123,16 +132,8 @@ namespace PortPrivate {
   // Write up to 64 bytes to the slice for the given opcode, which must be
   // in the range 128 ... 255.
   void writeBytesToSlice(byte opcode, byte slice, byte *data, byte n) {
-    // Write the opcode to the IR. This sets the upper address bits to the
-    // opcode and resets the state counter (setting lower address bits to 0)
     WriteIR(opcode, 0);
-
-    // write block trick
-    // BEFORE setting the UCR to write, generate 64 clock pulses
-    // to raise the OE# signal on the RAMs.
-    for (int i = 0; i < 64; ++i) {
-      singleClock();
-    }
+    disableMicrocodeRamOutputs();
 
     // Now RAM OE# is high and we can safely enable the slice transceiver
     // to the write state without a bus conflict.
@@ -154,7 +155,7 @@ namespace PortPrivate {
     }
 
     ucrMakeSafe();
-    WriteIR(opcode, 0); // re-enable RAM outputs (no longer in the "write block")
+    enableMicrocodeRamOutputs();
   }
 
   // Read up to 64 bytes from the slice for the given opcode, which must be
@@ -188,6 +189,15 @@ namespace PortPrivate {
     ucrMakeSafe();
   }
 
+  void internalMakeSafe() {
+    kRegMakeSafe();
+    ucrMakeSafe();
+    AcrMakeSafe();
+    setAH(0xFF); 
+    setAL(0xFF);
+    McrMakeSafe();
+  }
+
   // Because of the order of initialization, this is basically
   // the very first code executed on either a hard or soft reset.
   // This (and all the init() functions) should be fast.
@@ -205,21 +215,7 @@ namespace PortPrivate {
     nanoSetMode(portData,   OUTPUT);
     nanoSetMode(portSelect, OUTPUT);
 
-    // Now put the MCR in a known state, use it to put the K registers
-    // and UCR in a safe state, and then put the MCR back in a safe state.
-    McrMakeSafe();
-    kRegMakeSafe();
-    McrMakeSafe();
-  }
-
-  void internalMakeSafe() {
-    kRegMakeSafe();
-    ucrMakeSafe();
-    AcrMakeSafe();
-    WriteIR(0xFC, 0x00); // reload state counter. This re-enables RAM output.
-    setAH(0xFF); 
-    setAL(0xFF);
-    McrMakeSafe();
+    internalMakeSafe();
   }
 
   // Run the YARC. This should take a 2-byte argument which becomes the initial
@@ -256,97 +252,48 @@ namespace PortPrivate {
   // Power on self test and initialization. Startup will hang if this function returns false.
 
   bool internalPostInit() {
-    // Do unconditionally on any reset
-    MakeSafe();
+
+    // All the internalInit functions have been called, so all
+    // the Nano's system facilities are supposed to be available.
 
     callWhenAnyReset();
 
-    if (!YarcIsPowerOnReset()) {
-      // A soft reset from the host opening the serial port.
-      // We only run the code below after a power cycle.
-      return true;
+    if (YarcIsPowerOnReset()) {
+      callWhenPowerOnReset();
     }
-            
-    // Looks like an actual power-on reset.
-
-    callWhenPowerOnReset();
-
-    // Set and reset the Service Request flip-flop a few times.
-    for(int i = 0; i < 3; ++i) {
-      nanoTogglePulse(ResetService);
-      if (YarcRequestsService()) {
-          panic(PANIC_POST, 1);
-      }
-      
-      setAH(0x7F); // 0xFF would be a read
-      setAL(0xF0); // 7FF0 or 7FF1 sets the flip-flop
-      setDH(0x00); // The data doesn't matter
-      setDL(0xFF);
-      singleClock(); // set service
-  
-      if (!YarcRequestsService()) {
-        panic(PANIC_POST, 2);
-      }
-    }
-    
-    // Now reset the "request service" flip-flop from the YARC so we
-    // don't later see a false service request.
+                
+    // Now reset the "request service" flip-flop from the YARC
+    // so we don't later see a false service request.
     nanoTogglePulse(ResetService);
+    if (YarcRequestsService()) {
+      panic(PANIC_POST, 3);      
+    }
   
-    if (getMCR() != byte(~(MCR_BIT_POR_SENSE | MCR_BIT_SERVICE_STATUS | MCR_BIT_YARC_NANO_L))) {
-      panic(PANIC_POST, 3);
-    }
-
-    byte mAH, mAL, mDH, mDL, b;
-
-    // (1) write random values at 0x10 and 0x11
-    WriteK(WRMEM16_FROM_NANO);  // write memory, 16-bit access
-    mAH = 0; mAL = 0x10; mDH = random(0, 256); mDL = random(0, 256);
-    SetADHL(mAH, mAL, mDH, mDL);
-    SingleClock();
-
-    // (2) Check the low byte. Set the data registers to
-    // some arbitrary value different than what we wrote
-    // (here 0, 0) make sure we're not reading from them.
-    WriteK(RDMEM8_TO_NANO); // read memory byte      
-    SetADHL(mAH, mAL, 0x00, 0x00);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((b = GetBIR()) != mDL) {
-      panic(PANIC_POST, 4);
-    }
-
-    mAL |= 0x01;            // and the upper byte (0x11)
-    SetADHL(mAH, mAL, 0x00, 0x00);
-    SetMCR(McrEnableSysbus(MCR_SAFE));
-    SingleClock();
-    if ((b = GetBIR()) != mDH) {
+    // Read and write the first byte of YARC RAM as the quickest
+    // possible check for basic functionality. This is supposed
+    // to work with the YARC still in the power on reset state.
+    unsigned short toWrite = 0xAA;
+    unsigned short toRead = 0x55;
+    WriteMem16(0, &toWrite, 1);
+    ReadMem16(0, &toRead, 1);
+    if (toWrite != toRead) {
       panic(PANIC_POST, 5);
     }
-    SetMCR(MCR_SAFE);
 
-    // And now we'd better still in the /POR
-    // state, or we're screwed.
-  
-     if (!YarcIsPowerOnReset()) {
-      // Trouble, /POR should be low right now.
-      panic(PANIC_POST, 6);
+    // Wait for the power on reset signal to clear
+    for (long now = millis(), end = millis() + 5000; now < end; now = millis()) {
+      if (!YarcIsPowerOnReset()) break;
+    }
+    if (YarcIsPowerOnReset()) {
+      panic(PANIC_POST, 6); // POR# never went high
     }
     
-    // Wait for POR# to go high here, then test RAM:
-    SetDisplay(0xFF);
-    while (!YarcIsPowerOnReset()) {
-      // do nothing
-    }
-    
+    // Now do some other tests, which can panic.
     callAfterPostInit();
-
     internalMakeSafe();
     SetDisplay(0xC0);
-
     return true;
-  } // End of internalPostInit()
-
+  }
 } // End of PortPrivate section
 
 // Public interface to ports
@@ -473,6 +420,7 @@ namespace PortPrivate {
     }
 
     SetDisplay(0xCC);
+    enableMicrocodeRamOutputs();
     MakeSafe();
   }
 }

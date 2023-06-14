@@ -1033,6 +1033,9 @@
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/15f71d46-7df6-463a-82d5-7afa014e65c4"
       (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
     )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/30c1d019-857e-47fc-9291-adb47c96ec14"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+    )
     (path "/2ffac34c-e3cb-492f-a745-89749c95e306/35d8c078-faaa-40d7-a834-90177ffb2559"
       (reference "#PWR?") (unit 1) (value "GND") (footprint "")
     )
@@ -1048,11 +1051,17 @@
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/7d9d3162-e5d2-4b99-b060-3cd13b2a17e7"
       (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
     )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/a11abb43-51fb-4258-ad19-25a3c4a989f1"
+      (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
+    )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/bf8f1568-2c8d-4060-a4eb-1917ad1b674a"
       (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/c6800260-32e6-4eaa-b5c2-f265af7dad32"
       (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/d4153157-09a8-40b3-9f22-afa031be3229"
+      (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/e020020a-70d6-4391-a24e-8f69fabea557"
       (reference "#PWR?") (unit 1) (value "GND") (footprint "")
@@ -1068,6 +1077,12 @@
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/e96557f2-c1a9-4fec-b509-4ed1952a1f96"
       (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/ee497a21-09c3-4b6c-a8f0-d4ea1286148b"
+      (reference "#PWR?") (unit 1) (value "VCC") (footprint "")
+    )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/f9c216d6-c5d1-43b4-9020-ec5f30d8199a"
+      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
     )
     (path "/baeeec1c-6d89-4b09-ba07-b183ebc66f47/ab26a42e-b7f6-4a80-b26c-c01085e448c7"
       (reference "A1") (unit 1) (value "Arduino_Nano_v3.x") (footprint "Module:Arduino_Nano")
@@ -1561,6 +1576,9 @@
     (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/0500234b-8955-41bd-86d9-11f52115ebd0"
       (reference "U88") (unit 3) (value "74HC00") (footprint "")
     )
+    (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/d6ec218d-8dd2-4ef5-b76b-d72f5d474d71"
+      (reference "U88") (unit 4) (value "74HC00") (footprint "")
+    )
     (path "/89d830c1-f0d9-4d89-9863-428a1b54ae3d/ccff3b88-fb8c-4e75-a673-9cd93e328bbe"
       (reference "U88") (unit 5) (value "74HC00") (footprint "")
     )
@@ -1902,6 +1920,15 @@
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/1f4ba2e1-d631-4d44-b879-12a97b29ad92"
       (reference "U138") (unit 7) (value "74LS14") (footprint "")
+    )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/94ecfcf4-0103-402d-9471-125552ff9a3e"
+      (reference "U139") (unit 1) (value "74HC74") (footprint "")
+    )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/30c07f57-4c63-4142-8f36-b4125d3f2deb"
+      (reference "U139") (unit 2) (value "74HC74") (footprint "")
+    )
+    (path "/a71dcb28-687f-4ebb-8f7d-60fc197ba42e/cde28874-0011-4849-87a9-ffea5714b93b"
+      (reference "U139") (unit 3) (value "74HC74") (footprint "")
     )
     (path "/51c42971-ddd1-444d-b989-88f84ae04d0f/9bd2b312-8117-47dd-9956-c5cb9aadb026"
       (reference "U?") (unit 1) (value "74LS574") (footprint "")

@@ -79,6 +79,8 @@ void panic(byte panicCode, byte subcode) {
 // Task module public interface
 
 void InitTasks() {
+  // This is the first thing that runs after power up.
+
   // Ideally, would snapshot the time here, and log a message if
   // the time from here to postInit() is more than 0.1s or so.
   
@@ -92,9 +94,7 @@ void InitTasks() {
   }
   
   if (!postInit()) { // power on self test and initialization
-    for(;;) {
-      ; // POST failed - stuck until reset
-    }
+    panic(PANIC_POST, 0xFF);
   }
 }
 

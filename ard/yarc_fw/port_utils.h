@@ -132,8 +132,8 @@ namespace PortPrivate {
   // Addresses on high decoder
   constexpr byte WCS_CLK = 0;                 // Clock the microcode control register
   constexpr byte ACR_CLK = 1;                 // Clock the ALU control register (ACR)
-  constexpr byte HIGH_UNUSED_2 = 2;
-  constexpr byte HIGH_UNUSED_3 = 3;           // Proposed for writing to ALU RAMs, but later decided not.
+  constexpr byte UC_RAM_DIS_OUT = 2;          // Disables outputs of microcode RAMs for write
+  constexpr byte UC_RAM_EN_OUT = 3;           // Enable outputs of microcode RAMs when write complete
   constexpr byte RESET_SERVICE = 4;           // Reset service request bit;  PULSE_EXT connector pin 2
   constexpr byte RAW_NANO_CLK = 5;            // Generate one YARC clock;    PULSE_EXT connector pin 3
   constexpr byte DISP_CLK = 6;                // Clock the display register; PULSE_EXT connector pin 4
@@ -150,7 +150,8 @@ namespace PortPrivate {
   // Register IDs on high decoder need bit 3 set
   constexpr REGISTER_ID WcsControlClock = (DECODER_SELECT_MASK|WCS_CLK);
   constexpr REGISTER_ID AcrControlClock = (DECODER_SELECT_MASK|ACR_CLK);
-  constexpr REGISTER_ID ScopeSync = (DECODER_SELECT_MASK|HIGH_UNUSED_2);
+  constexpr REGISTER_ID DisableUCRamOut = (DECODER_SELECT_MASK|UC_RAM_DIS_OUT);
+  constexpr REGISTER_ID EnableUCRamOut = (DECODER_SELECT_MASK|UC_RAM_EN_OUT);
   constexpr REGISTER_ID ResetService = (DECODER_SELECT_MASK|RESET_SERVICE);
   constexpr REGISTER_ID RawNanoClock = (DECODER_SELECT_MASK|RAW_NANO_CLK);
   constexpr REGISTER_ID DisplayRegister = (DECODER_SELECT_MASK|DISP_CLK);
@@ -198,21 +199,6 @@ namespace PortPrivate {
   // will normally contain the content of the RAM location addressed by the
   // instruction register and the state counter. These must be placed in
   // defined states separately.
-  
-  // Write block trick: the low order 6 bits 0..5 of the state counter provide
-  // the low order address bits to the microcode RAMs. This allows an instruction
-  // to have 2^6 microcode words, 0..63. The physical state counter is 8 bits
-  // wide, and for a long time bits :6 and :7 were not connected. Then I realized
-  // that by connecting bit :6 (the 64-weight bit) to the output enable enable
-  // lines of all four microcode RAMs, I could resolve the bus conflict issues
-  // on writes. To write either the microcode RAMs or the K register, the Nano
-  // must first write the upper bits of the address to the instruction register.
-  // This clears the state counter. Then the Nano should generate 64 clocks. This
-  // causes a rollover (carry) out of bit :5 of the state counter into bit :6,
-  // which raises the OE# line on the RAMs and leaves bits 0..5 as 0s. The Nano
-  // can now write up to 64 bytes to the RAM slice, or write the K register (but
-  // not both). This trick is embedded in the functions below that write to the
-  // microcode RAM and K register.
 
   constexpr byte UCR_SLICE_ADDR_MASK     = (0x01|0x02);
   constexpr byte UCR_SLICE_EN_L          = 0x04;
