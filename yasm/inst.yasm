@@ -40,6 +40,10 @@
 .set DECODE_K0 "K0_NONE"
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 
+# Microcode to increment the PC without writing the result anywhere
+.set NO_FETCH "FETCH load_ir=no"
+.set NO_DECODE "DECODE"
+
 # Absolute call.
 
 .opcode call 0xFE 1 .abs
@@ -193,31 +197,56 @@
 # separately define the four opcodes. The microcode for a word
 # move to register is much simpler because sign extentions isn't
 # required so the data can move directly from IR to the target.
+# Two cycles are required in order to increment the PC over the
+# immediate value in the code stream; the first cycle uses the
+# bus to load the target register while reading register 3 (PC)
+# to perform the phase 1 (phi1) cycle of the increment. This in
+# turn means MVIW to r3 will not work correctly, as the new data
+# will arrive in time to shine through the transparent latches
+# in the holding register and corrupt the add. We deal with this
+# in the microcode below by turning MVIW r3, ... into a no-op.
 
-.set MVIW_LD_K3 "src1=r3 src2=const_n1 dst=r0"
+.set MVIW_LD_K3 "src1=r3 src2=const_p2 dst=r0"
+.set MVIW_LD_K2 "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
 .set MVIW_LD_K1 "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=yes"
-.set MVIW_LD_TARGET "MVIW_LD_K3 K2_NONE MVIW_LD_K1 K0_NONE"
+.set MVIW_LD_K0 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set MVIW_LD_TARGET "MVIW_LD_K3 MVIW_LD_K2 MVIW_LD_K1 MVIW_LD_K0"
+
+.set MVIW_INCR_K3 "src1=r3 src2=const_n1 dst=r3"
+.set MVIW_INCR_K2 "acn=alu_add alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=no"
+.set MVIW_INCR_K1 "sysdata_src=bus_none reg_in_mux=from_alu dst_wr_en=yes"
+.set MVIW_INCR_K0 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set MVIW_INCR_PC    "MVIW_INCR_K3 MVIW_INCR_K2 MVIW_INCR_K1 MVIW_INCR_K0"
 
 .opcode mviw 0xAC 2 .rt .immw
 .slot MVIW_LD_TARGET ;
+.slot MVIW_INCR_PC ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
 .opcode __mviwr1 0xAD 2 .rt .immw
 .slot MVIW_LD_TARGET dst=r1 ;
+.slot MVIW_INCR_PC ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
 .opcode __mviwr2 0xAE 2 .rt .immw
 .slot MVIW_LD_TARGET dst=r2 ;
+.slot MVIW_INCR_PC ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
+# This won't work as noted in the comment above. We could
+# make it work, but it's just a slow, space-wasting way to
+# do a JMP instruction. Instead we turn it into a no-op
+# with the correct number of cycles. We have to increment
+# the PC past the unused immediate value.
 .opcode __mviwr3 0xAF 2 .rt .immw
-.slot MVIW_LD_TARGET dst=r3 ;
+.slot NO_FETCH ;   # increment r3 (PC) phi1, don't load IR
+.slot NO_DECODE ;  # phi2, write result to r3, nothing else
 .slot FETCH ;
 .slot DECODE ;
 .endopcode

@@ -17,5 +17,5 @@
 # that helps me test assembler features. But it will be the bootstrap.
 
 test1:
-#	mviw r2 0xFF80
+	mviw r2 0xFF80
 	jmp test1
