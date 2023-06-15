@@ -148,6 +148,7 @@ void WriteCheckALU(unsigned short offset, byte *data, unsigned short n) {
       }
     }
   }
+  WriteK(MICROCODE_IDLE);
 }
 
 // Write up to "n" bytes of data to ALU RAM at the given offset. The values
@@ -189,6 +190,7 @@ void WriteALU(unsigned short offset, byte *data, unsigned short n) {
     SetACR(ACR_SAFE);
     SetMCR(MCR_SAFE);
   }
+  WriteK(MICROCODE_IDLE);
 }
 
 // Read "n" bytes of data from the address offset of the ALU RAM identified
@@ -235,6 +237,7 @@ void ReadALU(unsigned short offset, byte *data, unsigned short n, byte ramID) {
     SetACR(ACR_SAFE);
     SetMCR(MCR_SAFE);
   }
+  WriteK(MICROCODE_IDLE);
 }
 
 // Write the bytes at *data to microcode memory. The length of the data array
@@ -299,7 +302,7 @@ void ReadMem16(unsigned short addr, unsigned short *data, short nWords) {
   WriteK(RDMEM8_TO_NANO);
   SetMCR(McrEnableSysbus(MCR_SAFE));
 
-  // The Nano can only read bytes from the data bus
+  // The Nano can only read bytes (not words) from the data bus
   unsigned char *bytes = (unsigned char *)data;
   for (int i = 0; i < 2 * nWords; ++i) {
     // The data values are noise that's not supposed to matter

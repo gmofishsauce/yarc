@@ -74,6 +74,19 @@ namespace PortPrivate {
       return pgm_read_ptr_near(&table[b]);
   }
 
+  // Formerly, to disable the microcode RAM outputs (i.e.
+  // to raise the OE# signal high) required giving 64 clocks.
+  // The RAM output enable was (literally) wired to the 7th
+  // bit (bit :6) of the microcode cycle counter. This worked,
+  // but was very slow. In June 2023, I cut the wire from the
+  // cycle counter and replaced it with the output of an S/R
+  // flip-flop actually located in "south" central although
+  // it's documented in the kludge space schematic in KiCad.
+  // The flop is set and cleared by two of the Nano's remaining
+  // toggle outputs, which required long wires. The other half
+  // of the flip-flip (a 74HC74) is used to solve an unrelated
+  // timing issue associated with resetting the counters when
+  // a new instruction is loaded.
   void disableMicrocodeRamOutputs() {
     nanoTogglePulse(DisableUCRamOut);
   }
@@ -83,7 +96,7 @@ namespace PortPrivate {
   }
 
   // Write the K register. The arguments follow the big-endian
-  // convention we have for microcode.
+  // convention (bytes 3, 2, 1, 0) we have for microcode.
   void internalWriteK(byte k3, byte k2, byte k1, byte k0) {
     disableMicrocodeRamOutputs();
 
@@ -223,7 +236,8 @@ namespace PortPrivate {
   // which is a jmp to address 0. The first clock will the microcode address 
   // 0b1_1111_1100_0000, the base of the last group of 64 slots, which contains
   // the microcode for JMP. This will load the IR (nanded with 0x0001) into R3
-  // and fetch from there.
+  // and fetch from there. The code there maybe be another JMP or it can just
+  // start executing YARC initialization code.
   void internalRunYARC() {
     WriteReg(0, 0);
     WriteReg(1, 0);
@@ -266,9 +280,9 @@ namespace PortPrivate {
     // so we don't later see a false service request.
     nanoTogglePulse(ResetService);
     if (YarcRequestsService()) {
-      panic(PANIC_POST, 3);      
+      panic(PANIC_POST, 3);
     }
-  
+
     // Read and write the first byte of YARC RAM as the quickest
     // possible check for basic functionality. This is supposed
     // to work with the YARC still in the power on reset state.
@@ -291,7 +305,6 @@ namespace PortPrivate {
     // Now do some other tests, which can panic.
     callAfterPostInit();
     internalMakeSafe();
-    SetDisplay(0xC0);
     return true;
   }
 } // End of PortPrivate section
