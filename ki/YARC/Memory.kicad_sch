@@ -4387,6 +4387,11 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 938dd519-1c9e-46bb-8a0e-7e11a2cc837a)
   )
+  (text "All components are actually 74HC-series CMOS\nregardless of the part number shown."
+    (at 198.12 135.89 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 9c3ded12-b7b6-43ec-9a78-d68c986ec6a7)
+  )
   (text "74LS08 \"D\" unit is also uncommitted.\nIt was accidentally deleted here."
     (at 208.28 182.88 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
