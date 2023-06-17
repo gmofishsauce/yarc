@@ -1654,10 +1654,10 @@
     (uuid eb1752fa-7357-4ec2-b311-c8def6f1e5e8)
   )
 
-  (global_label "~{REG_WE}" (shape input) (at 48.26 101.6 0) (fields_autoplaced)
+  (global_label "DSTCLK" (shape input) (at 48.26 101.6 0) (fields_autoplaced)
     (effects (font (size 1.27 1.27)) (justify left))
     (uuid 27c307d3-1ad5-45e4-a580-03ff4f044b7e)
-    (property "Intersheet References" "${INTERSHEET_REFS}" (id 0) (at 57.9302 101.5206 0)
+    (property "Intersheet References" "${INTERSHEET_REFS}" (id 0) (at 57.6883 101.5206 0)
       (effects (font (size 1.27 1.27)) (justify left) hide)
     )
   )
