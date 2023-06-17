@@ -80,7 +80,7 @@ var commands = []protocolCommand{
 	{sp.CmdRdSlice, "rs", "ReadSlice", 3, false, notImpl},
 	{sp.CmdXferSingle, "xs", "XferSingle", 5, false, notImpl},
 	{sp.CmdWritePage, "wp", "WritePage", 1, true, notImpl},
-	{sp.CmdReadPage, "rp", "ReadPage", 1, true, notImpl},
+	{sp.CmdReadPage, "rp", "ReadPage", 1, true, readState},
 	{sp.CmdSetK, "sk", "SetK", 2, true, setK},
 	{sp.CmdSetMcr, "sm", "SetMCR", 1, false, setMcr},
 	{0, "dn", "Download", 0, false, download},
@@ -108,6 +108,38 @@ func process(line string, nano *arduino.Arduino) error {
 }
 
 // Command handlers
+
+// readState reads and displays the 64 bytes at 0x7700. It does a single-byte read at
+// 0x7700 and then a 63-byte read. The protocol was designed this way for historical
+// reasons that turned out to be false. The protocol needs to be revised, but doing
+// this is not high on my list of things to do.
+func readState(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	data, err := readMemoryChunk(nano, 0x7700);
+	if err != nil {
+		return nostr, err
+	}
+	// Display 64 bytes as a 4 lines of 8 hex words
+	for i := 0; i < 4; i++ {
+		fmt.Printf("0x%04X: ", 0x7700 + i*16)
+		for j := 0; j < 8; j++ {
+			index := 16*i + 2*j
+			word := (data[index+1] << 8) | (data[index]&0xFF)
+			fmt.Printf("%04X ", word)
+		}
+		for j := 0; j < 16; j++ {
+			white := ' '
+			if j == 15 {
+				white = '\n'
+			}
+			ch := data[16*i + j]
+			if ch < 0x20 || ch > 0x7F {
+				ch = '?'
+			}
+			fmt.Printf("%c%c", ch, white)
+		}
+	}
+	return nostr, nil
+}
 
 func download(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	yarcbin, err := os.Open("./yarc.bin")
