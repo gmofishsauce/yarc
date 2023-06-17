@@ -130,6 +130,19 @@
 #.slot DECODE ;
 #.endopcode
 
+# Store register to memory indirect. Memory address in src1. Register to write
+# is src2. Destination field not used (no write to a register). No ALU op.
+.set K3_MVMI "src1=r3 src2=const_n1 dst=cond_r3"
+.set K2_MVMI "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K1_MVMI "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
+.set K0_MVMI "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+.opcode stiw 0xA2 3 .src1 .src2 .dst
+.slot  K3_MVMI K2_MVMI K1_MVMI K0_MVMI ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
 # Move immediate byte to register: mvib rN, value
 # Opcodes are 0xA8 .. 0xAB for r0, 1, 2, 3
 # The register is encoded in the low-order 2 bits of the high order
