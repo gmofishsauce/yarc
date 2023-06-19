@@ -151,7 +151,7 @@ namespace CostPrivate {
   //
   // N.B. - this means the tests will come to a halt unless the the host
   // program is runnning to soak up the log messages, because the serial
-  // task doesn't invoke the log callbacks. 
+  // task doesn't invoke the log callbacks unless it's connected. 
 
   int queuedLogMessageCount = 0;
 

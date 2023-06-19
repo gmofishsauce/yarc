@@ -18,12 +18,6 @@ void WriteIR(byte high, byte low) {
 
 // Write all bytes of the K (microcode pipeline, "control") register.
 //
-// This could be made far more efficient by implementing it in
-// the PortPrivate section. Each call to PortPrivate:writeByteToK()
-// currently does 64 clocks in order to disable the microcode RAM
-// outputs. It could then do four writes, but each call only does
-// one. This isn't (currently?) important enough to worry about.
-//
 // This function alters essentially all external registers under
 // the Nano's control and does not restore them. The K register is
 // not accessible for reading, so there is no verify.
@@ -331,28 +325,6 @@ void WriteMem8(unsigned short addr, unsigned char *data, short nBytes) {
   }  
   SetMCR(MCR_SAFE);
 }
-
-// This dangerous function assumes the caller has set the K register,
-// which is slow. Returns the bus value. Used by the downloader.
-// byte WrMemFast(unsigned short addr, byte data) {
-//   SetMCR(MCR_SAFE);
-//   SetADHL(StoHB(addr & 0x7F00), StoLB(addr), 0x99, StoLB(data));
-//   SingleClock();
-//   byte result = GetBIR();
-//   SetMCR(MCR_SAFE);
-//   return result;
-// }
-
-// This dangerous function matches WrMemFast()
-// byte RdMemFast(unsigned short addr) {
-//   SetMCR(McrEnableSysbus(MCR_SAFE));
-//   SetAH(StoHB(addr | 0x8000));
-//   SetAL(StoLB(addr));
-//   SingleClock();
-//   byte result = GetBIR();
-//   SetMCR(MCR_SAFE);
-//   return result;
-// }
 
 // Read nBytes into *data from contiguous addresses starting at addr.
 // All Nano machine state and the K register are altered.

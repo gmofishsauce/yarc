@@ -141,7 +141,7 @@ void ledInit() {
 
 // This is the logging task.
 // 
-// The logger should not be used for chit-chat.
+// The logger should not be used for chit-chat (Thank You ken & dmr)
 //
 // Lack of foresight: this is the infrastructure for making general
 // requests to the Mac. The default request is to log a message; this

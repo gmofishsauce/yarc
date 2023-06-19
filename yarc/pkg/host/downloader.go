@@ -283,35 +283,6 @@ func writeMemoryChunk(content []byte, nano *arduino.Arduino, addr uint16) error 
 	wrMem[3] = byte(len(content))
 
 	return doCountedSend(nano, wrMem, content)
-
-//	// Write the first byte (this sets various Nano registers)
-//	var doCycle []byte = make([]byte, 5, 5)
-//	var response []byte
-//
-//	doCycle[0] = sp.CmdXferSingle
-//	doCycle[1] = byte(addr >> 8)   // AH
-//	doCycle[2] = byte(addr & 0xFF) // AL
-//	doCycle[3] = 0                 // DH
-//	doCycle[4] = content[0]        // DL
-//	response, err := doFixedCommand(nano, doCycle, 1)
-//	if err != nil {
-//		return err
-//	}
-//	// On a write transfer, the returned value should
-//	// merely echo the data value. It does not verify
-//	// that the memory write succeeded.
-//	if response[0] != doCycle[4] {
-//		return fmt.Errorf("invalid response 0x%02X to CmdXferSingle(0x%02X)",
-//			response[0], doCycle[4])
-//	}
-//
-//	// Now with the addressing registers set in the Nano, send
-//	// the rest of the chunk with single transfer
-//	theRest := content[1:]
-//	cmd := make([]byte, 2, 2)
-//	cmd[0] = sp.CmdWritePage
-//	cmd[1] = byte(len(theRest))
-//	return doCountedSend(nano, cmd, theRest)
 }
 
 func readMemoryChunk(nano *arduino.Arduino, addr uint16) ([]byte, error) {
@@ -323,31 +294,4 @@ func readMemoryChunk(nano *arduino.Arduino, addr uint16) ([]byte, error) {
 	rdMem[3] = 64 // always
 
 	return doCountedReceive(nano, rdMem)
-
-//	var doCycle []byte = make([]byte, 5, 5)
-//	var result bytes.Buffer
-//
-//	doCycle[0] = sp.CmdXferSingle
-//	doCycle[1] = byte(addr >> 8)   // AH
-//	doCycle[1] |= byte(0x80)       // Read
-//	doCycle[2] = byte(addr & 0xFF) // AL
-//	doCycle[3] = 0                 // DH
-//	doCycle[4] = 0                 // DL
-//	response, err := doFixedCommand(nano, doCycle, 1)
-//	if err != nil {
-//		return nil, err
-//	}
-//	result.WriteByte(response[0])
-//
-//	// Now with the addressing registers set in the Nano, send
-//	// the rest of the chunk with single transfer
-//	cmd := make([]byte, 2, 2)
-//	cmd[0] = sp.CmdReadPage
-//	cmd[1] = byte(chunkSize - 1)
-//	response, err = doCountedReceive(nano, cmd)
-//	if err != nil {
-//		return nil, err
-//	}
-//	result.Write(response)
-//	return result.Bytes(), nil
 }

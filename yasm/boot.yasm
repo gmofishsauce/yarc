@@ -17,7 +17,7 @@
 # that helps me test assembler features. But it will be the bootstrap.
 
 start:
-	mviw r0 0
+	mviw r0 0x2345
 	mviw r1 0x6789
 	mviw r2 0x7700
 	jmp start

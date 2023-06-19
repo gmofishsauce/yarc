@@ -6,9 +6,6 @@
 // "Writing" means writing YARC memory with data from host.
 
 // TODO modify Protogen to use const, or at least to emit #pragma once.
-// TODO All command implementations are supposed to check the state,
-//      which is messy; and none of them currently check for an in-progress
-//      command that isn't themselves.
 // TODO The BadCommand implementation only gives one "spin", as little as
 //      30uS or so, for the nak to go out. It should give at least 1 mS.
 
@@ -152,12 +149,6 @@ namespace SerialPrivate {
   typedef State (*InProgressHandler)(void);
   InProgressHandler inProgress = 0;
 
-  // This variable is set by stOneXfr() in preparation for a page read
-  // or write. It should be checked against END_MEM before every use and
-  // set back to END_MEM when a page write ends for any reason. It is also
-  // part of the connection state, so it must also be set to END_MEM on error. 
-  static unsigned short stShadowAHAL = END_MEM;
-
   // Enter the unsynchronized state immediately. This cancels any
   // pending output include NAKs sent, etc.
   void stProtoUnsync() {
@@ -166,7 +157,6 @@ namespace SerialPrivate {
     xmtBuf->head = 0;
     xmtBuf->tail = 0;
     inProgress = 0;
-    stShadowAHAL = END_MEM;
     state = STATE_UNSYNC;
     SetDisplay(0xCF);
   }
@@ -184,13 +174,13 @@ namespace SerialPrivate {
     put(xmtBuf, b);
   }
 
-  // Return true if it's possible to transmit (the transmit buffer is not full)
+  // Return true if it's possible to add n bytes to the transmit ring buffer
   bool canSend(byte n) {
-    return n < avail(xmtBuf);
+    return n < avail(xmtBuf); // XXX should be <= ?
   }
 
   bool canReceive(byte n) {
-    return n < len(rcvBuf);
+    return n < len(rcvBuf);   // XXX should be <= ?
   }
 
   // Send an ack for the byte b, which must be
@@ -226,6 +216,17 @@ namespace SerialPrivate {
   // It's 259 to allow for a command byte, a count byte, 255 data
   // bytes, an unneeded terminating nul should it be written by a
   // library function, and a guard byte at the end.
+  //
+  // XXX - In fact, everything must be sent and received in 64-byte
+  // XXX - "chunkies" to prevent overrun errors on the serial line.
+  // XXX - As a result, this buffer could be significantly reduced
+  // XXX - in size. I haven't done this because the uniform 64-byte
+  // XXX - chunk size also means we could get rid of count bytes
+  // XXX - and it makes sense to change all that at the same time.
+  // XXX - In addition to getting rid of the count field (the count
+  // XXX - will always be 64), we can have just a single function
+  // XXX - to collect or transmit 64 bytes and use it for all the
+  // XXX - the six cases (reading and writing main, ALU, or WCS RAM).
   constexpr int POLL_BUF_SIZE = 259;
   constexpr int POLL_BUF_LAST = (POLL_BUF_SIZE - 1);
   constexpr int POLL_BUF_MAX_DATA = 255;
@@ -239,7 +240,7 @@ namespace SerialPrivate {
     byte buf[POLL_BUF_SIZE];
   } PollBuffer;
 
-  PollBuffer uniquePollBuffer; // there can be only one (in practice)
+  PollBuffer uniquePollBuffer;
   PollBuffer* const pb = &uniquePollBuffer;
 
   // Allocate the poll buffer.
@@ -444,8 +445,6 @@ namespace SerialPrivate {
     return stBadCmd(r, b);
   }
 
-  // TODO - if ever implemented, this function must return
-  // the Bus Interface Register (BIR) - spec change, 5/2023.
   State stOneClk(RING* const r, byte b) {
     consume(r, 1);
     SingleClock();
@@ -461,7 +460,8 @@ namespace SerialPrivate {
     return state;
   }
 
-  // Collect a buffer of words to write and then write them.
+  // Collect a buffer of words to write and then write them. Only one value
+  // is allowed for the count, CHUNK_SIZE == 64 bytes.
   State wrMemInProgress() {
     while (canReceive(1) && pb->remaining > 0) {
       pb->buf[pb->next] = peek(rcvBuf);
@@ -598,130 +598,6 @@ namespace SerialPrivate {
     send(pb->cmd[3]);
     return readSliceInProgress();
   }
-
-  // Do a bus transfer with the given AH, AL, and DL. Save the values
-  // of AH, AL, and set the K register (important) so that a following
-  // WrPageFast or RdPageFast command can use the value. The transfers
-  // are always byte transfers, and the host has no control over the K
-  // register so can only transfer bytes to main memory using these
-  // commands. Microcode and ALU memory are written separately. Note:
-  // cmdBuf[3], data high, is not used.
-  // State stOneXfr(RING* const r, byte b) {
-  //   byte cmdBuf[5];
-  //   copy(rcvBuf, cmdBuf, 5);
-  //   consume(rcvBuf, 5);
-  //   unsigned short addr = BtoS(cmdBuf[1], cmdBuf[2]);
-  //   stShadowAHAL = addr & 0x7FFF;
-  //   if (stShadowAHAL >= END_MEM) {
-  //     stShadowAHAL = END_MEM;
-  //     sendNak(b);
-  //     return state;
-  //   }
-
-  //   byte bir;
-
-  //   if (addr & 0x8000) {
-  //     WriteK(RDMEM8_TO_NANO);   // read memory byte
-  //     bir = RdMemFast(stShadowAHAL);
-  //   } else {
-  //     WriteK(WRMEM8_FROM_NANO); // Write memory byte
-  //     bir = WrMemFast(stShadowAHAL, cmdBuf[4]);
-  //   }
-  //   stShadowAHAL++;
-  //   sendAck(b);
-  //   send(bir); // Protocol v8 - always return BIR
-  //   return state;
-  // }
-
-  // A page write of up to 255 bytes at stShadowAHAL is in progress.
-  // Pull some bytes from the ring buffer and write them to memory.
-  // This happens between calls to the serial task, so it can only
-  // write a max of 16 bytes per call here - the size of the receive
-  // ring buffer.
-  // State writePageInProgress() {
-  //   while (canReceive(1) && pb->remaining > 0) {
-  //     byte b = peek(rcvBuf);
-  //     consume(rcvBuf, 1);
-  //     WrMemFast(stShadowAHAL, b);
-  //     stShadowAHAL++;
-  //     pb->remaining--;
-  //   }
-  //   if (pb->remaining == 0) {
-  //     freePollBuffer();
-  //     stShadowAHAL = END_MEM;
-  //     inProgress = 0;              
-  //   }
-  //   return state;
-  // }
-
-  // Write up to 255 bytes at the address set by a previous single
-  // transfer (stOneXfr()) command. We allocate the poll buffer so
-  // we can use its header fields for tracking the number of bytes
-  // left to read from the connection and write to memory.
-  // State stWrPage(RING* const r, byte b) {
-  //   consume(r, 1); // the byte b
-
-  //   // Check the count. Normally, with unsigned values, we have to
-  //   // check both overflow and wraparound. But in this case, the
-  //   // count comes in a byte and the value of END_MEM + 255 is still
-  //   // greater than any possible legal address.
-  //   byte n = peek(r);
-  //   consume(r, 1);
-  //   if (stShadowAHAL + n > END_MEM) {
-  //     return stBadCmd(r, b); // panic?
-  //   }
-
-  //   sendAck(b);
-  //   allocPollBuffer();
-  //   inProgress = writePageInProgress;
-  //   pb->remaining = n;
-  //   return writePageInProgress();
-  // }
-
-  // A page read of up to 255 bytes at stShadowAHAL is in progress.
-  // Read some bytes from memory and push them to the ring buffer.
-  // This happens between calls to the serial task, so it can only
-  // write a max of 16 bytes per call here - the size of the xmit
-  // ring buffer.
-  // State readPageInProgress() {
-  //   while (canSend(1) && pb->remaining > 0) {
-  //     send(RdMemFast(stShadowAHAL));
-  //     stShadowAHAL++;
-  //     pb->remaining--;
-  //   }
-  //   if (pb->remaining == 0) {
-  //     freePollBuffer();
-  //     stShadowAHAL = END_MEM;
-  //     inProgress = 0;              
-  //   }
-  //   return state;
-  // }
-
-  // Read a page from the address established by a previous single transfer.
-  // Like stWrPage, this function can only address main memory, and only as
-  // an array of bytes. And also like stWrPage(), we allocate the poll buffer
-  // even though we pull the data from memory and send it directly to the
-  // ring buffer. A single transfer must be done first to set AH, AL, and K.
-  // State stRdPage(RING* const r, byte b) {
-  //   consume(r, 1); // the byte b
-
-  //   // Check the count. Normally, with unsigned values, we have to
-  //   // check both overflow and wraparound. But in this case, the
-  //   // count comes in a byte and the value of END_MEM + 255 is still
-  //   // greater than any possible legal address.
-  //   byte n = peek(r);
-  //   consume(r, 1);
-  //   if (stShadowAHAL + n > END_MEM) {
-  //     return stBadCmd(r, b); // panic?
-  //   }
-  
-  //   sendAck(b);
-  //   send(n);
-  //   allocPollBuffer();
-  //   inProgress = readPageInProgress;
-  //   pb->remaining = n;
-  //   return readPageInProgress();
-  // }
 
   State writeAluInProgress() {
     while (canReceive(1) && pb->remaining > 0) {

@@ -81,9 +81,6 @@ var commands = []protocolCommand{
 	{sp.CmdGetResult, "gr", "GetResult", 0, false, getBir},
 	{sp.CmdWrSlice, "ws", "WriteSlice", 3, true, notImpl},
 	{sp.CmdRdSlice, "rs", "ReadSlice", 3, false, notImpl},
-	// {sp.CmdXferSingle, "xs", "XferSingle", 5, false, notImpl},
-	// {sp.CmdWritePage, "wp", "WritePage", 1, true, notImpl},
-	// {sp.CmdReadPage, "rp", "ReadPage", 1, true, readState},
 	{sp.CmdSetK, "sk", "SetK", 2, true, setK},
 	{sp.CmdSetMcr, "sm", "SetMCR", 1, false, setMcr},
 	{0, "dn", "Download", 0, false, download},
@@ -229,7 +226,7 @@ func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 		fmt.Printf("0x%04X: ", int(addr) + i*16)
 		for j := 0; j < 8; j++ {
 			index := 16*i + 2*j
-			word := (int16(data[index+1]) << int16(8)) | int16(data[index]&0xFF)
+			word := (uint16(data[index+1]) << uint16(8)) | uint16(data[index]&0xFF)
 			fmt.Printf("%04X ", word)
 		}
 		for j := 0; j < 16; j++ {
