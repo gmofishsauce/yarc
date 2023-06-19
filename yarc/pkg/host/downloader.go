@@ -259,18 +259,6 @@ func readAluChunk(nano *arduino.Arduino, addr uint16, ram byte) ([]byte, error) 
 }
 
 func writeMicrocodeChunk(op int, slice int, body []byte, nano *arduino.Arduino) error {
-	// log.Printf("writeMicrocode op 0x%02x slice %d\n", op, slice)
-	// var cmdRdSlice []byte = make([]byte, 4, 4)
-	// cmdRdSlice[0] = sp.CmdRdSlice
-	// cmdRdSlice[1] = byte(0x80 | op)
-	// cmdRdSlice[2] = byte(slice)
-	// cmdRdSlice[3] = byte(len(body))
-	// before, err := doCountedReceive(nano, cmdRdSlice)
-	// if err != nil {
-	// 	return fmt.Errorf("BEFORE read error: %s", err)
-	// }
-	// log.Printf("BEFORE: 0x%02X 0x%02X 0x%02X 0x%02X\n", before[0], before[1], before[2], before[3])
-
 	var cmdWrSlice []byte = make([]byte, 4, 4)
 	cmdWrSlice[0] = sp.CmdWrSlice
 	cmdWrSlice[1] = byte(0x80 | op)
@@ -279,76 +267,87 @@ func writeMicrocodeChunk(op int, slice int, body []byte, nano *arduino.Arduino) 
 	if result := doCountedSend(nano, cmdWrSlice, body); result != nil {
 		return fmt.Errorf("microcode write failed: %s", result)
 	}
-
-    // cmdRdSlice[0] = sp.CmdRdSlice
-    // cmdRdSlice[1] = byte(0x80 | op)
-    // cmdRdSlice[2] = byte(slice)
-    // cmdRdSlice[3] = byte(len(body))
-    // after, err := doCountedReceive(nano, cmdRdSlice)
-    // if err != nil {
-	// 	return fmt.Errorf("AFTER read error: %s", err)
-    // }
-	// log.Printf("AFTER: 0x%02X 0x%02X 0x%02X 0x%02X\n", after[0], after[1], after[2], after[3])
-
 	return nil
 }
 
 func writeMemoryChunk(content []byte, nano *arduino.Arduino, addr uint16) error {
-	// Write the first byte (this sets various Nano registers)
-	var doCycle []byte = make([]byte, 5, 5)
-	var response []byte
+	var wrMem []byte = make([]byte, 4, 4)
 
-	doCycle[0] = sp.CmdXferSingle
-	doCycle[1] = byte(addr >> 8)   // AH
-	doCycle[2] = byte(addr & 0xFF) // AL
-	doCycle[3] = 0                 // DH
-	doCycle[4] = content[0]        // DL
-	response, err := doFixedCommand(nano, doCycle, 1)
-	if err != nil {
-		return err
-	}
-	// On a write transfer, the returned value should
-	// merely echo the data value. It does not verify
-	// that the memory write succeeded.
-	if response[0] != doCycle[4] {
-		return fmt.Errorf("invalid response 0x%02X to CmdXferSingle(0x%02X)",
-			response[0], doCycle[4])
+	if len(content) != 64 {
+		fmt.Printf("warning: writeMemoryChunk(): len != 64 (%d)\n", len(content))
 	}
 
-	// Now with the addressing registers set in the Nano, send
-	// the rest of the chunk with single transfer
-	theRest := content[1:]
-	cmd := make([]byte, 2, 2)
-	cmd[0] = sp.CmdWritePage
-	cmd[1] = byte(len(theRest))
-	return doCountedSend(nano, cmd, theRest)
+	wrMem[0] = sp.CmdWrMem
+	wrMem[1] = byte(addr >> 8)
+	wrMem[2] = byte(addr & 0xFF)
+	wrMem[3] = byte(len(content))
+
+	return doCountedSend(nano, wrMem, content)
+
+//	// Write the first byte (this sets various Nano registers)
+//	var doCycle []byte = make([]byte, 5, 5)
+//	var response []byte
+//
+//	doCycle[0] = sp.CmdXferSingle
+//	doCycle[1] = byte(addr >> 8)   // AH
+//	doCycle[2] = byte(addr & 0xFF) // AL
+//	doCycle[3] = 0                 // DH
+//	doCycle[4] = content[0]        // DL
+//	response, err := doFixedCommand(nano, doCycle, 1)
+//	if err != nil {
+//		return err
+//	}
+//	// On a write transfer, the returned value should
+//	// merely echo the data value. It does not verify
+//	// that the memory write succeeded.
+//	if response[0] != doCycle[4] {
+//		return fmt.Errorf("invalid response 0x%02X to CmdXferSingle(0x%02X)",
+//			response[0], doCycle[4])
+//	}
+//
+//	// Now with the addressing registers set in the Nano, send
+//	// the rest of the chunk with single transfer
+//	theRest := content[1:]
+//	cmd := make([]byte, 2, 2)
+//	cmd[0] = sp.CmdWritePage
+//	cmd[1] = byte(len(theRest))
+//	return doCountedSend(nano, cmd, theRest)
 }
 
 func readMemoryChunk(nano *arduino.Arduino, addr uint16) ([]byte, error) {
-	var doCycle []byte = make([]byte, 5, 5)
-	var result bytes.Buffer
+	var rdMem []byte = make([]byte, 4, 4)
 
-	doCycle[0] = sp.CmdXferSingle
-	doCycle[1] = byte(addr >> 8)   // AH
-	doCycle[1] |= byte(0x80)       // Read
-	doCycle[2] = byte(addr & 0xFF) // AL
-	doCycle[3] = 0                 // DH
-	doCycle[4] = 0                 // DL
-	response, err := doFixedCommand(nano, doCycle, 1)
-	if err != nil {
-		return nil, err
-	}
-	result.WriteByte(response[0])
+	rdMem[0] = sp.CmdRdMem
+	rdMem[1] = byte(addr >> 8)
+	rdMem[2] = byte(addr & 0xFF)
+	rdMem[3] = 64 // always
 
-	// Now with the addressing registers set in the Nano, send
-	// the rest of the chunk with single transfer
-	cmd := make([]byte, 2, 2)
-	cmd[0] = sp.CmdReadPage
-	cmd[1] = byte(chunkSize - 1)
-	response, err = doCountedReceive(nano, cmd)
-	if err != nil {
-		return nil, err
-	}
-	result.Write(response)
-	return result.Bytes(), nil
+	return doCountedReceive(nano, rdMem)
+
+//	var doCycle []byte = make([]byte, 5, 5)
+//	var result bytes.Buffer
+//
+//	doCycle[0] = sp.CmdXferSingle
+//	doCycle[1] = byte(addr >> 8)   // AH
+//	doCycle[1] |= byte(0x80)       // Read
+//	doCycle[2] = byte(addr & 0xFF) // AL
+//	doCycle[3] = 0                 // DH
+//	doCycle[4] = 0                 // DL
+//	response, err := doFixedCommand(nano, doCycle, 1)
+//	if err != nil {
+//		return nil, err
+//	}
+//	result.WriteByte(response[0])
+//
+//	// Now with the addressing registers set in the Nano, send
+//	// the rest of the chunk with single transfer
+//	cmd := make([]byte, 2, 2)
+//	cmd[0] = sp.CmdReadPage
+//	cmd[1] = byte(chunkSize - 1)
+//	response, err = doCountedReceive(nano, cmd)
+//	if err != nil {
+//		return nil, err
+//	}
+//	result.Write(response)
+//	return result.Bytes(), nil
 }

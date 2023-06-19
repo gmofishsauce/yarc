@@ -63,6 +63,14 @@ void panic(byte panicCode, byte subcode);
 constexpr unsigned short END_MEM = 0x7800;      // 30k of RAM, 2k of IO
 constexpr unsigned short END_ALU_MEM = 0x2000;  // 8k bytes of ALU RAM
 
+ // All data is transferred over the link in 64-byte chunkies. This
+ // maximizes the data rate while avoiding overrun errors on the link,
+ // which has absolutely no flow control. I didn't understand this
+ // when I designed the protocol, so the protocol could be greatly
+ // simplified by enforcing this restriction everywhere and not passing
+ // byte counts (which always turn out to be 64).
+constexpr int CHUNK_SIZE = 64;
+
 // Reset the serial protocol (software only). Called on any reset.
 void SerialReset(void);
 

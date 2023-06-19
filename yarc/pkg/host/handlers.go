@@ -29,6 +29,7 @@ import (
 	sp "github.com/gmofishsauce/yarc/pkg/proto"
 
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -66,6 +67,8 @@ var commands = []protocolCommand{
 	{sp.CmdRunYarc, "rn", "Run", 0, false, runYarc},
 	{sp.CmdStopYarc, "st", "Stop", 0, false, stopYarc},
 	{sp.CmdClockCtl, "cc", "Clock", 1, false, clockCtl},
+	{sp.CmdRdMem, "rm", "ReadMem", 1, true, rdMem},
+	{sp.CmdWrMem, "wm", "WriteMem", 1, true, wrMem},
 	{sp.CmdPoll, "pl", "Poll", 0, false, notImpl},
 	{sp.CmdSvcResponse, "sr", "SvcResponse", 1, true, notImpl},
 	{sp.CmdGetVer, "gv", "GetVer", 0, false, notImpl},
@@ -78,9 +81,9 @@ var commands = []protocolCommand{
 	{sp.CmdGetResult, "gr", "GetResult", 0, false, getBir},
 	{sp.CmdWrSlice, "ws", "WriteSlice", 3, true, notImpl},
 	{sp.CmdRdSlice, "rs", "ReadSlice", 3, false, notImpl},
-	{sp.CmdXferSingle, "xs", "XferSingle", 5, false, notImpl},
-	{sp.CmdWritePage, "wp", "WritePage", 1, true, notImpl},
-	{sp.CmdReadPage, "rp", "ReadPage", 1, true, readState},
+	// {sp.CmdXferSingle, "xs", "XferSingle", 5, false, notImpl},
+	// {sp.CmdWritePage, "wp", "WritePage", 1, true, notImpl},
+	// {sp.CmdReadPage, "rp", "ReadPage", 1, true, readState},
 	{sp.CmdSetK, "sk", "SetK", 2, true, setK},
 	{sp.CmdSetMcr, "sm", "SetMCR", 1, false, setMcr},
 	{0, "dn", "Download", 0, false, download},
@@ -109,36 +112,9 @@ func process(line string, nano *arduino.Arduino) error {
 
 // Command handlers
 
-// readState reads and displays the 64 bytes at 0x7700. It does a single-byte read at
-// 0x7700 and then a 63-byte read. The protocol was designed this way for historical
-// reasons that turned out to be false. The protocol needs to be revised, but doing
-// this is not high on my list of things to do.
+// readState reads and displays the 64 bytes at 0x7700.
 func readState(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	data, err := readMemoryChunk(nano, 0x7700);
-	if err != nil {
-		return nostr, err
-	}
-	// Display 64 bytes as a 4 lines of 8 hex words
-	for i := 0; i < 4; i++ {
-		fmt.Printf("0x%04X: ", 0x7700 + i*16)
-		for j := 0; j < 8; j++ {
-			index := 16*i + 2*j
-			word := (data[index+1] << 8) | (data[index]&0xFF)
-			fmt.Printf("%04X ", word)
-		}
-		for j := 0; j < 16; j++ {
-			white := ' '
-			if j == 15 {
-				white = '\n'
-			}
-			ch := data[16*i + j]
-			if ch < 0x20 || ch > 0x7F {
-				ch = '?'
-			}
-			fmt.Printf("%c%c", ch, white)
-		}
-	}
-	return nostr, nil
+	return "", process("rm 0x7700", nano);
 }
 
 func download(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
@@ -209,6 +185,66 @@ func clockCtl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 	}
 	fmt.Printf("old MCR 0x%02x\n", result[0])
     return nostr, nil
+}
+
+// By-hand wrMem writes a fixed pattern to the 64 bytes at the address given on the line.
+// This is mostly just for testing.
+func wrMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	words := strings.Split(line, " ")
+	if len(words) != 2 {
+		return nostr, fmt.Errorf("usage: wrMem addr")
+	}
+	addr, err := strconv.ParseInt(words[1], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	if (addr&0x77C0) != addr {
+		return nostr, fmt.Errorf("wrMem: address must be on a 64-byte boundary < 30K")
+	}
+
+	var data []byte = bytes.Repeat([]byte{0x18}, 64) // 18 18 18 ...
+	return nostr, writeMemoryChunk(data, nano, uint16(addr))
+}
+
+// By-hand rdMem reads and displays the 64 bytes at the address given on the line.
+func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	words := strings.Split(line, " ")
+	if len(words) != 2 {
+		return nostr, fmt.Errorf("usage: wrMem addr")
+	}
+	addr, err := strconv.ParseInt(words[1], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	if (addr&0x77C0) != addr {
+		return nostr, fmt.Errorf("wrMem: address must be on a 64-byte boundary < 30K")
+	}
+	data, err := readMemoryChunk(nano, uint16(addr))
+	if err != nil {
+		return nostr, err
+	}
+
+	// Display 64 bytes as a 4 lines of 8 hex words
+	for i := 0; i < 4; i++ {
+		fmt.Printf("0x%04X: ", int(addr) + i*16)
+		for j := 0; j < 8; j++ {
+			index := 16*i + 2*j
+			word := (data[index+1] << 8) | (data[index]&0xFF)
+			fmt.Printf("%04X ", word)
+		}
+		for j := 0; j < 16; j++ {
+			white := ' '
+			if j == 15 {
+				white = '\n'
+			}
+			ch := data[16*i + j]
+			if ch < 0x20 || ch > 0x7F {
+				ch = '?'
+			}
+			fmt.Printf("%c%c", ch, white)
+		}
+	}
+	return nostr, nil
 }
 
 func doCycle(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {

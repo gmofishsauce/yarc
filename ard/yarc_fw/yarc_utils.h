@@ -334,25 +334,25 @@ void WriteMem8(unsigned short addr, unsigned char *data, short nBytes) {
 
 // This dangerous function assumes the caller has set the K register,
 // which is slow. Returns the bus value. Used by the downloader.
-byte WrMemFast(unsigned short addr, byte data) {
-  SetMCR(MCR_SAFE);
-  SetADHL(StoHB(addr & 0x7F00), StoLB(addr), 0x99, StoLB(data));
-  SingleClock();
-  byte result = GetBIR();
-  SetMCR(MCR_SAFE);
-  return result;
-}
+// byte WrMemFast(unsigned short addr, byte data) {
+//   SetMCR(MCR_SAFE);
+//   SetADHL(StoHB(addr & 0x7F00), StoLB(addr), 0x99, StoLB(data));
+//   SingleClock();
+//   byte result = GetBIR();
+//   SetMCR(MCR_SAFE);
+//   return result;
+// }
 
 // This dangerous function matches WrMemFast()
-byte RdMemFast(unsigned short addr) {
-  SetMCR(McrEnableSysbus(MCR_SAFE));
-  SetAH(StoHB(addr | 0x8000));
-  SetAL(StoLB(addr));
-  SingleClock();
-  byte result = GetBIR();
-  SetMCR(MCR_SAFE);
-  return result;
-}
+// byte RdMemFast(unsigned short addr) {
+//   SetMCR(McrEnableSysbus(MCR_SAFE));
+//   SetAH(StoHB(addr | 0x8000));
+//   SetAL(StoLB(addr));
+//   SingleClock();
+//   byte result = GetBIR();
+//   SetMCR(MCR_SAFE);
+//   return result;
+// }
 
 // Read nBytes into *data from contiguous addresses starting at addr.
 // All Nano machine state and the K register are altered.

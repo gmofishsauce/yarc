@@ -461,6 +461,75 @@ namespace SerialPrivate {
     return state;
   }
 
+  // Collect a buffer of words to write and then write them.
+  State wrMemInProgress() {
+    while (canReceive(1) && pb->remaining > 0) {
+      pb->buf[pb->next] = peek(rcvBuf);
+      consume(rcvBuf, 1);
+      pb->next++;
+      pb->remaining--;
+    }
+    if (pb->remaining == 0) {
+      WriteMem16(BtoS(pb->cmd[1], pb->cmd[2]), (unsigned short*) pb->buf, CHUNK_SIZE);
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;
+  }
+
+  // New write memory command. Write 64 bytes (exactly) at an even address.
+  // cmd[0] is write mem, cmd[1] is address MSB, then address LSB and count.
+  State stWrMem(RING* const r, byte b) {
+    allocPollBuffer();
+    copy(r, pb->cmd, 4);
+    consume(rcvBuf, 4);
+    if (pb->cmd[1] > 0x7F || pb->cmd[3] != CHUNK_SIZE) {
+      freePollBuffer();
+      return stBadCmd(r, b);
+    }
+    pb->cmd[2] &= ~(CHUNK_SIZE-1);
+    pb->remaining = pb->cmd[3];
+    pb->next = 0;
+    inProgress = wrMemInProgress;
+    sendAck(b);
+    return wrMemInProgress();
+  }
+  
+  // We have read a buffer of words from memory. Send them to the host.
+  State rdMemInProgress() {
+    while (canSend(1) && pb->remaining > 0) {
+      send(pb->buf[pb->next]);
+      pb->next++;
+      pb->remaining--;
+    }
+    if (pb->remaining == 0) {
+      freePollBuffer();
+      inProgress = 0;              
+    }
+    return state;    
+  }
+
+  // New read memory command. Read up to 128 bytes at an even address.
+  // cmd[0] is read mem, cmd[1] is address MSB, then address LSB and count.
+  State stRdMem(RING* const r, byte b) {
+    allocPollBuffer();
+    copy(r, pb->cmd, 4);
+    consume(rcvBuf, 4);
+    if (pb->cmd[1] > 0x7F || pb->cmd[3] != CHUNK_SIZE) {
+      freePollBuffer();
+      return stBadCmd(r, b);
+    }
+    pb->cmd[2] &= ~(CHUNK_SIZE-1); // even address on 64-byte boundary
+    ReadMem16(BtoS(pb->cmd[1], pb->cmd[2]), (unsigned short *)pb->buf, CHUNK_SIZE);
+
+    pb->remaining = pb->cmd[3];
+    pb->next = 0;
+    inProgress = rdMemInProgress;
+    sendAck(b);
+    send(pb->remaining);
+    return rdMemInProgress();
+  }
+
   // Collect the bytes to write in the poll buffer to minimize the
   // number of calls to WriteSlice(), which is slow. WriteSlice()
   // panics if the write doesn't verify correctly.
@@ -486,7 +555,7 @@ namespace SerialPrivate {
     allocPollBuffer();
     copy(r, pb->cmd, 4);
     consume(rcvBuf, 4);
-    if (pb->cmd[1] < 0x80 || pb->cmd[2] > 0x03 || pb->cmd[3] > 64) {
+    if (pb->cmd[1] < 0x80 || pb->cmd[2] > 0x03 || pb->cmd[3] > CHUNK_SIZE) {
       freePollBuffer();
       return stBadCmd(r, b);
     }
@@ -517,7 +586,7 @@ namespace SerialPrivate {
     allocPollBuffer();
     copy(r, pb->cmd, 4);
     consume(rcvBuf, 4);
-    if (pb->cmd[1] < 0x80 || pb->cmd[2] > 0x03 || pb->cmd[3] > 64) {
+    if (pb->cmd[1] < 0x80 || pb->cmd[2] > 0x03 || pb->cmd[3] > CHUNK_SIZE) {
       freePollBuffer();
       return stBadCmd(r, b);
     }
@@ -537,122 +606,122 @@ namespace SerialPrivate {
   // register so can only transfer bytes to main memory using these
   // commands. Microcode and ALU memory are written separately. Note:
   // cmdBuf[3], data high, is not used.
-  State stOneXfr(RING* const r, byte b) {
-    byte cmdBuf[5];
-    copy(rcvBuf, cmdBuf, 5);
-    consume(rcvBuf, 5);
-    unsigned short addr = BtoS(cmdBuf[1], cmdBuf[2]);
-    stShadowAHAL = addr & 0x7FFF;
-    if (stShadowAHAL >= END_MEM) {
-      stShadowAHAL = END_MEM;
-      sendNak(b);
-      return state;
-    }
+  // State stOneXfr(RING* const r, byte b) {
+  //   byte cmdBuf[5];
+  //   copy(rcvBuf, cmdBuf, 5);
+  //   consume(rcvBuf, 5);
+  //   unsigned short addr = BtoS(cmdBuf[1], cmdBuf[2]);
+  //   stShadowAHAL = addr & 0x7FFF;
+  //   if (stShadowAHAL >= END_MEM) {
+  //     stShadowAHAL = END_MEM;
+  //     sendNak(b);
+  //     return state;
+  //   }
 
-    byte bir;
+  //   byte bir;
 
-    if (addr & 0x8000) {
-      WriteK(RDMEM8_TO_NANO);   // read memory byte
-      bir = RdMemFast(stShadowAHAL);
-    } else {
-      WriteK(WRMEM8_FROM_NANO); // Write memory byte
-      bir = WrMemFast(stShadowAHAL, cmdBuf[4]);
-    }
-    stShadowAHAL++;
-    sendAck(b);
-    send(bir); // Protocol v8 - always return BIR
-    return state;
-  }
+  //   if (addr & 0x8000) {
+  //     WriteK(RDMEM8_TO_NANO);   // read memory byte
+  //     bir = RdMemFast(stShadowAHAL);
+  //   } else {
+  //     WriteK(WRMEM8_FROM_NANO); // Write memory byte
+  //     bir = WrMemFast(stShadowAHAL, cmdBuf[4]);
+  //   }
+  //   stShadowAHAL++;
+  //   sendAck(b);
+  //   send(bir); // Protocol v8 - always return BIR
+  //   return state;
+  // }
 
   // A page write of up to 255 bytes at stShadowAHAL is in progress.
   // Pull some bytes from the ring buffer and write them to memory.
   // This happens between calls to the serial task, so it can only
   // write a max of 16 bytes per call here - the size of the receive
   // ring buffer.
-  State writePageInProgress() {
-    while (canReceive(1) && pb->remaining > 0) {
-      byte b = peek(rcvBuf);
-      consume(rcvBuf, 1);
-      WrMemFast(stShadowAHAL, b);
-      stShadowAHAL++;
-      pb->remaining--;
-    }
-    if (pb->remaining == 0) {
-      freePollBuffer();
-      stShadowAHAL = END_MEM;
-      inProgress = 0;              
-    }
-    return state;
-  }
+  // State writePageInProgress() {
+  //   while (canReceive(1) && pb->remaining > 0) {
+  //     byte b = peek(rcvBuf);
+  //     consume(rcvBuf, 1);
+  //     WrMemFast(stShadowAHAL, b);
+  //     stShadowAHAL++;
+  //     pb->remaining--;
+  //   }
+  //   if (pb->remaining == 0) {
+  //     freePollBuffer();
+  //     stShadowAHAL = END_MEM;
+  //     inProgress = 0;              
+  //   }
+  //   return state;
+  // }
 
   // Write up to 255 bytes at the address set by a previous single
   // transfer (stOneXfr()) command. We allocate the poll buffer so
   // we can use its header fields for tracking the number of bytes
   // left to read from the connection and write to memory.
-  State stWrPage(RING* const r, byte b) {
-    consume(r, 1); // the byte b
+  // State stWrPage(RING* const r, byte b) {
+  //   consume(r, 1); // the byte b
 
-    // Check the count. Normally, with unsigned values, we have to
-    // check both overflow and wraparound. But in this case, the
-    // count comes in a byte and the value of END_MEM + 255 is still
-    // greater than any possible legal address.
-    byte n = peek(r);
-    consume(r, 1);
-    if (stShadowAHAL + n > END_MEM) {
-      return stBadCmd(r, b); // panic?
-    }
+  //   // Check the count. Normally, with unsigned values, we have to
+  //   // check both overflow and wraparound. But in this case, the
+  //   // count comes in a byte and the value of END_MEM + 255 is still
+  //   // greater than any possible legal address.
+  //   byte n = peek(r);
+  //   consume(r, 1);
+  //   if (stShadowAHAL + n > END_MEM) {
+  //     return stBadCmd(r, b); // panic?
+  //   }
 
-    sendAck(b);
-    allocPollBuffer();
-    inProgress = writePageInProgress;
-    pb->remaining = n;
-    return writePageInProgress();
-  }
+  //   sendAck(b);
+  //   allocPollBuffer();
+  //   inProgress = writePageInProgress;
+  //   pb->remaining = n;
+  //   return writePageInProgress();
+  // }
 
   // A page read of up to 255 bytes at stShadowAHAL is in progress.
   // Read some bytes from memory and push them to the ring buffer.
   // This happens between calls to the serial task, so it can only
   // write a max of 16 bytes per call here - the size of the xmit
   // ring buffer.
-  State readPageInProgress() {
-    while (canSend(1) && pb->remaining > 0) {
-      send(RdMemFast(stShadowAHAL));
-      stShadowAHAL++;
-      pb->remaining--;
-    }
-    if (pb->remaining == 0) {
-      freePollBuffer();
-      stShadowAHAL = END_MEM;
-      inProgress = 0;              
-    }
-    return state;
-  }
+  // State readPageInProgress() {
+  //   while (canSend(1) && pb->remaining > 0) {
+  //     send(RdMemFast(stShadowAHAL));
+  //     stShadowAHAL++;
+  //     pb->remaining--;
+  //   }
+  //   if (pb->remaining == 0) {
+  //     freePollBuffer();
+  //     stShadowAHAL = END_MEM;
+  //     inProgress = 0;              
+  //   }
+  //   return state;
+  // }
 
   // Read a page from the address established by a previous single transfer.
   // Like stWrPage, this function can only address main memory, and only as
   // an array of bytes. And also like stWrPage(), we allocate the poll buffer
   // even though we pull the data from memory and send it directly to the
   // ring buffer. A single transfer must be done first to set AH, AL, and K.
-  State stRdPage(RING* const r, byte b) {
-    consume(r, 1); // the byte b
+  // State stRdPage(RING* const r, byte b) {
+  //   consume(r, 1); // the byte b
 
-    // Check the count. Normally, with unsigned values, we have to
-    // check both overflow and wraparound. But in this case, the
-    // count comes in a byte and the value of END_MEM + 255 is still
-    // greater than any possible legal address.
-    byte n = peek(r);
-    consume(r, 1);
-    if (stShadowAHAL + n > END_MEM) {
-      return stBadCmd(r, b); // panic?
-    }
+  //   // Check the count. Normally, with unsigned values, we have to
+  //   // check both overflow and wraparound. But in this case, the
+  //   // count comes in a byte and the value of END_MEM + 255 is still
+  //   // greater than any possible legal address.
+  //   byte n = peek(r);
+  //   consume(r, 1);
+  //   if (stShadowAHAL + n > END_MEM) {
+  //     return stBadCmd(r, b); // panic?
+  //   }
   
-    sendAck(b);
-    send(n);
-    allocPollBuffer();
-    inProgress = readPageInProgress;
-    pb->remaining = n;
-    return readPageInProgress();
-  }
+  //   sendAck(b);
+  //   send(n);
+  //   allocPollBuffer();
+  //   inProgress = readPageInProgress;
+  //   pb->remaining = n;
+  //   return readPageInProgress();
+  // }
 
   State writeAluInProgress() {
     while (canReceive(1) && pb->remaining > 0) {
@@ -683,7 +752,7 @@ namespace SerialPrivate {
     consume(rcvBuf, 4);
     unsigned int addr = BtoS(pb->cmd[1], pb->cmd[2]);
     unsigned int n = pb->cmd[3];
-    if (addr > 0x1FFF || n != 64 || (addr&0x3F) || addr + n > 0x2000) {
+    if (addr > 0x1FFF || n != CHUNK_SIZE || (addr&0x3F) || addr + n > 0x2000) {
       freePollBuffer();
       return stBadCmd(r, b);
     } 
@@ -719,7 +788,7 @@ namespace SerialPrivate {
     unsigned int addr = BtoS(pb->cmd[1], pb->cmd[2]);
     unsigned int ram = pb->cmd[3];
     unsigned int n = pb->cmd[4];
-    if (addr > 0x1FFF || n != 64 || (addr&0x3F) || addr + n > 0x2000 || ram > 2) {
+    if (addr > 0x1FFF || n != CHUNK_SIZE || (addr&0x3F) || addr + n > 0x2000 || ram > 2) {
       freePollBuffer();
       return stBadCmd(r, b);
     }
@@ -769,8 +838,8 @@ namespace SerialPrivate {
     { stStopCost,   1 },
 
     { stClockCtl,   2 },
-    { stUndef,      1 },
-    { stUndef,      1 },
+    { stWrMem,      4 }, // cmd, addr hi, addr lo, count
+    { stRdMem,      4 }, // cmd, addr hi, addr lo, count
     { stRun,        1 },
 
     { stStop,       1 },
@@ -793,9 +862,9 @@ namespace SerialPrivate {
     { stWrSlice,    4 },
     { stRdSlice,    4 },
 
-    { stOneXfr,     5 },
-    { stWrPage,     2 },
-    { stRdPage,     2 },
+    { stUndef,      1 },
+    { stUndef,      1 },
+    { stUndef,      1 },
     { stSetK,       5 },
     
     { stSetMCR,     2 },
@@ -814,10 +883,10 @@ namespace SerialPrivate {
   // and then must handle blocking while transmitting.
   constexpr byte MAX_FIXED_RESPONSE_BYTES = 2;
 
-  // There is at least one command waiting to be processed in the receive-
-  // side ring buffer at r. The command handler may or may not consume
-  // the byte(s) on this call, but must always return the next state.
-  // The value has already been verified to be a command byte.
+  // There is at least one command byte waiting to be processed in the
+  // receive- side ring buffer at r. The command handler may or may not
+  // consume the byte(s) on this call, but must always return the next
+  // state.
   State process(RING *const r, byte b) {
     if (!isCommand(b)) {
       return stBadCmd(r, b);
