@@ -210,7 +210,7 @@ func wrMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
 	words := strings.Split(line, " ")
 	if len(words) != 2 {
-		return nostr, fmt.Errorf("usage: wrMem addr")
+		return nostr, fmt.Errorf("usage: rdMem addr")
 	}
 	addr, err := strconv.ParseInt(words[1], 0, 16)
 	if err != nil {
@@ -229,7 +229,7 @@ func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 		fmt.Printf("0x%04X: ", int(addr) + i*16)
 		for j := 0; j < 8; j++ {
 			index := 16*i + 2*j
-			word := (data[index+1] << 8) | (data[index]&0xFF)
+			word := (int16(data[index+1]) << int16(8)) | int16(data[index]&0xFF)
 			fmt.Printf("%04X ", word)
 		}
 		for j := 0; j < 16; j++ {
