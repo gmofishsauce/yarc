@@ -1,45 +1,20 @@
-Serial Protocol (Nano Transport Layer, “NTL”)
+# Serial Protocol (Nano Transport Layer, “NTL”)
 
-(Short single lines start with dots so they won't be joined by the
-Unix command "fmt -72" which I use periodically to reformat this
-text.)
+This document was converted from 72-column text format to markdown in June 2023. The current version of the protocol is v10.
 
-Communication between the host (Mac) and the “YARC downloader”
-(Arduino) takes place using a simple byte-oriented binary protocol,
-NTL. The protocol is request/response with the host initiating all
-activity. The protocol is session-oriented, with a session establishment
-phase called “synchronization” followed by a data transfer phase
-of indefinite length (ideally, for as long as the YARC continues
-running).
+## Overview
 
-Once synchronization is achieved, the host sends single-byte commands.
-Command bytes are in the range 0xE1 - 0xFF (31 possible commands).
-Commands bytes are followed by 0 to N arguments bytes where N is
-small (no larger than 4 in the initial protocol definition). The
-number of argument bytes is fixed by the protocol for each command.
+Communication between the host (Mac) and the “YARC downloader” (Arduino) takes place using a simple byte-oriented binary protocol, NTL. The protocol is request/response with the host initiating all activity. The protocol is session-oriented, with a session establishment phase called “synchronization” followed by a data transfer phase of indefinite length (ideally, for as long as the YARC continues running).
 
-The Nano collects the command and its fixed-length argument list
-and then acks by echoing the bitwise negation of the command back
-to the host. Example: after sending the valid command 0xF0 0x55,
-the host expects to read a single ack byte with value 0x0F. If an
-error occurs, the Nano sends a NAK byte in the range of 0x80 - 0x8F.
-The low nybble of a NAK is an error code 0x0 - 0xF. The error codes
-are primarily informational and are not defined by this protocol
-spec.
+Once synchronization is achieved, the host sends single-byte commands. Command bytes are in the range 0xE1 - 0xFF (31 possible commands). Command bytes may be followed by 0 to N fixed arguments bytes where N is no larger than 7. The number of argument bytes is fixed by the protocol for each command byte.
 
-Commands can be retried by the host, but the only means of recovery
-from a persistent error state is to close and reopen the connection,
-which toggles the DTR line and resets the Nano. Note: a future
-version of the hardware may allow the host software to choose between
-resetting and not resetting the Nano when opening the device.
+The Nano collects the command and its fixed-length argument list and then acks by echoing the bitwise negation of the command back to the host. Example: after sending the valid command 0xF0 0x55, the host expects to read a single ack byte with value 0x0F. If an error occurs, the Nano sends a NAK byte in the range of 0x80 - 0x8F. The low nybble of a NAK is an error code 0x0 - 0xF. The error codes are primarily informational and are not defined by this protocol spec.
 
-One or more of the bytes in the fixed-length arguments may specify
-a variable-length data transfer in either direction. The transfer
-occurs only after the Nano responds with ACK. NAK, when it occurs,
-always terminates command processing.  Argument format, data size
-(byte count) and order of arguments are specific to each command.
-Note: protocol error handling is not sophisticated enough to handle
-this case without a reset occurring.
+Commands can be retried by the host, but the only means of recovery from a persistent error state is to close and reopen the connection, which toggles the DTR line and resets the Nano. In fact, after connection establishment, the existing protocol code responds to all errors by resetting the Nano.
+
+The final byte of the fixed arguments may specify a variable-length data transfer in either direction. The transfer occurs only after the Nano responds with ACK. NAK, when it occurs, always terminates command processing.
+
+This spec originally anticipated variable-length data in various lengths. In fact, the serial line has no flow control. This limits the length of burst data to 64 bytes. All protocol commands have now been updated to transfer data in 64 byte "chunkies". A future version of this spec may remove the byte counts in favor of read and write memory commands that transfer a 64 byte chunk.
 
 In order to support logging from the Nano to the host console, the
 host is expected to issue Poll (0xE9, formerly GetMsg) commands
