@@ -424,7 +424,7 @@ namespace PortPrivate {
     }
 
     for (byte w = 0; w < WCOUNT; ++w) {
-      words[w] = 0x00;
+      words[w] = 0x1122;
     }
 
     for (unsigned short addr = 0; addr < END_MEM; addr += BCOUNT) {
