@@ -16,476 +16,239 @@ The final byte of the fixed arguments may specify a variable-length data transfe
 
 This spec originally anticipated variable-length data in various lengths. In fact, the serial line has no flow control. This limits the length of burst data to 64 bytes. All protocol commands have now been updated to transfer data in 64 byte "chunkies". A future version of this spec may remove the byte counts in favor of read and write memory commands that transfer a 64 byte chunk.
 
-In order to support logging from the Nano to the host console, the
-host is expected to issue Poll (0xE9, formerly GetMsg) commands
-frequently.  Poll requests should be sprinkled between other commands
-during a multipart download. Failure to issue enough Poll commands
-from the host may result in log buffer overflow in the Nano, which
-has very limited log buffer space. Poll responses may also contain
-service requests from the YARC, but these are not time sensitive
-(fully synchronous) and will never occur during a download because
-a hardware interlock prevents the YARC from generating bus cycles
-while the Nano has control.
+In order to support logging from the Nano to the host console, the host is expected to issue Poll (0xE9, formerly GetMsg) commands frequently.  Poll requests should be sprinkled between other commands during a multipart download. Failure to issue enough Poll commands from the host may result in log buffer overflow in the Nano, which has very limited log buffer space. Poll responses may also contain service requests from the YARC, but these are not time sensitive (fully synchronous) and will never occur during a download because a hardware interlock prevents the YARC from generating bus cycles while the Nano has control.
 
-Connection establishment: Arduino firmware snoops on the serial
-line after a reset, trying to decide if it should accept a firmware
-update.  For this reason the first few bytes transmitted from the
-host during the first few seconds after a reset may be lost.
-Alternatively, if the host loses sync while the Nano is attempting
-to send a response, the Nano may “spew” from the host’s perspective.
-The Nano never sends more than 257 bytes (one byte ack, one byte
-count, and up to 255 data bytes) without stopping to wait for a
-command. Finally, if the Nano is idle and ready to accept a command,
-it should respond quickly, within a millisecond. 10 or 20 milliseconds
-provides plenty of margin.
+## Connection establishment
 
-With these factors in mind, host connection establishment should
-proceed as follows. The description assumes that host software can
-time out I/O operations on the serial port (i.e. the host does not
-block indefinitely). The resolution of host timeouts can be crude,
-e.g. 10mS or even 16.67mS = 1/(60 Hz) is adequate.
+Arduino firmware snoops on the serial line after a reset, trying to decide if it should accept a firmware update.  For this reason the first few bytes transmitted from the host during the first few seconds after a reset may be lost.  Alternatively, if the host loses sync while the Nano is attempting to send a response, the Nano may “spew” from the host’s perspective.  The Nano never sends more than 257 bytes (one byte ack, one byte count, and up to 255 data bytes) without stopping to wait for a command. Finally, if the Nano is idle and ready to accept a command, it should respond quickly, within a millisecond. 10 or 20 milliseconds provides plenty of margin.
 
-1. If the Nano has not been reset, attempt to drain up to 257 data
-bytes.  If the Nano continues to transmit, report an error, reset
-the Nano, and proceed with step 2.
+With these factors in mind, host connection establishment should proceed as follows. The description assumes that host software can time out I/O operations on the serial port (i.e. the host does not block indefinitely). The resolution of host timeouts can be crude, e.g. 10mS or even 16.67mS = 1/(60 Hz) is adequate.
 
-2. If the Nano has been reset (i.e.  the USB serial device has just
-been opened), wait several seconds (empirically, 3 seconds seems
-like enough).
+1. If the Nano has not been reset, attempt to drain up to 257 data bytes.  If the Nano continues to transmit, report an error, reset the Nano, and proceed with step 2.
 
-3. Begin sending up to N sync commands, one every second or so,
-until an ack is received. N may be in the range of 3 to 10.
+2. If the Nano has been reset (i.e.  the USB serial device has just been opened), wait several seconds (empirically, 3 seconds seems like enough).
 
-4. If no ack is received after N tries, log error, reset the Nano,
-and go to step 2.
+3. Begin sending up to N sync commands, one every second or so, until an ack is received. N may be in the range of 3 to 10.
 
-5. When an ack is received, attempt to drain up to n delayed acks
-where n < N is the number of sync commands actually sent.  When
-there is a response timeout, proceed.
+4. If no ack is received after N tries, log error, reset the Nano, and go to step 2.
 
-6. The Nano is quiet. Send a GetVersion command.  If the response
-is a nak or there is a response timeout, something is badly wrong
-so reset the Nano and go to step 2.
+5. When an ack is received, attempt to drain up to n delayed acks where n < N is the number of sync commands actually sent.  When there is a response timeout, proceed.
 
-The host should now decide "as it sees fit" whether the Nano’s
-protocol version is compatible. If not, the situation is probably
-hopeless and the host should abort (the protocol does not specify
-a way for the host to update the Nano’s firmware).
+6. The Nano is quiet. Send a GetVersion command.  If the response is a nak or there is a response timeout, something is badly wrong so reset the Nano and go to step 2.
 
-Otherwise, connection is established. The host should proceed by
-immediately sending Poll command(s) and processing the message
-bodies until the Nano responds GetMsg with an ack followed by a 0
-byte. The host must then continue to issue Poll commands frequently.
+The host should now decide "as it sees fit" whether the Nano’s protocol version is compatible. If not, the situation is probably hopeless and the host should abort (the protocol does not specify a way for the host to update the Nano’s firmware).
 
-State Model
+Otherwise, connection is established. The host should proceed by immediately sending Poll command(s) and processing the message bodies until the Nano responds with an ack followed by a 0 count. The host must then continue to issue Poll commands frequently.
 
-The Nano initializes in ACTIVE mode, which corresponds to the
-YARC/Nano# bit in the Machine Control Register (MCR) being low.
-This setting locks out the YARC from driving the system address and
-data busses and enables the Nano's drivers. PASSIVE mode similarly
-locks the Nano out from bus access. The hardware interlock is
-designed to prevent a software error from causing bus contention
-that could damage the drivers.
+## State Model
 
-When the YARC has been prepared for execution, the host may send
-the RunYARC command (which puts the Nano into the PASSIVE state).
-When in the PASSIVE state, commands to perform bus cycles will fail.
-They may be rejected by the Nano (implementation detail).  The Nano
-will accept the command to stop the YARC.
+The Nano initializes in conceptual "ACTIVE" mode, which corresponds to the YARC/Nano# bit in the Machine Control Register (MCR) being low.  This setting locks out the YARC from driving the system address and data busses and enables the Nano's drivers. PASSIVE mode similarly locks the Nano out from bus access. The hardware interlock is designed to prevent a software error from causing bus contention that could damage the drivers.
 
-Note: when the YARC makes a service request to the Nano, the Nano
-must give itself control in order to read the request from main
-memory. The Nano does not exit PASSIVE mode when it does this.
+When the YARC has been prepared for execution, the host may send the RunYARC command (which puts the Nano into the PASSIVE state).  When in the PASSIVE state, commands to perform bus cycles will fail.  They may be rejected by the Nano (implementation detail). Commands to alter the clock and stop the YARC will be accepted in PASSIVE mode. Other commands should not be issued.
 
-Design Rationale
+## Design Rationale
 
-The serial line between host and Nano is assumed to be highly
-reliable because modern "serial interfaces" are really USB connections.
-As a result, this protocol is more like a message-oriented session
-protocol than a link layer.  If a traditional serial line is to be
-employed, it will be necessary to wrap this protocol in a link layer
-and/or transport suitable for noisy serial lines. There are a lot
-of those to choose from, so no more will be said about it.
+The serial line between host and Nano is assumed to be highly reliable because modern "serial interfaces" are really USB connections.  As a result, this protocol is more like a message-oriented session protocol than a link layer.  If a traditional serial line is to be employed, it will be necessary to wrap this protocol in a link layer and/or transport suitable for noisy serial lines. There are a lot of those to choose from, so no more will be said about it.
 
-The YARC toolchain is written in Go and runs on the Mac (it could
-run on Windows or Linux because of Go’s strong portability story).
-The front end of the toolchain is some kind of assembler which
-generates some kind of binary, conceptually an ELF file but probably
-simpler. The back end of the toolchain can read these files and
-communicate them to the YARC using serial-over-USB. The aspirational
-goal is to run the serial line at 115200 which is around 10kB/second.
-YARC has less than 100kB of RAM so a full download (including code,
-ALU, microcode, etc.) should take less than 20 seconds. A program
-memory update should take only a few seconds.
+The YARC toolchain is written in Go and runs on the Mac (it could run on Windows or Linux because of Go’s strong portability story).  The front end of the toolchain is an assembler which generates an absolute binary image. The back end of the toolchain can read image files and download them to the YARC.
 
-Note: the following paragraphs are not followed in the implementation.
+The serial line is currently configured to run at 115kbps (changing this requires recompiling both the host software and Arduino firmware). The line is not flow-controlled. Both ends of the line contain sufficient hardware and driver-level buffering to allow protocol command carrying up to 64 data bytes to sent or received reliably. Larger bursts result in lost data. This was not known when the protocol was designed. The protocol now supports 64 byte counts only. A future update to this document may remove the redundant count bytes.
 
-Acks and naks cannot be confused with data because both Nano and
-host refuse to transmit data bytes less than 0x20 (ASCII space) or
-greater than 0x7F (ASCII DEL). The Nano replaces characters outside
-this range with tilde (ASCII 0x7E). Host software should instead
-report an error if asked to transmit bytes outside this range.
+## Protocol commands
 
-This restriction has the effect of prohibiting binary data and even
-newlines in Nano string responses (e.g. log messages). When creating
-a log file of Nano interactions, the host should insert newlines
-as required for readability.  Binary data to be passed between YARC
-and host must be suitably encoded (hex ASCII, base64 or the like).
-This protocol does not specify the details. (Note: use of hex ASCII
-cuts the link bandwidth in half and complicates the Nano's
-implementation; I might allow binary downloads.)
+All commands are ack’d (or nak’d). The ack (nak) byte is assumed and so not counted as a result or response byte in the description below. In general, the host implementation decides whether an error should result in a Nano reset and session recreation or an attempt to continue.
 
-Note: end of not followed guidance.
+##### Reserved, do not use - 0xE0
 
-Conceptually, the host has to specify the entire 4 bytes of address
-and data for each single read or write on the YARC system bus. In
-practice, this is optimized this with page write and page read
-commands that transfer up to 255 bytes without any additional control
-information.  This allows the protocol to reach about 98% of the
-theoretical link speed (perhaps 95% if the other link overhead is
-considered, connection establishment delays aside).
+This command should not be used because its ack pattern (bitwise negation of the command) conflicts with a valid ASCII character (space).  The response is nak.
 
-Protocol commands - control (0xE0 - 0xEF)
+##### Get Machine Control Register - 0xE1
+No arguments bytes
+<br>
+1 result byte
 
-Note: leading dots below preserve the formatting as noted at top.
+Get the value of the Machine Control Register (MCR) for the YARC.  The MCR is an 8-bit register that controls several YARC features, including the hardware clock and the YARC/NANO bit that arbitrates bus ownership between the Nano and the YARC.
 
-All commands are ack’d (or nak’d). The ack (nak) byte is assumed
-and so not counted as a result or response byte in the description
-below. In general, the host implementation decides whether an error
-should result in a Nano reset and session recreation or an attempt
-to continue.
+##### Run COST tests - 0xE2
+##### Stop COST tests - 0xE3
+No argument bytes
+<br>
+No result byte
 
-. Reserved, do not use - 0xE0
+These commands stop and start the Continuous Self Test (COST). The COST should be stopped before trying to alter any state.
 
-This command should not be used because its ack pattern (bitwise
-negation of the command) conflicts with a valid ASCII character
-(space).  The response is nak.
+##### Clock Control - 0xE4
+1 argument byte
+<br>
+1 result byte
 
-. Get Machine Control Register - 0xE1
-. No arguments bytes
-. 1 result byte
-
-Get the value of the Machine Control Register (MCR) for the YARC.
-The MCR is an 8-bit register that controls several YARC features,
-including the hardware clock and the YARC/NANO bit that arbitrates
-bus ownership between the Nano and the YARC.
-
-. Run COST tests - 0xE2
-. Stop COST tests - 0xE3
-. No argument bytes
-. No result byte
-
-These commands stop and start the Continuous Self Test (COST). The
-COST should be stopped before trying to alter any state.
-
-. Clock Control - 0xE4
-. 1 argument byte
-. 1 result byte
-
-YARC clock pulses may be generated by the YARC's hardware clock or
-by the Nano. The clock stops in the high state, so a single pulse
-always produces a falling edge followed by a rising edge. The
-hardware clock runs at 1MHz or more and is sometimes called the
-"fast clock". The Nano-controlled software "slow clock" produces
-assymetrical pulses with long "high" times (10 to 100 microseconds)
-and "low" times of less than 500ns. Clock commands are in the
+YARC clock pulses may be generated by the YARC's hardware clock or by the Nano. The clock stops in the high state, so a single pulse always produces a falling edge followed by a rising edge. The hardware clock runs at 1MHz or more and is sometimes called the "fast clock". The Nano-controlled software "slow clock" produces assymetrical pulses with long "high" times (10 to 100 microseconds) and "low" times of less than 500ns. Clock commands are in the
 argument byte as follows:
 
-. 0 - stop the clock.
-. 1 .. 127 - generate 1 to 127 pulses of the software (slow) clock
-. 255 (0xFF) - start the fast clock
-. 128 (0x80) - start the slow clock free-running
+0 - stop the clock.
+<br>
+1 .. 127 - generate 1 to 127 pulses of the software (slow) clock
+<br>
+255 (0xFF) - start the fast clock
+<br>
+128 (0x80) - start the slow clock free-running
+
 
 The MCR value (not the Bus Input Register BIR) is returned.
 
-Note: the obsolete command 0xF4 Perform Bus Cycle is retained, for
-now, with the same functionality as 0xE4 0x01. Also note: although
-this spec mentions "ACTIVE" and "PASSIVE" modes of the Nano, these
-are not enforced by the firmware. Instead, the clock is stopped
-before any nonzero clock command is executed.
+Note: the obsolete command 0xF4 Perform Bus Cycle is retained, for now, with the same functionality as 0xE4 0x01.
 
-. Unassigned - 0xE5
-. Unassigned - 0xE6
-. No argument bytes
-. No result bytes
+##### WriteMem - 0xE5
+3 argument bytes
+<br>
+64 data bytes
+<br>
+No result byte
 
-. RunYARC - 0xE7
-. No argument byte
-. No result byte
+The first two argument bytes specify a main memory address in the range 0 .. 0x77C0, MSB first. The third byte specifies the count, which must be 64. The 64 bytes of data that follow are written to memory at the address. 
 
-The Nano disables both clocks, sets its own state to PASSIVE, sets
-the YARC/Nano# bit in the MCR high to enable YARC bus cycles, and
-starts the hardware clock.  When the Nano is passive, it cannot
-initiate bus cycles. As result, 0xF0 - 0xFF commands will return
-an error.
+##### ReadMem - 0xE6
+3 argument bytes
+<br>
+No data bytes
+<br>
+64 result bytes
 
-. StopYARC - 0xE8
-. No arguments bytes
-. No result bytes
+The first two argument bytes specify a main memory address in the range 0 .. 0x77C0, MSB first. The third byte specifies the count, which must be 64. 64 bytes of data are read from the address and transmitted to the host.
 
-The Nano disables the hardware clock and assigns bus mastership to
-itself by setting the YARC/Nano# bit in the MCR to low. It makes
-its own state ACTIVE.
+##### RunYARC - 0xE7
+No argument bytes
+<br>
+No result bytes
 
-. Poll - 0xE9
-. No arguments bytes
-. 1 to 256 results bytes
+The Nano disables both clocks and sets the YARC/Nano# bit in the MCR high to enable YARC bus cycles. This command does not start the clock. When the Nano is passive, it cannot initiate bus cycles. As result, commands to read and write data will fail.
 
-The host issues this command periodically (and often) to read service
-requests from the Nano. The Nano responds with a standard ack
-followed by a single byte which is a byte count (0 - 255). If the
-byte count is 0, the command is complete. Otherwise the host must
-read bytecount bytes (the “body”) from the connection. Interpretation
-of the body is not defined by this specification.
+##### StopYARC - 0xE8
+No argument bytes
+<br>
+No result bytes
 
-As an added safety feature in the protocol, no byte in the body may
-have a hex value less than 0x20 nor greater than 0x7F. This ensures
-the body will never contain bytes that conflict with protocol
-responses. It means the body may not contain any ASCII control
-character (even carriage returns, line feeds, EOT characters, etc.)
-Bytes outside the allowed range may be transported as hex ASCII,
-base64, or any similar scheme the host and Nano implementations may
-agree on.
+The Nano stops the YARC clock and sets the YARC/Nano# bit in the MCR to low.
 
-Errors are returned only for cases like loss of synchronization or
-serious failures in the YARC or Nano software. See the note to the
-next command (Service Response) for the anticipated use of the two
-commands.
+##### Poll - 0xE9
+No arguments bytes
+<br>
+1 to 255 results bytes
 
-. Service Response - 0xEA
-. 1 arguments byte
-. 0 to 255 data bytes
-. No result byte
+The host issues this command periodically (and often) to read service requests from the Nano. The Nano responds with a standard ack followed by a single byte which is a byte count (0 - 255). If the byte count is 0, the command is complete. Otherwise the host must read bytecount bytes (the “body”) from the connection. Interpretation of the body is not defined by this specification.
 
-The first argument byte is interpreted as an unsigned byte count
-between 0 and 255. The count byte is followed by the counted number
-of data bytes (the “body”). Body bytes have the same restrictions
-as specified for the POLL command (0xE9), above. Body content is
-not defined by this specification. Service responses with a byte
-count of 0 are expensive no-ops and should be avoided.
+Errors are returned only for cases like loss of synchronization or serious failures in the YARC or Nano software. See the note to the next command (Service Response) for the anticipated use of the two commands.
 
-Note: The Poll and Service Response commands are expected to be
-used to implement both logging for the Nano and a primitive system
-call mechanism for the YARC. The first byte of the body may be used
-to encode the request, with one value set aside for log message
-requests from the Nano. These log message requests require no
-response other than the transport layer acknowledgement, i.e. they
-are “fire and forget” from the Nano’s perspective.
+##### Service Response - 0xEA
+1 arguments byte
+<br>
+0 to 255 data bytes
+<br>
+No result byte
 
-System service requests from the YARC, however, will require
-responses.  These responses must be asynchronous. Example: the YARC
-may issue a console readline request that is read from YARC memory
-by the Nano and later received by the host via POLL. The host then
-prompts the user for input. Many seconds later, the user finishes
-entering a line; in the meantime, multiple unrelated NTL interactions
-may have occurred over the serial link. The host then transmits a
-Service Response to the Nano containing the user’s line. Nano
-software must of course be able to associate the line with the
-original console readline request, but this association is unknown
-to NTL.
+The first argument byte is interpreted as an unsigned byte count between 0 and 255. The count byte is followed by the counted number of data bytes (the “body”). Body bytes have the same restrictions as specified for the POLL command (0xE9), above. Body content is not defined by this specification. Service responses with a byte count of 0 are expensive no-ops and should be avoided.
 
-. GetVersion - 0xEE
-. No argument bytes
-. 1 result byte
+Note: The Poll and Service Response commands are expected to be used to implement both logging for the Nano and a primitive system call mechanism for the YARC. The first byte of the body may be used to encode the request, with one value set aside for log message requests from the Nano. These log message requests require no response other than the transport layer acknowledgement, i.e. they are “fire and forget” from the Nano’s perspective.
 
-The Nano returns its protocol version. The protocol version is a
-single byte containing a binary integer between 1 and 255. This
-specification does not dictate how the host determines if the
-firmware’s version is “compatible” or how the host should respond
-if not.
+System service requests from the YARC, however, will require responses.  These responses must be asynchronous. Example: the YARC may issue a console readline request that is read from YARC memory by the Nano and later received by the host via POLL. The host then prompts the user for input. Many seconds later, the user finishes entering a line; in the meantime, multiple unrelated NTL interactions may have occurred over the serial link. The host then transmits a Service Response to the Nano containing the user’s line. Nano software must of course be able to associate the line with the original console readline request, but this association is unknown to NTL.
 
-. Sync - 0xEF
-. No argument bytes
-. No result bytes
+##### GetVersion - 0xEE
+No argument bytes
+<br>
+1 result byte
 
-The Nano acks the 0xEF (i.e. sends a 0x10 byte). The host should
-check for a 0x8x error response, but no such errors are currently
-defined for Sync. No other actions are taken, so no state is altered
-either in the Nano or the YARC. This "ping-like" command is used
-in connection setup.
+The Nano returns its protocol version. The protocol version is a single byte containing a binary integer between 1 and 255. This specification does not dictate how the host determines if the firmware’s version is “compatible” or how the host should respond if not.
 
-Protocol commands - bus transactions (0xF0 - 0xFF) These command
-will fail if issued when the Nano's state is PASSIVE. Issue StopYARC
-to cause the Nano to exit the PASSIVE state and become ACTIVE.
+##### Sync - 0xEF
+No argument bytes
+<br>
+No result bytes
 
-. Set Address Register High - 0xF0
-. 1 argument bytes
-. No result bytes
+The Nano acks the 0xEF (i.e. sends a 0x10 byte). The host should check for a 0x8x error response, but no such errors are currently defined for Sync. No other actions are taken, so no state is altered either in the Nano or the YARC. This "ping-like" command is used in connection setup.
 
-The command is followed by a single byte which the Nano stores in
-the upper byte of the address bus register (ARH, Address Register
-High).
+##### Set Address Register High - 0xF0
+1 argument byte
+<br>
+No result bytes
 
-. Set Address Register Low - 0xF1
-. Set Data Register High - 0xF2
-. Set Data Register Low 0xF3
-. 1 argument byte
-. No result bytes
+The command is followed by a single byte which the Nano stores in the upper byte of the address bus register (ARH, Address Register High).
+
+**Set Address Register Low - 0xF1**
+<br>
+**Set Data Register High - 0xF2**
+<br>
+**Set Data Register Low - 0xF3**
+
+1 argument byte
+<br>
+No result bytes
 
 Similarly for the other three bus registers (ARL, DRH, DRL).
 
-. Perform Bus Cycle - 0xF4
-. No argument bytes.
-. 1 result byte
+Note: the direction of the transfer (write YARC memory / read YARC memory) is determined by the high order bit of the address register.  The host constructs the content of this byte, and the Nano is not aware of it.  For write cycles, the Data Register Low (byte) is transferred into YARC memory. For reads, the Data Register Low is ignored and the data byte specified by the Address Registers is transferred from YARC memory Bus Input Register. The Bus Input Register is returned in all cases and should always reflect the value written or read.
 
-This command causes the Nano to toggle the slow clock once, triggering
-a cycle on the YARC’s 16-bus. The four bus registers provide the
-high and low bytes. This command does not alter the content of the
-bus registers.
+##### Single Clock - 0xF4
+No argument bytes.
+<br>
+1 result byte
 
-Note: the direction of the transfer (write YARC memory / read YARC
-memory) is determined by the high order bit of the address register.
-The host constructs the content of this byte, and the Nano is not
-aware of it.  For write cycles, the Data Register Low (byte) is
-transferred into YARC memory. For reads, the Data Register Low is
-ignored and the data byte specified by the Address Registers is
-transferred from YARC memory Bus Input Register. The Bus Input
-Register is returned in all cases and should always reflect the
-value written or read.
+This command causes the Nano to toggle the slow clock once, triggering a cycle on the YARC’s 16-bus. The four bus registers provide the high and low bytes. This command does not alter the content of the bus registers.
 
-Note: the clock is stopped before performing the bus cycle.
+##### Get Bus Input Register - 0xF5
+No argument bytes
+<br>
+One result byte
 
-. Get Bus Input Register - 0xF5
-. No argument bytes
-. One result byte
+The Nano sends the content of the Bus Input Register to the host followed by the ack byte. The Bus Input Register is not altered.
 
-The Nano sends the content of the Bus Input Register to the host
-followed by the ack byte. The Bus Input Register is not altered.
+##### Write Slice - 0xF6
+3 argument bytes
+<br>
+0 to 64 data bytes
+<br>
+No result byte
 
-. Write Slice - 0xF6
-. 3 argument bytes
-. 0 to 64 data bytes
-. No result byte
+The first argument byte specifies the high byte of an opcode (in 0x80..0xFF). The second specifies the slice (in 0..3). The third specifies the number of data bytes (in 0..64). The third argument byte is followed by the counted number of data bytes. The data is written to microcode memory for the given opcode and slice.
 
-The first argument byte specifies the high byte of an opcode (in
-0x80..0xFF). The second specifies the slice (in 0..3). The third
-specifies the number of data bytes (in 0..64). The third argument
-byte is followed by the counted number of data bytes. The data is
-written to microcode memory for the given opcode and slice.
+##### Read Slice - 0xF7
+3 argument bytes
+<br>
+1 fixed result byte
+<br>
+0 to 64 data bytes
 
-. Read Slice - 0xF7
-. 3 argument bytes
-. 1 fixed result byte
-. 0 to 64 data bytes
+The first argument byte specifies the high byte of an opcode (in 0x80..0xFF). The second argument specifies the slice (in 0..3).  The third argument specifies the count (in 0..64). The Nano first echoes the count and then reads that number of bytes from the slice and transmits them to the host.
 
-The first argument byte specifies the high byte of an opcode (in
-0x80..0xFF). The second argument specifies the slice (in 0..3).
-The third argument specifies the count (in 0..64). The Nano first
-echoes the count and then reads that number of bytes from the slice
-and transmits them to the host.
+##### Write K - 0xFB
+4 argument bytes
+<br>
+No result bytes
 
-. Transfer Single - 0xF8
-. 4 arguments bytes
-. 1 fixed result byte
+All four K registers are updated with the four argument bytes. The most significant (K[3]) is transmitted first and least last.  K[3] contains bits 31:24 of the microcode pipeline register while K[0] contains 7:0.
 
-This command does a single bus cycle using the 4 arguments bytes.
-The order of argument bytes are sent is Address Register High,
-Address Register Low, Data Register High, Data Register Low (last
-byte sent).  After the last argument byte is received, the Nano
-sets the shadow address to the the AH:AL value and triggers a bus
-cycle at this address with the provided data.
+The K (microcode pipeline) register is not readable, so no read capability is supported by the protocol.
 
-If the transfer specified by the high bit of AH is a write, the
-Data Register Low is written to YARC memory. If a read, the specified
-data byte is transferred to the Bus Input Register. The Bus Input
-Register is returned and should reflect the value transferred in
-all cases.
+##### SetMCR - 0xFC
+1 argument byte
+<br>
+No result byte
 
-This command is commonly used to set the shadow address register
-and read or write byte 0 of a 256-byte page in preparation for a
-Read Page or Write Page command, below.
+The argument byte is immediately transferred to the MCR. This dangerous command represents a change in philosophy. Use with care.
 
-. Write Page - 0xF9
-. 1 arguments byte
-. 0 to 255 data bytes
-. No result byte
+##### WriteALU - 0xFD
+3 argument bytes
+<br>
+0 .. 128 data bytes (update: must be 64)
+<br>
+No result byte
 
-The first argument byte is interpreted as an unsigned byte count
-between 0 and 255. The count byte is followed by the counted number
-of data bytes. For each data byte, the Nano first performs a write
-state using the contents of the four Bus Registers and then increments
-the content of the shadow Address Registers. As always, the Nano
-does not “know” if the bus cycle is a write, but this Write Page
-command is not useful for read cycles because the Bus Input Register
-will simply be overwritten N - 1 times.
+The first two argument bytes specify the write address in 0..1FFF, high byte first. The third byte is an unsigned byte count between 0 and 128.  The arguments are followed by count number of bytes.  The bytes are written to ALU memory at the given address. The behavior of a write outside the 8k ALU RAM address space is undefined.  Note: the hardware supports only parallel writes to the three ALU RAMs.
 
-By performing a Transfer Single of byte 0 followed by a Write Page
-of the remaining 255 bytes, the host can repeatedly transfer 256
-bytes to YARC memory with only 6 bytes of control information for
-a link data utilization of 256/262 = 97.7%.
+##### ReadALU - 0xFE
+4 argument bytes
+<br>
+1 fixed response byte
+<br>
+0 to 128 result bytes (update: must be 64)
 
-Implementation note: the Bus Registers are not readable by the Nano,
-so the protocol implementation must retain a shadow of the last-
-written Address Register value in order to perform the incrementation.
-
-. Read Page - 0xFA
-. 1 argument byte
-. 1 fixed response byte
-. 0 to 255 result bytes
-
-The argument byte is interpreted as an unsigned byte count between
-0 and 255. The Nano echoes this byte immediately following the ack.
-For each data byte, the Nano first performs a bus cycle using the
-contents of the four Bus Registers and then increments the content
-of the shadow Address Register. The Nano then reads the content of
-the Bus Input Register and writes it to the serial port, blocking
-if the serial port is not ready to receive data. The host is expected
-to consume the data. The ack byte and count are written before the
-returned data as usual. As always, the Nano does not “know” if the
-bus cycle is a read, but this Read Page command is not useful for
-write cycles.
-
-By performing a Transfer Single of an aligned 256-byte memory page
-followed by a Read Page of the remaining 255 bytes, the host can
-repeatedly transfer 256 bytes from YARC memory to the host with
-only 6 bytes of control information for a link data utilization of
-256/262 = 97.7%.
-
-Implementation note: the Bus Registers are not readable by the Nano,
-so the protocol implementation must retain a shadow of the last-written
-Address Register value in order to perform the incrementation.
-
-. Write K - 0xFB
-. 4 argument bytes
-. No result bytes
-
-All four K registers are updated with the four argument bytes. The
-most significant (K[3]) is transmitted first and least last.  K[3]
-contains bits 31:24 of the microcode pipeline register while K[0]
-contains 7:0.
-
-The K (microcode pipeline) register is not readable, so no read
-capability is supported by the protocol.
-
-. SetMCR - 0xFC
-. 1 argument byte
-. No result byte
-
-The argument byte is immediately transferred to the MCR. This
-dangerous command represents a change in philosophy. Use with care.
-
-. WriteALU - 0xFD
-. 3 argument bytes
-. 0 .. 128 data bytes
-. No result byte
-
-The first two argument bytes specify the write address in 0..1FFF,
-high byte first. The third byte is an unsigned byte count between
-0 and 128.  The arguments are followed by count number of bytes.
-The bytes are written to ALU memory at the given address. The
-behavior of a write outside the 8k ALU RAM address space is undefined.
-Note: the hardware supports only parallel writes to the three ALU
-RAMs.
-
-. ReadALU - 0xFE
-. 4 argument bytes
-. 1 fixed response byte
-. 0 to 128 result bytes
-
-The first two argument bytes specify the read address in 0..1FFF,
-high byte first. The third byte is RAM identifier in 0..2. The
-fourth byte is a count of bytes to read. The fixed response byte
-specifies the length of the response; normally it echoes the last
-fixed argument byte. The bytes are read from the specified ALU RAM
-and returned to the host.  The behavior of a read outside the 8k
-ALU RAM address space or from a RAM ID not in 0..2 is undefined.
+The first two argument bytes specify the read address in 0..1FFF, high byte first. The third byte is RAM identifier in 0..2. The fourth byte is a count of bytes to read. The fixed response byte specifies the length of the response; normally it echoes the last fixed argument byte. The bytes are read from the specified ALU RAM and returned to the host.  The behavior of a read outside the 8k ALU RAM address space or from a RAM ID not in 0..2 is undefined.
