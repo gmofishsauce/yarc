@@ -41,10 +41,17 @@
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 
 # Microcode to increment the PC without writing the result anywhere
+# Note that "FETCH" expands to define the value of the load_ir bit,
+# which is then overwritten by another load_ir reference to its right.
+# This is a supported feature of the microassembler: the source is
+# read from left to right, and the rightmost field definition "wins".
+# The NO_FETCH and NO_DECODE microcycles are used for immediates.
 .set NO_FETCH "FETCH load_ir=no"
 .set NO_DECODE "DECODE"
 
-# Absolute call.
+# Absolute call. The instruction register contains the target address, which
+# is necessarily <= 2^15. The hardware translates that to opcode 0xFE, where
+# we place the microcode to move the instruction register to R3.
 
 .opcode call 0xFE 1 .abs
 .slot NOOP ; # TODO - push R3 to @R2; phi1 R2 -= 2
@@ -70,10 +77,11 @@
 .endopcode
 
 # ALU operations. Both the RCW and the ACN come from the instruction register for
-# these instructions, so K3 and high order bits 23:20 of K2 are not regarded.
+# these instructions, so K3 (RCW) and high order bits 23:20 of K2 (ACN) are not regarded.
 
 .set ALU_PHI1_K2 "acn=alu_0x0F alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
 .set ALU_PHI1_K0_NO_CARRY "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
+
 .set ALU_PHI2_K2 "acn=alu_0x0F alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=yes"
 .set ALU_PHI2_K1 "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=yes"
 .set ALU_PHI2_K0 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
