@@ -14,6 +14,12 @@ Each 32-bit word in the WCS is called a "slot". Within a machine instruction, ea
 
 The large number of slots (64) available to each instruction is mostly an artifact of the unrealistically large size of available memory chips (8k x 8 being the smallest widely-available part still in production in 2022). The large number of slots will, however, allow for some interesting instructions, such as a 16-bit multiply.
 
+## Writing Microcode
+
+Microcode authoring is supported by a simple single-page web application found in yarc/ued/first.htm. This file is intended to be opened locally rather than served by an HTTP server. I am neither a Javascript programmer nor a web developer. The code in `ued` is mostly copied from bits and pieces found on Stack Overflow.
+
+As the controls are used to alter the values of fields, the commentary lines at the bottom of the page will update to display the field values. These text lines can be copied and pasted into YARC assembler (yasm) source files, typically into `.set` directives. Other plausible functionality, such as pasting microcode into the page to disassemble hex to field values, has not been implemented.
+
 ## Microcode Fields
 
 The microcode is described as a set of bitfields in the 32-bit K register. The Nano must write it in 1-byte wide slices, however, so for sanity the design tries to break up the microcode into byte-wide chunks with somewhat meaningful field groupings.
