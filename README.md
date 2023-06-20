@@ -81,7 +81,7 @@ All the host software is written in Go and tested on darwin-amd64
 (Intel-based Mac, not M1) only. The host software is contained in a Cobra
 CLI defined here.
 
-### [yasm](https://github.com/gmofishsauce/yarc/tree/main/yasm]) - YARC microassembler and assembler source code
+### [yasm](https://github.com/gmofishsauce/yarc/tree/main/yasm) - YARC microassembler and assembler source code
 
 The YARC assembler supports definition of the assembly language
 mnemonics within the language along with the microcode for each
