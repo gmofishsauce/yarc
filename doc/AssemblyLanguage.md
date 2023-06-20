@@ -22,8 +22,10 @@ The source may contain one or more `.include` builtins which specify additional
 code by relative (to the main source file) or absolute paths. Source files have
 the extension `.yasm` by convention. There is no linker; a successful run of
 `yasm` results in the generation of a single, rigidly-structured binary output
-file named `yarc.bin` in the same directory as the main source file. This file
+file named `yarc.bin` in the current directory. This file
 may be provided to the serial line monitor (`yarc host`) for download to YARC.
+
+The assembler makes one full pass over the source code. Its design ensures it knows the absolute offset in the code stream at every point in time; as as result it can assign correct values to all labels during the source code pass. It cannot generate the code for forward branches to symbols it hasn't seen yet, so instead it generates _fixups_ which are placed in a _fixup list_. A lightweight second pass then processes the fixup list in order, correcting the opcodes and immediate values as required. This process is described in more detail under **Code Generation**, below.
 
 ## Builtin key symbols
 
@@ -119,30 +121,50 @@ previously have been defined by `.bitfield` directives with a wordsize of 32.
 Values must be compatible with field sizes. The `field=value` expressions
 may span lines. The slot must be terminated with a semicolon.
 
-Example combining the features documented so far:
+### .endopcode
 
 ```
-    .set r0 0
-    .set r1 1
-    .set r2 2
-    .set r3 3
-
-    .bitfield src1 8 7:5
-    .bitfield src2 8 4:2
-    .bitfield dst  8 1:0
-
-    .bitfield alu_op 32 26:23
-    .bitfield reg_specifier_from 32 22:22
-    .set alu_add 0
-    .set reg_specifier_irl  1
-    .set reg_specifier_ucode 0
-
-    .set DO_ADD "alu_op=alu_add reg_specifier_from=reg_specifier_irl"
-
-    .opcode ADD 0x80 3 src1 src2 dst
-    .slot DO_ADD;
-    .endopcode
-
-    ADD r0 r1 r2
+.endopcode
 ```
+Ends an opcode definition (sequence of slot definitions)
+
+### .dup
+
+Duplicate the microcode for an existing instruction as another (new) instruction with a new name and opcode. This is particularly useful for instructions that take control bits from the instruction register, e.g. ALU operations.
+
+```
+.opcode add 0x80 3 .src1 .src2 .dst
+.slot "K3_NONE ALU_PHI1_K2 K1_NONE ALU_PHI1_K0_NO_CARRY" ;
+.slot "K3_NONE ALU_PHI2_K2 ALU_PHI2_K1 ALU_PHI2_K0" ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.dup sub  0x81 add
+```
+
+Duplicate the microcode for `ADD src1, src2, dst` as `SUB src1, src2, dst` in the microcode slots for opcode 0x81. Since the source, target, and destination come from the instruction rather than the microcode and the ACN is the `1` in `0x81`, this is all that's required to specify `SUB`.
+
+## Labels
+
+Labels are valid symbols terminated with a colon character `:`. They are equivalent to `.set theSymbol <location>` where location is the current offset in the code being assembled. 
+
+## Code Generation Metasymbols
+
+The assembler must know how to generate the bits for various instruction formats. This is accomplished by using builtin symbols in `.opcode` definitions; an example (`.src1`, etc.) can be seen in the code just above.
+
+Each of these builtins results in creation of a _fixup_ that is placed in the _fixup list_ during the lexer pass. The fixup's code tells the assembler how to align a bitfield when generating an instruction. When an `ADD` instruction is used, for example, the assembler code behind `.src1` will cause the value to be collected, range checked (it must fit in a 2-bit field), and then aligned appropriately in bits 7:6 of the instructions low byte (which will be the RCW, assuming the microcode correctly specifies that the RCW should come from the instruction register in that cycle).
+
+The available metasymbols are:
+
+| Symbol | Compatible value | Meaning |
+|--------|------------------|---------|
+|.abs | Label | the entire opcode is replaced by the 16-bit value of the label |
+| .rel | Label | the low byte of the opcode is replaced by offset from the instruction to the label |
+| .immb | 8-bit value | the low byte of the instruction is replaced by the value |
+| .immw | 16-bit value | the word following the instruction will contain the value |
+| .rt | value in 0..3 | bits 1:0 of the high order byte of the opcode are replaced by the value |
+| .src1 | value in 0..3 | bits 7:6 of the low order byte of the opcode are replaced by the value |
+| .src2 | value in 0..7 | bits 5:3 of the low order byte of the opcode are replaced by the value |
+| .dst | value in 0..7 | bits 2:0 of the low order byte of the opcode are replaced by the value |
 
