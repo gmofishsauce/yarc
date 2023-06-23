@@ -162,17 +162,20 @@ func stopYarc(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 func clockCtl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
     words := strings.Split(line, " ")
     if len(words) != 2 {
-        return nostr, fmt.Errorf("usage: cc arg")
+		fmt.Println("usage: cc byte")
+        return nostr, nil // fmt.Errorf("usage: cc arg")
     }
 
     nanoCmd := make([]byte, 2, 2)
     nanoCmd[0] = sp.CmdClockCtl
 	n, err := strconv.ParseInt(words[1], 0, 16)
 	if err != nil {
-		return nostr, err
+		fmt.Println("usage: cc byte")
+		return nostr, nil // err
 	}
 	if n > 0xFF {
-		return nostr, fmt.Errorf("illegal value")
+		fmt.Println("usage: cc byte")
+		return nostr, nil // fmt.Errorf("illegal value")
 	}
 	nanoCmd[1] = byte(n)
 
@@ -195,7 +198,7 @@ func wrMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 	if err != nil {
 		return nostr, err
 	}
-	if (addr&0x77C0) != addr {
+	if (addr&0x7FC0) != addr {
 		return nostr, fmt.Errorf("wrMem: address must be on a 64-byte boundary < 30K")
 	}
 
@@ -213,8 +216,8 @@ func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 	if err != nil {
 		return nostr, err
 	}
-	if (addr&0x77C0) != addr {
-		return nostr, fmt.Errorf("wrMem: address must be on a 64-byte boundary < 30K")
+	if (addr&0x7FC0) != addr {
+		return nostr, fmt.Errorf("rdMem: address must be on a 64-byte boundary < 30K")
 	}
 	data, err := readMemoryChunk(nano, uint16(addr))
 	if err != nil {
