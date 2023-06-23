@@ -239,9 +239,9 @@ namespace PortPrivate {
   // and fetch from there. The code there maybe be another JMP or it can just
   // start executing YARC initialization code.
   void internalRunYARC() {
-    WriteReg(0, 0);
-    WriteReg(1, 0);
-    WriteReg(2, 0);
+    WriteReg(0, 0x0100);
+    WriteReg(1, 0x0110);
+    WriteReg(2, 0x0120);
     WriteReg(3, 0);
     internalMakeSafe();
     WriteIR(0, 1);

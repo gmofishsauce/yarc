@@ -46,19 +46,26 @@ namespace HeartbeatPrivate {
   
     // snprintf_P returns "...the number of characters that would have been written to s if there were enough space."
     // http://www.nongnu.org/avr-libc/user-manual/group__avr__stdio.html#ga53ff61856759709eeceae10aaa10a0a3
-    int result = snprintf_P(bp, bmax, PSTR("Running %02d:%02d:%02d:%02d.%03d, about %ld task loops/ms"),
-               days, hours, minutes, seconds, ms, hbTaskIterations / elapsed);
-    hbTaskIterations = 0;
+    int result = snprintf_P(bp, bmax, PSTR("Up %02d:%02d:%02d:%02d.%03d, about %ld task/ms, max %dms"),
+               days, hours, minutes, seconds, ms, hbTaskIterations / elapsed, hbLongestTask);
     if (result > bmax) result = bmax;
+    hbTaskIterations = 0;
+    hbLongestTask = 1;
     return result;
   }
 }
 
 // Public interface to heartbeat task
 
+// The task runner sets this to the longest task execution between
+// heartbeats, and the heartbeat code (above) sets it back to 1.
+// The value of 1 isn't interesting because milliseconds can click
+// over from N to N+1 during any task execution.
+int hbLongestTask = 1;
+
 // The HB task tracks iterations so it can log the number of task
 // executions in the recent past.
-void hbIncIterationCount() {
+void inline hbIncIterationCount() {
   HeartbeatPrivate::hbTaskIterations++;
 }
 

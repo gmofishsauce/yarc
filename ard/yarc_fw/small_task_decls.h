@@ -5,6 +5,12 @@
 // Useful only to the task runner.
 void hbIncIterationCount();
 
+// The task runner sets this when a task runs for a long time,
+// and the heartbeat sets it back to 1. We default to 1, not
+// zero, because milliseconds can increment during even a short
+// task execution. So only values greater than 1 are interesting.
+extern int hbLongestTask;
+
 // Management task for Nano's on-board LED
 
 void ledPlayStandardHeartbeat();

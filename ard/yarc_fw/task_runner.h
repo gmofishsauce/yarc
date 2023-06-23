@@ -103,13 +103,19 @@ void InitTasks() {
 }
 
 void RunTasks() {
-  unsigned long now = millis();
+  unsigned long start = millis();
   hbIncIterationCount();
   for (int i = 0; i < TaskPrivate::N_TASKS; ++i) {
-
     const TaskBody body = pgm_read_ptr_near(&TaskPrivate::Tasks[i].execute);
-    if (body != 0 && now >= TaskPrivate::nextRunMillis[i]) {
-      TaskPrivate::nextRunMillis[i] = now + body();
+    if (body != 0 && start >= TaskPrivate::nextRunMillis[i]) {
+      unsigned long before = millis();
+      TaskPrivate::nextRunMillis[i] = start + body();
+      unsigned long after = millis();
+      
+      int len;
+      if ((len = after - before) > hbLongestTask) {
+        hbLongestTask = len;
+      }
     }
   }
 }
