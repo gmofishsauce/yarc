@@ -1,0 +1,49 @@
+# Copyright (c) 2022 Jeff Berkowitz (pdxjjb@gmail.com)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+# Flow control instructions.
+
+#.opcode br 0x90 1 .rel
+#.slot NOOP ; # TODO
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
+
+# Absolute call. The instruction register contains the target address, which
+# is necessarily <= 2^15. The hardware translates that to opcode 0xFE, where
+# we place the microcode to move the instruction register to R3.
+
+.opcode call 0xFE 1 .abs
+.slot NOOP ; # TODO - push R3 to @R2; phi1 R2 -= 2
+.slot NOOP ; # TODO - phi2 and store result in R2
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# Absolute jump. The instruction register contains the target address, which
+# is necessarily <= 2^15. The hardware translates that to opcode 0xFF, where
+# we place the microcode to move the instruction register to R3. We suppress
+# bit 0, which has to be a 1 for a jump, to construct the target address.
+
+.set K3_JMP "src1=r3 src2=const_n1 dst=r3"
+.set K2_JMP "K2_NONE"
+.set K1_JMP "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=yes"
+.set K0_JMP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=force_low"
+
+.opcode jmp 0xFF 1 .abs
+.slot "K3_JMP K2_JMP K1_JMP K0_JMP" ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode

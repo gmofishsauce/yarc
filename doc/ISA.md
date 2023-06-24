@@ -99,7 +99,7 @@ destination field selects either a write to one of the four general register
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
-| 0x9**F**:OFF | BR       | flags, offset | Branch on flags matching **F** to offset LB  |
+| 0x9**F**:**OFF** | BR       | flags, offset | Branch on flag condition **F** to offset **OFF**  |
 
 The hardware performs a conditional write to the PC enabled by one of 16
 conditions selected by "F", the low-order 4 bits of the upper half of IR.
@@ -127,22 +127,29 @@ The assignment of flags to the opcodes 0x9F, F in 0..15 (0xF):
 | 0xE          | Sign and overflow match (signed greater or equal) |
 | 0xF          | Sign and overflow match or zero is clear (signed greater than) |
 
-### Move and push instructions
-
-All move instructions are subject to reconsideration because of a pending feature addition to the YARC's hardware.
+### Move instructions
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
-| 0xA0:RCW | MV       | --, s2, d    | register to register move |
-| 0xA1:RCW | MV       | (s1), --, d  | memory to register move, source address in s1 |
-| 0xA2:RCW | MV       | (s1), --, d  | register to memory move, target address in s1 |
-| 0xA3:0F | MV       | immed4, F    | move the four LSBs to F (C Z N V are 0..3) |
-| 0xA4:xx | TBD  | --, --, --   | TBD |
-| 0xA5:xx | TBD   | --, --, --    | TBD |
-| 0xA6:xx | TBD  | --, --, --   | TBD |
-| 0xA7:xx | TBD   | --, --, --    | TBD |
-| 0xA8:IM - 0xAB IM | MV immed8, r{0, 1, 2, 3}  | immediate value, register | sign extended byte IM to r0 - r3 low byte |
-| 0xAC00 - 0xAF00 0xIMMW | MV immed16, {0, 1, 2, 3} | immediate value, register | 16-bit word to r0 - r3 |
+| 0xA0:RCW | MVR    | src, dst     | register to register move |
+| 0xA1:IMM | MVF    | immed4       | move bits 3:0 to flags VNZC |
+| 0xA2:RCW | LDRW   | @src, dst    | load register from memory word |
+| 0xA3:RCW | LDRB   | @src, dst    | load register from sign extended memory byte |
+| 0xA4:RCW | STRW   | src, @dst    | store register to memory word |
+| 0xA5:RCW | STRB   | src, @dst    | store register to memory byte |
+| 0xA6:RCW | LDIW   | immed16, dst | move immediate word to register |
+| 0xA7:TBD | TBD    | TBD          | TBD |
+| 0xA8:RCW | LDDW   | immed16, dst | load register from @immed16 (load direct) |
+| 0xA9:RCW | LDOW   | immed16, @src, dst | load register from @(src + immed16) |
+| 0xAA:RCW | STDW   | src, immed16 | store register to @immed16 (store direct) |
+| 0xAB:RCW | STOW   | immed16, src, @dst | store register to @(dst + immed16)  |
+| 0xAC:TBD - 0xAF:TBD | TBD  | TBD   | TBD |
+
+The opcodes from 0xA8 through 0xAB require the addition of a pending hardware feature.
+
+### Unassigned opcode block
+
+Opcodes from 0xB000 through 0xEF00 are unassigned. The opcodes 0xB000 through 0xBF00 might be implemented as byte immediate loads and stores similar to LDDW, LDOW, STDW, STOW. Byte immediates take the RCW as the immediate value and as a result require a lot of opcode space.
 
 ### Special instructions
 
@@ -150,22 +157,22 @@ Interrupt instructions are reserved,  but interrupts are not implemented.
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
-| 0xB000 | PUSHF    |              | Push flags|
-| 0xB100 | POPF     |              | Pop flags |
-| 0xB200 | RET      |              | Return |
-| 0xB300 | RTI      |              | Return from interrupt |
-| 0xB400 | EI       |              | Enable interrupts |
-| 0xB500 | DI       |              | Disable interrupts |
-| 0xB6NN | INT      | NN - value   | R0 := value; interrupt |
-| 0xB700 | TBD      | unknown      | unassigned |
-| 0xB800 | TBD      |              |       |
-| 0xB900 | TBD      |              |       |
-| 0xBA00 | TBD      |              |       |
-| 0xBB00 | TBD      |              |       |
-| 0xBC00 | TBD      |              |       |
-| 0xBD00 | TBD      |              |       |
-| 0xBE00 | TBD      |              |       |
-| 0xBF00 | TBD      |              |       |
+| 0xF000 | PUSHF    |              | Push flags|
+| 0xF100 | POPF     |              | Pop flags |
+| 0xF200 | RET      |              | Return |
+| 0xF300 | RTI      |              | Return from interrupt |
+| 0xF400 | EI       |              | Enable interrupts |
+| 0xF500 | DI       |              | Disable interrupts |
+| 0xF6NN | INT      | NN - value   | R0 := value; interrupt |
+| 0xF700 | TBD      | unknown      | unassigned |
+| 0xF800 | TBD      |              |       |
+| 0xF900 | TBD      |              |       |
+| 0xFA00 | TBD      |              |       |
+| 0xFB00 | TBD      |              |       |
+| 0xFC00 | TBD      |              | Reserved for interrupt support |
+| 0xFD00 | TBD      |              | Reserved for interrupt support |
+| 0xFE00 | TBD      |              | Hardwired as implementation of CALL |
+| 0xFF00 | TBD      |              | Hardwired as implementation of JMP |
 
 ### Additional Information
 

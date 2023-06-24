@@ -126,8 +126,8 @@
 .set sgt 0x0F
 
 # Microcode words, 32 bits
-
-# register specifier word 31:24
+# K3: register control word 31:24
+#
 # Note about src2: it only partially determines the content of the ALU port 2 bus.
 # Its meaning depends on both alu_ctl and sysdata_src. When sysdata_src is 0, the
 # bit :29 is ignored and bits 28:27 determine which general register 0..3 drives
@@ -138,9 +138,12 @@
 # ALU port 2 holding register should be clocked on such cycles (alu_load_hold, below,
 # should be 0) or they become noops. Finally, when sysdata_src is not 0 and alu_ctl
 # is not 2, values 0..3 specify a general register 0..3 and values 4..7 specify a
-# a small constant -2, -1, 1, or 2 specified by the const_xx value above.
+# a small constant -2, -1, 1, or 2 specified by the const_xx value above to drive
+# the port2 bus.
 #
 # src1 is far simpler: it's just a 2-bit field that specifies a general register.
+# This value goes out on the address bus unconditionally (this may change).
+#
 # The dst field specifies a general register when its value is in 0..3. The values
 # 4..7 specify a conditional write based on the alu flag specifier, instruction
 # bits 11:8. This is sufficient to support all the standard branch instructions,
