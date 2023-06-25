@@ -16,13 +16,12 @@
 # boostrap code. Well, for now, it isn't really, it's just some garbage
 # that helps me test assembler features. But it will be the bootstrap.
 
-# Initialization JMP instruction is clocks 0, 1, 2
-
 start:
-	mviw r0 0x5555 # Clocks 3, 4, 5, 6
+	mviw r0 0x5555
+	mvr  r2 r0
 loop:
-	stw  r1 r0 7   # Clocks 10, 11, 12, 13 ; 17, 18, 19, 20 ; 24, 25, 26, 27 ; ...
-	jmp  loop      # Clocks 14, 15, 16     ; 21, 22, 23     ; 28, 29, 30 ; ...
+	stw  r1 r0 7
+	jmp  loop
 
 #start:
 #	mviw r0 0x0100

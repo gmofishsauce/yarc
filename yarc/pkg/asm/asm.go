@@ -72,6 +72,13 @@ import (
 	"strings"
 )
 
+func needsPlural(anInt int) string {
+	if anInt == 1 {
+		return ""
+	}
+	return "s"
+}
+
 // Assembler: open the source file, process it, and
 // write some output (if there weren't any errors.)
 func Assemble(sourceFile string) {
@@ -86,19 +93,15 @@ func Assemble(sourceFile string) {
 
 	gs := newGlobalState(bufio.NewReader(f), sourceFile)
 	if numErrors := lex(gs); numErrors != 0 {
-		s := "s"
-		if numErrors == 1 {
-			s = ""
-		}
-		log.Fatalf("yasm: lex failed (%d error%s)\n", numErrors, s)
+		log.Fatalf("yasm: lex failed (%d error%s)\n", numErrors, needsPlural(numErrors))
 	}
 
 	if numErrors := applyFixups(gs); numErrors != 0 {
-		s := "s"
-		if numErrors == 1 {
-			s = ""
-		}
-		log.Fatalf("yasm: fixups failed (%d error%s)\n", numErrors, s)
+		log.Fatalf("yasm: fixups failed (%d error%s)\n", numErrors, needsPlural(numErrors))
+	}
+
+	if numErrors := checkSanity(gs); numErrors != 0 {
+		log.Fatalf("yasm: sanity check failed (%d error%s)\n", numErrors, needsPlural(numErrors))
 	}
 
 	generateALUcontent(gs)
@@ -185,6 +188,23 @@ func applyFixups(gs *globalState) int {
 		}
 	}
 	return errors
+}
+
+func checkSanity(gs *globalState) int {
+	// The YARC has a quirk: it's not possible to write into any
+	// register that's being used (read from) in the same cycle.
+	// We need to check the binary for such uses, but this can't
+	// be done until it's completely generated so it must be a
+	// post-pass. And the post-pass must know almost as much as
+	// a disassembler, i.e. how to skip words in the opcode stream
+	// that are actually immediate values, how to identify the
+	// opcodes that are problematic (write to the dst register),
+	// and how to determine a problem exists (target register is
+	// actually used, rather than just identified in the RCW).
+	// So I'm not actually writing this code for now, even though
+	// it's not that hard, until I decide whether to implement
+	// a YARC disassembler and share the implementation.
+	return 0
 }
 
 func errMsg(gs *globalState, format string, args ...interface{}) {
