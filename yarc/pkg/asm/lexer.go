@@ -314,20 +314,19 @@ func internalGetToken(gs *globalState) *token {
 	}
 }
 
-// Unget (push back) a token. As far as I know this function
-// works correctly, but it's never used so commented out.
-//func ungetToken(gs *globalState, tk *token) error {
-//	if gs.pbToken != nil {
-//		gs.lexerState = stInError
-//		return fmt.Errorf("internal error: too many token pushbacks")
-//	}
-//	if gs.lexerState != stBetween {
-//		gs.lexerState = stInError
-//		return fmt.Errorf("internal error: invalid token pushback")
-//	}
-//	gs.pbToken = tk
-//	return nil
-//}
+// Unget a token, allowing one-character look ahead
+func ungetToken(gs *globalState, tk *token) error {
+	if gs.pbToken != nil {
+		gs.lexerState = stInError
+		return fmt.Errorf("internal error: too many token pushbacks")
+	}
+	if gs.lexerState != stBetween {
+		gs.lexerState = stInError
+		return fmt.Errorf("internal error: invalid token pushback")
+	}
+	gs.pbToken = tk
+	return nil
+}
 
 func validNumber(num []byte) bool {
 	isHex := false

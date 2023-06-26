@@ -161,9 +161,19 @@ func doOpcode(gs *globalState, opName string) error {
 			return fmt.Errorf("unrecognized: %s", arg.text())
 		}
 
-		// It's a .abs, .immX, .src1, etc. Grab the next token
-		// and stash it in a fixup struct for later.
-		t := getToken(gs)
+		// It's a .abs, .immX, .src1, etc. Create a fixup.
+		// If this metasymbol was given a fixed value when
+		// the opcode was defined using e.g. ".src1=r3", 
+		// put the value (e.g. "r3") into the fixup struct
+		// and don't attempt to grab an argument from the
+		// source line. Otherwise grab the next symbol from
+		// the source code as the value of the metasymbol.
+		var t *token
+		if op.argValues[i] != nil {
+			t = op.argValues[i]
+		} else {
+			t = getToken(gs)
+		}
 
 		// The matching token for a .abs, .imm, etc., must be
 		// one of few kinds. The fixup function will sort out

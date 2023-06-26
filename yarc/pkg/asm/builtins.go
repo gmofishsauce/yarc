@@ -90,6 +90,7 @@ func actionBitfield(gs *globalState) error {
 type opcode struct {
 	code byte
 	args []*token
+	argValues []*token
 }
 
 func opcodeToWcsOffset(opVal byte) int {
@@ -120,16 +121,40 @@ func actionOpcode(gs *globalState) error {
 	if nargs < 0 || nargs > 8 {
 		return fmt.Errorf(".opcode: only 0 to 8 arguments allowed")
 	}
+
+	// Process the opcode's metasymbol arguments (.dst, .immb, etc.)
 	var i int64
 	args := make([]*token, nargs, nargs)
+	argValues := make([]*token, nargs, nargs)
+
 	for i = 0; i < nargs; i++ {
-		argN, err := mustGetDefinedSymbol(gs)
+		arg, err := mustGetDefinedSymbol(gs)
 		if err != nil {
 			return fmt.Errorf("symbol expected: %s", err)
 		}
-		args[i] = argN
+		args[i] = arg
+
+		// Check for the metasymbol having a fixed value attached.
+		// syntax: .meta=numeric_value
+		maybeAssignment := getToken(gs)
+		if maybeAssignment.text() != string(EQUALS) {
+			// Nope, just push it back and continue
+			ungetToken(gs, maybeAssignment)
+		} else {
+			// Yes, the metasymbol has a fixed value. It will
+			// not correspond to an actual argument to the
+			// assembler mnemonic we're defining; the fixed
+			// value will be inserted into this field every
+			// time this opcode is used.
+			argValue := getToken(gs)
+			if argValue.kind() != tkSymbol && argValue.kind() != tkNumber {
+				return fmt.Errorf("invalid fixed value: %s", err)
+			}
+			argValues[i] = argValue
+		}
 	}
-	data := &opcode{byte(code), args}
+
+	data := &opcode{byte(code), args, argValues}
 
 	gs.symbols[name.text()] = newSymbol(name.text(), data,
 		func(gs *globalState) error { return doOpcode(gs, name.text()) })
@@ -231,7 +256,7 @@ func actionDup(gs *globalState) error {
 	if !ok {
 		return fmt.Errorf(".dup: not a defined opcode: %s", existingOpcodeSymbol.text())
 	}
-	newOpcode := &opcode{newOpcodeValue, existingOpcode.args}
+	newOpcode := &opcode{newOpcodeValue, existingOpcode.args, existingOpcode.argValues}
 
 	// Create the new opcode and copy the microcode
 

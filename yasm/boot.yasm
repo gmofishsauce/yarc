@@ -17,7 +17,7 @@
 # that helps me test assembler features. But it will be the bootstrap.
 
 start:
-	mviw r0 0x5555
+	ldiw 0x5555 r1
 	mvr  r2 r0
 loop:
 	stw  r1 r0 7
