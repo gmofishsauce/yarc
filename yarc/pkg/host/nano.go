@@ -160,7 +160,7 @@ func getAck(nano *arduino.Arduino, cmd byte) error {
 // Do the fixed part of a command, which may be the entire command, and optionally
 // return the fixed response if any.
 //
-// Every protocol command has a command byte and 0 or more fixed bytes specified
+// Every command has a command byte optional fixed argument bytes specified
 // by the protocol spec, the last of which may be a count. After receipt of the
 // fixed bytes, the Nano is supposed to ack or nak. If the protocol specifies a
 // fixed response, it immediately follows the ack. The fixed response is not sent
@@ -187,7 +187,7 @@ func doFixedCommand(nano *arduino.Arduino, fixed []byte, expected int) ([]byte, 
 		return response, fmt.Errorf("invalid fixed response expected")
 	}
 	if debug && fixed[0] != sp.CmdPoll {
-		// Don't log poll commands - there are too many
+		// Don't debug poll commands - there are too many
 		log.Printf("doFixedCommand: sending %v\n", fixed)
 	}
 	if err := nano.Write(fixed); err != nil {

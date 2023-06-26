@@ -24,8 +24,9 @@ import (
 //					   (0xE5) and RdMem (0xE6) both of which do up to 64
 //					   word transfers on even address boundaries. The count
 //					   is still in bytes.
+// Protocol version 11 Add the debug command (0xEB)
 
-const protocolVersion = 10
+const protocolVersion = 11
 
 var names = []struct {
 	name string
@@ -42,6 +43,7 @@ var names = []struct {
 	{"STCMD_STOP_YARC", 0xE8},
 	{"STCMD_POLL", 0xE9},
 	{"STCMD_SVC_RESPONSE", 0xEA},
+	{"STCMD_DEBUG", 0xEB},
 	{"STCMD_GET_VER", 0xEE},
 	{"STCMD_SYNC", 0xEF},
 	{"STCMD_SET_ARH", 0xF0},

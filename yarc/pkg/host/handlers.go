@@ -71,6 +71,7 @@ var commands = []protocolCommand{
 	{sp.CmdWrMem, "wm", "WriteMem", 1, true, wrMem},
 	{sp.CmdPoll, "pl", "Poll", 0, false, notImpl},
 	{sp.CmdSvcResponse, "sr", "SvcResponse", 1, true, notImpl},
+	{sp.CmdDebug, "db", "Debug", 7, true, doDebug},
 	{sp.CmdGetVer, "gv", "GetVer", 0, false, notImpl},
 	{sp.CmdSync, "sn", "Sync", 0, false, notImpl},
 	{sp.CmdSetArh, "ah", "SetAddrHigh", 1, false, notImpl},
@@ -163,7 +164,7 @@ func clockCtl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
     words := strings.Split(line, " ")
     if len(words) != 2 {
 		fmt.Println("usage: cc byte")
-        return nostr, nil // fmt.Errorf("usage: cc arg")
+        return nostr, nil
     }
 
     nanoCmd := make([]byte, 2, 2)
@@ -171,11 +172,11 @@ func clockCtl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 	n, err := strconv.ParseInt(words[1], 0, 16)
 	if err != nil {
 		fmt.Println("usage: cc byte")
-		return nostr, nil // err
+		return nostr, nil
 	}
 	if n > 0xFF {
 		fmt.Println("usage: cc byte")
-		return nostr, nil // fmt.Errorf("illegal value")
+		return nostr, nil
 	}
 	nanoCmd[1] = byte(n)
 
@@ -185,6 +186,37 @@ func clockCtl(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 	}
 	fmt.Printf("old MCR 0x%02x\n", result[0])
     return nostr, nil
+}
+
+func doDebug(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	words := strings.Split(line, " ")
+	if len(words) < 2 {
+		fmt.Println("usage: db|Debug byte [byte ...]")
+		return nostr, nil
+	}
+    nanoCmd := make([]byte, 8, 8)
+    nanoCmd[0] = sp.CmdDebug
+	for i := 1; i < len(words); i++ {
+		// This is clumsy because if we define debug commands with 16-bit arguments,
+		// they have to given as bytes on the command line, in big-endian order.
+		n, err := strconv.ParseUint(words[i], 0, 8)
+		if err != nil {
+			fmt.Printf("argument %d: %s\n", i, err)
+			return nostr, nil
+		}
+		nanoCmd[i] = byte(n)
+	}
+	// Debug always returns the 64 bytes at 0x7700
+	result, err := doCountedReceive(nano, nanoCmd)
+	if err != nil {
+		return nostr, err
+	}
+	if len(result) != 64 {
+		fmt.Printf("debug command returned %d bytes\n", len(result))
+	} else {
+		displayChunk(0x7700, result)
+	}
+	return nostr, nil
 }
 
 // By-hand wrMem writes a fixed pattern to the 64 bytes at the address given on the line.
@@ -206,25 +238,9 @@ func wrMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 	return nostr, writeMemoryChunk(data, nano, uint16(addr))
 }
 
-// By-hand rdMem reads and displays the 64 bytes at the address given on the line.
-func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	words := strings.Split(line, " ")
-	if len(words) != 2 {
-		return nostr, fmt.Errorf("usage: rdMem addr")
-	}
-	addr, err := strconv.ParseInt(words[1], 0, 16)
-	if err != nil {
-		return nostr, err
-	}
-	if (addr&0x7FC0) != addr {
-		return nostr, fmt.Errorf("rdMem: address must be on a 64-byte boundary < 30K")
-	}
-	data, err := readMemoryChunk(nano, uint16(addr))
-	if err != nil {
-		return nostr, err
-	}
-
-	// Display 64 bytes as a 4 lines of 8 hex words
+// Display 64 bytes at addr as a 4 lines of 8 hex words with chars to the right
+// The display of the hex words is bigendian
+func displayChunk(addr uint16, data []byte) {
 	for i := 0; i < 4; i++ {
 		fmt.Printf("0x%04X: ", int(addr) + i*16)
 		for j := 0; j < 8; j++ {
@@ -244,6 +260,27 @@ func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, er
 			fmt.Printf("%c%c", ch, white)
 		}
 	}
+}
+
+// By-hand rdMem reads and displays the 64 bytes at the address given on the line.
+func rdMem(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
+	words := strings.Split(line, " ")
+	if len(words) != 2 {
+		return nostr, fmt.Errorf("usage: rdMem addr")
+	}
+	addr, err := strconv.ParseInt(words[1], 0, 16)
+	if err != nil {
+		return nostr, err
+	}
+	if (addr&0x7FC0) != addr {
+		return nostr, fmt.Errorf("rdMem: address must be on a 64-byte boundary < 30K")
+	}
+	data, err := readMemoryChunk(nano, uint16(addr))
+	if err != nil {
+		return nostr, err
+	}
+
+	displayChunk(uint16(addr), data)
 	return nostr, nil
 }
 

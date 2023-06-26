@@ -152,6 +152,13 @@ Note: The Poll and Service Response commands are expected to be used to implemen
 
 System service requests from the YARC, however, will require responses.  These responses must be asynchronous. Example: the YARC may issue a console readline request that is read from YARC memory by the Nano and later received by the host via POLL. The host then prompts the user for input. Many seconds later, the user finishes entering a line; in the meantime, multiple unrelated NTL interactions may have occurred over the serial link. The host then transmits a Service Response to the Nano containing the user’s line. Nano software must of course be able to associate the line with the original console readline request, but this association is unknown to NTL.
 
+##### Debug - 0xEB
+7 argument bytes
+<br>
+64 result bytes
+
+The command and 7 bytes of arguments are passed to the Nano. The Nano performs an operation and returns 64 bytes (always). The operation is specified by the first argument byte. The operations and result values are not formally specified in the protocol. Command byte 1 stops the YARC and returns the 64 bytes at 0x7700 in main memory.
+
 ##### GetVersion - 0xEE
 No argument bytes
 <br>

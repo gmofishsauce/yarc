@@ -231,12 +231,13 @@ namespace SerialPrivate {
   constexpr int POLL_BUF_LAST = (POLL_BUF_SIZE - 1);
   constexpr int POLL_BUF_MAX_DATA = 255;
   constexpr byte GUARD_BYTE = 0xAA;
+  constexpr byte MAX_CMD_SIZE = 8;
 
   typedef struct pollBuffer {
     int remaining;
     int next;
-    byte cmd[6];
     bool inuse;
+    byte cmd[MAX_CMD_SIZE];
     byte buf[POLL_BUF_SIZE];
   } PollBuffer;
 
@@ -372,6 +373,75 @@ namespace SerialPrivate {
     return state;
   }
 
+  // Callback to log a bad debug command
+  byte badDebugValue = 0;
+
+  int badDebug(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR("serial: debug: bad command %d"), badDebugValue);
+    if (result > bmax) result = bmax;
+    return result;
+  }
+
+  // Handling for debug command 1. We call this function,
+  // defined below, which needs a forward.
+  State rdMemInProgress(void);
+
+  // Debugging commands. These can be added without changing
+  // the protocol definition.
+  // cmd[0] == 1: stop the clock, take YARC out of run mode,
+  //              dump the general registers r0..r3 to 0x7700,
+  //              0x7702, 0x7704, 0x7706, dump the flags at 0x7708,
+  //              and then return the 64 bytes at 0x7700.
+  State stDebug(RING* const r, byte b) {
+    allocPollBuffer();
+    copy(r, pb->cmd, MAX_CMD_SIZE);
+    consume(rcvBuf, MAX_CMD_SIZE);
+    sendAck(b);
+
+    if (pb->cmd[1] != 1) {
+      // For now the only defined debug command is 1.
+      // Unrecognized debug command. Don't report an error
+      // which would end the session. Just send back nothing.
+      badDebugValue = pb->cmd[1];
+      logQueueCallback(badDebug);
+      freePollBuffer();
+      send(0);
+      return state;
+    }
+
+    // Stop the clock. My ill-advised decision to decouple
+    // clock processing from serial command processing means
+    // I can't just SetClockControl(0) because the task that
+    // interprets that won't run for some time. I have to
+    // imperatively stop the clock and then tell the clock
+    // control task to keep it stopped next time it runs.
+    SetMCR(McrDisableFastclock(GetMCR()));
+    SetClockControl(0);
+    // Take the YARC out of run mode
+    StopYARC();
+    // Dump the registers at 0x7700 .. 0x7707
+    ReadReg(0, 0x7700);
+    ReadReg(1, 0x7702);
+    ReadReg(2, 0x7704);
+    ReadReg(3, 0x7706);
+    // And the flags register
+    unsigned short f = ReadFlags();
+    WriteMem16(0x7708, &f, 1);
+  
+    // 0x770A .. 0x770F unassigned for now.
+    // YARC tests update the memory 0x7710 .. 0x773F.
+
+    // Send back the chunky at 0x7700. We allocated the
+    // poll buffer and rdMemInProgress will eventually
+    // free it.
+    ReadMem16(0x7700, (unsigned short *)pb->buf, CHUNK_SIZE/2);
+    pb->remaining = CHUNK_SIZE;
+    pb->next = 0;
+    inProgress = rdMemInProgress;
+    send(pb->remaining);
+    return rdMemInProgress();
+  }
+
   // In-progress handler for transmitting buffered
   // messages from the poll buffer to the host. Transmit
   // as much of the poll buffer as possible. If finished,
@@ -470,7 +540,7 @@ namespace SerialPrivate {
       pb->remaining--;
     }
     if (pb->remaining == 0) {
-      WriteMem16(BtoS(pb->cmd[1], pb->cmd[2]), (unsigned short*) pb->buf, CHUNK_SIZE);
+      WriteMem16(BtoS(pb->cmd[1], pb->cmd[2]), (unsigned short*) pb->buf, CHUNK_SIZE/2);
       freePollBuffer();
       inProgress = 0;              
     }
@@ -520,7 +590,7 @@ namespace SerialPrivate {
       return stBadCmd(r, b);
     }
     pb->cmd[2] &= ~(CHUNK_SIZE-1); // even address on 64-byte boundary
-    ReadMem16(BtoS(pb->cmd[1], pb->cmd[2]), (unsigned short *)pb->buf, CHUNK_SIZE);
+    ReadMem16(BtoS(pb->cmd[1], pb->cmd[2]), (unsigned short *)pb->buf, CHUNK_SIZE/2);
 
     pb->remaining = pb->cmd[3];
     pb->next = 0;
@@ -701,7 +771,7 @@ namespace SerialPrivate {
 
   typedef struct commandData {
     CommandHandler handler;     // handler function
-    byte length;                // length of fixed part of command
+    byte length;                // length of fixed part of command, 1 or more
   } CommandData;
 
   // Jump table for protocol command handlers. The table is stored in
@@ -721,7 +791,7 @@ namespace SerialPrivate {
     { stStop,       1 },
     { stPoll,       1 },
     { stResp,       2 },
-    { stUndef,      1 },
+    { stDebug,      8 }, // cmd, 7 uncommitted
 
     { stUndef,      1 },
     { stUndef,      1 },
