@@ -31,6 +31,7 @@ const COMMA = byte(',')
 const EQUALS = byte('=')
 const COLON = byte(':')
 const SEMI = byte(';')
+const ATSIGN = byte('@')
 
 const DOT = byte('.')
 const UNDERSCORE = byte('_')
@@ -229,7 +230,12 @@ func internalGetToken(gs *globalState) *token {
 				gs.lexerState = stInString
 			} else if isOperatorChar(b) {
 				gs.lexerState = stBetween
-				return &token{string(b), tkOperator}
+				// For now, at least, @-signs and commas occurring between
+				// tokens are simply ignored - they are white space. We
+				// might do something fancier later.
+				if b != ATSIGN && b != COMMA {
+					return &token{string(b), tkOperator}
+				}
 			} else {
 				msg := fmt.Sprintf("character 0x%02x (%d) unexpected [1]", b, b)
 				gs.lexerState = stInError
@@ -373,7 +379,7 @@ func isQuoteChar(b byte) bool {
 }
 
 func isOperatorChar(b byte) bool {
-	return b == COMMA || b == EQUALS || b == SEMI || b == COLON
+	return b == COMMA || b == EQUALS || b == SEMI || b == COLON || b == ATSIGN
 }
 
 // Dot is allowed only as the initial character

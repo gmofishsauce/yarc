@@ -46,17 +46,48 @@
 .slot DECODE ;
 .endopcode
 
+# LDRW - load memory word
+# RCW from instruction
+# .opcode ldrw 0xA2 3 .src1 .src2=7 .dst
+# === TODO ===
+# .endopcode
+
+# LDRB - load memory byte
+# RCW from instruction
+# .opcode ldrb 0xA3 3 .src1 .src2=7 .dst
+# === TODO ===
+# .endopcode
+
+# STRW - store register to memory word (register indirect)
+# RCW from instruction
+.set K3_STRW K3_NONE
+.set K2_STRW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K1_STRW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
+.set K0_STRW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+.opcode strw 0xA4 3 .src2 .src1 .dst=7
+.slot K3_STRW K2_STRW K1_STRW K0_STRW ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# STRB - store low byte of register in memory byte (register indirect)
+# RCW from instruction
+# .opcode strb 0xA5 3 .src1 .src2 .dst=7
+# === TODO ===
+# .endopcode
+
 # LDIW - load immediate word to register
 # RCW from instruction (dst field)
 # ACN from microcode
 # 1 cycle to load the register and do phi1 of PC += 2
 # A second cycle to complete the PC += 2
-.set K3_LDIW "src1=r3 src2=const_n1 dst=cond_r3" # not used
+.set K3_LDIW K3_NONE # RCW from instruction
 .set K2_LDIW "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
 .set K1_LDIW "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
 .set K0_LDIW "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-.opcode ldiw 0xA6 4 .immw .src1=r3 .src2=const_p2 .dst
+.opcode ldiw 0xA6 4 .immw .dst .src1=r3 .src2=const_p2
 .slot K3_LDIW K2_LDIW K1_LDIW K0_LDIW ;
 .slot NO_DECODE ; # second cycle of PC += 2
 .slot FETCH ;
@@ -68,58 +99,57 @@
 # Store register to memory indirect. Memory address in src1. Register to write
 # is src2. Destination field not used (no write to a register). No ALU op.
 # RCW comes from IR. ACN is not used. Hex: 0xFF 0xFF 0x1F 0x2F
-.set K3_STW "src1=r3 src2=const_n1 dst=cond_r3"
-.set K2_STW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_STW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
-.set K0_STW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
-
-.opcode stw 0xAC 3 .src1 .src2 .dst # opcode 0xAC - TEMPORARY
-.slot K3_STW K2_STW K1_STW K0_STW ;
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
+#.set K3_STW "src1=r3 src2=const_n1 dst=cond_r3"
+#.set K2_STW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+#.set K1_STW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
+#.set K0_STW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+#
+#.opcode stw 0xAC 3 .src1 .src2 .dst=7
+#.slot K3_STW K2_STW K1_STW K0_STW ;
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
 
 # Move immediate word to register: mviw rN, value
+#
+#.set MVIW_K3 "src1=r3 src2=const_p2 dst=r0"
+#.set MVIW_K2 "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+#.set MVIW_K1 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
+#.set MVIW_K0 "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+#
+## Move @R3 to register R{0..3} determined by low order 2 bits of opcode (.rt)
+#.set MVIW_LD_TARGET "MVIW_K3 MVIW_K2 MVIW_K1 MVIW_K0"
+#
+#.opcode mviw 0xB0 2 .rt .immw
+#.slot MVIW_LD_TARGET dst=r0 ;   # move @r3, .rt (r0)
+#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
+#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
 
-.set MVIW_K3 "src1=r3 src2=const_p2 dst=r0"
-.set MVIW_K2 "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set MVIW_K1 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
-.set MVIW_K0 "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+#.opcode __mviwr1 0xB1 2 .rt .immw
+#.slot MVIW_LD_TARGET dst=r1 ;   # move @r3, .rt (r1)
+#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
+#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
 
-# Move @R3 to register R{0..3} determined by low order 2 bits of opcode (.rt)
-.set MVIW_LD_TARGET "MVIW_K3 MVIW_K2 MVIW_K1 MVIW_K0"
-
-.opcode mviw 0xB0 2 .rt .immw
-.slot MVIW_LD_TARGET dst=r0 ;   # move @r3, .rt (r0)
-.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
-
-.opcode __mviwr1 0xB1 2 .rt .immw
-.slot MVIW_LD_TARGET dst=r1 ;   # move @r3, .rt (r1)
-.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
-
-.opcode __mviwr2 0xB2 2 .rt .immw
-.slot MVIW_LD_TARGET dst=r2 ;   # move @r3, .rt (r2)
-.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
+#.opcode __mviwr2 0xB2 2 .rt .immw
+#.slot MVIW_LD_TARGET dst=r2 ;   # move @r3, .rt (r2)
+#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
+#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
 
 # This would jump to the location (@r3 + 2) which is stupid.
 # Instead, we make it a space-wasting, 4-cycle no-op.
 .opcode __mviwr3 0xB3 2 .rt .immw
 # .slot MVIW_LD_TARGET dst=r3 ;   # move @r3, .rt (r3)
-.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
-
+#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
+#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
