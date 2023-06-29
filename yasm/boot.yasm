@@ -16,9 +16,63 @@
 # boostrap code. Well, for now, it isn't really, it's just some garbage
 # that helps me test assembler features. But it will be the bootstrap.
 
+# The code below was written to explore whether add really works wth PC.
+# 2023-06-28
+
+X0:
+	add  r0, r1, r2
+	jmp  X0
+
+L0:
+	ldiw 0x0001, r0
+	ldiw 0x0002, r0
+	ldiw 0x0003, r0
+	ldiw 0x0004, r0
+	ldiw 0x0005, r0
+	ldiw 0x0006, r0
+L2: jmp L0
+
+	ldiw 0x7710, r2 # 0
+	strw r3, @r2    # 4 - stores the value 6
+	ldiw 0x7712, r2 # 6
+	strw r3, @r2    # A - stores the value C
+	ldiw 0x7714, r2 # C - no evidence this executes...
+	strw r3, @r2
+	ldiw 0x7716, r2
+	strw r3, @r2
+	ldiw 0x7718, r2
+	strw r3, @r2
+	ldiw 0x771A, r2
+	strw r3, @r2
+	ldiw 0x771C, r2
+	strw r3, @r2
+	ldiw 0x771E, r2
+	strw r3, @r2
+L1:
+	jmp  L1
+
+# The code below seemed to show a problem with add. 2023-0627.
 start:
-	ldiw 0x7710, r1
-	mvr  r2, r0
+	ldiw 0, r0
+	ldiw 2, r1
+	ldiw 0x7710, r2
+
+	strw r0, @r2
 loop:
-	strw @r1, r0
+	add  r1, r0, r0
+	add  r1, r2, r2
 	jmp  loop
+	strw r0, @r2
+	add  r1, r0, r0
+	add  r1, r2, r2
+	strw r0, @r2
+	add  r1, r0, r0
+	add  r1, r2, r2
+	strw r0, @r2
+xx: jmp  xx
+
+notreached:
+	ldiw 2, r1
+	ldiw 0x40, r0
+	add  r1, r0, r0
+	strw r0, @r2
