@@ -238,10 +238,10 @@ namespace PortPrivate {
   // the microcode for JMP. This will load the IR (nanded with 0x0001) into R3
   // and fetch from there. The code there maybe be another JMP or it can just
   // start executing YARC initialization code.
-  void internalRunYARC() {
-    WriteReg(0, 0x0100);
-    WriteReg(1, 0x0110);
-    WriteReg(2, 0x0120);
+  void internalRunYARC(unsigned short r0, unsigned short r1, unsigned short r2) {
+    WriteReg(0, r0);
+    WriteReg(1, r1);
+    WriteReg(2, r2);
     WriteReg(3, 0);
     internalMakeSafe();
     WriteIR(0, 1);
@@ -383,8 +383,8 @@ void SetADHL(byte ah, byte al, byte dh, byte dl) {
 
 // Set the YARC to RUN mode. Do not alter the clock settings, i.e.
 // don't start the clock running.
-void RunYARC() {
-  PortPrivate::internalRunYARC();
+void RunYARC(unsigned short r0, unsigned short r1, unsigned short r2) {
+  PortPrivate::internalRunYARC(r0, r1, r2);
 }
 
 void StopYARC() {

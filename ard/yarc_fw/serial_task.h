@@ -340,8 +340,18 @@ namespace SerialPrivate {
   }
 
   State stRun(RING* const r, byte b) {
-    consume(r, 1);
-    RunYARC();
+    byte cmd[8];
+    copy(r, cmd, 8);
+    consume(r, 8);
+
+    byte clkCtrl;
+    unsigned short r0, r1, r2;
+    clkCtrl = cmd[1];
+    r0 = BtoS(cmd[2], cmd[3]);
+    r1 = BtoS(cmd[4], cmd[5]);
+    r2 = BtoS(cmd[6], cmd[7]);
+    RunYARC(r0, r1, r2);
+    SetClockControl(clkCtrl);
     sendAck(b);
     return state;
   }
@@ -786,7 +796,7 @@ namespace SerialPrivate {
     { stClockCtl,   2 },
     { stWrMem,      4 }, // cmd, addr hi, addr lo, count
     { stRdMem,      4 }, // cmd, addr hi, addr lo, count
-    { stRun,        1 },
+    { stRun,        8 }, // cmd, clock_ctrl, r0 msb, lsb, r1 msb, lsb, r2 msb, lsb
 
     { stStop,       1 },
     { stPoll,       1 },

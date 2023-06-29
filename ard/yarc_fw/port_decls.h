@@ -22,7 +22,7 @@ byte GetMCR(void);
 byte GetBIR(void);
 void MakeSafe(void);
 void SingleClock(void);
-void RunYARC(void);
+void RunYARC(unsigned short r0, unsigned short r1, unsigned short r2);
 void StopYARC(void);
 bool IsYarcRun(void);
 bool IsYarcRequest(void);
