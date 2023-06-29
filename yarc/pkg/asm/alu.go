@@ -60,6 +60,12 @@ var alu_ops = [16]aluFunc{do_add, do_sub, do_rsub, do_adc,
 	do_xor, do_not, do_neg, do_rot,
 	do_0C, do_0D, do_0E, do_pass}
 
+func sanity(result int) {
+	if result & 0xFF != result {
+		panic("result not a byte")
+	}
+}
+
 // Generate the entire 8k byte content of one RAM ALU chip and leave
 // the result in the alu array in the global state.
 func generateALUcontent(gs *globalState) {
@@ -69,35 +75,34 @@ func generateALUcontent(gs *globalState) {
 }
 
 func do_add(gs *globalState) {
-	for a_bus := 0; a_bus < 16; a_bus++ {
-		for b_bus := 0; b_bus < 16; b_bus++ {
-			sum := a_bus + b_bus
-			result := sum & 0xF
-			// Carry
-			result |= sum & CarryFlag
-			// Zero
-			if z := sum & 0x0F; z == 0 {
-				result |= ZeroFlag
-			}
-			// Negative
-			if n := sum & 0x08; n != 0 {
-				result |= NegativeFlag
-			}
-			// Overflow: both a_bus and b_bus are positive and the sum is negative,
-			// or both a_bus and b_bus  are negative and the sum is positive.
-			// Or: the arguments have the same sign, and the sign of the
-			// result is different. Remember, the arguments are four bits.
-			overflow := (a_bus&0x08) == (b_bus&0x08) && (sum&0x08) != (a_bus&0x08)
-			if overflow {
-				result |= OverflowFlag
-			}
+	for carry_in := 0; carry_in < 2; carry_in++ {
+		for a_bus := 0; a_bus < 16; a_bus++ {
+			for b_bus := 0; b_bus < 16; b_bus++ {
+				result := a_bus + b_bus + carry_in
 
-			// Ignore carry in (see ADC) - set both possibilities the same
-			offset := a_bus | (b_bus << 4) | (0 << 8) | (alu_add << 9)
-			gs.alu[offset] = byte(result)
+				// Carry - the carry flag is positioned as the next bit
+				// after a four bit add, so it sets itself in result.
 
-			offset = a_bus | (b_bus << 4) | (1 << 8) | (alu_add << 9)
-			gs.alu[offset] = byte(result)
+				// Zero
+				if z := result & 0x0F; z == 0 {
+					result |= ZeroFlag
+				}
+				// Negative
+				if n := result & 0x08; n != 0 {
+					result |= NegativeFlag
+				}
+				// Overflow: both a_bus and b_bus are positive and the sum is negative,
+				// or both a_bus and b_bus  are negative and the sum is positive.
+				// Or: the arguments have the same sign, and the sign of the
+				// result is different. Remember, the arguments are four bits.
+				if ov := (a_bus&0x08) == (b_bus&0x08) && (result&0x08) != (a_bus&0x08); ov {
+					result |= OverflowFlag
+				}
+
+				sanity(result)
+				offset := (alu_add << 9) | (carry_in << 8) | (b_bus << 4) | (a_bus)
+				gs.alu[offset] = byte(result)
+			}
 		}
 	}
 }
@@ -160,11 +165,11 @@ func do_pass(gs *globalState) {
 			if result == 0 {
 				result |= ZeroFlag
 			}
-			offset := a_bus | (b_bus << 4) | (0 << 8) | (alu_pass << 9)
+			
+			sanity(result)
+			offset := (alu_pass << 9) | (0 << 8) | (b_bus << 4) | a_bus
 			gs.alu[offset] = byte(result)
-
-			offset = a_bus | (b_bus << 4) | (1 << 8) | (alu_pass << 9)
-			gs.alu[offset] = byte(result)
+			gs.alu[offset | (1 << 8)] = byte(result)
 		}
 	}
 }

@@ -150,8 +150,39 @@ func stopCost(cmd *protocolCommand, nano *arduino.Arduino, line string) (string,
 	return nostr, err
 }
 
+// Run the YARC. The first argument determines the clock setting as with clockCtl().
+// The second through fourth arguments are the initial values of r0, r1, and r2. All
+// the arguments are optional default to 0.
 func runYarc(cmd *protocolCommand, nano *arduino.Arduino, line string) (string, error) {
-	err := doCommand(nano, sp.CmdRunYarc)
+	var fixed []byte = make([]byte, 8, 8)
+
+	fixed[0] = sp.CmdRunYarc
+    words := strings.Split(line, " ")
+	if len(words) > 1 {
+		clk, err := strconv.ParseUint(words[1], 0, 8)
+		if err != nil {
+			fmt.Println("usage: rn [byte [word [word [word]]]], all defaults 0")
+			return nostr, nil
+		}
+		fixed[1] = byte(clk)
+	}
+	cmdOffset := 2
+	for wordCount := 2; wordCount < 5; wordCount++ {
+		if len(words) <= wordCount {
+			break
+		}
+		reg, err := strconv.ParseUint(words[wordCount], 0, 16)
+		if err != nil {
+			fmt.Println("usage: rn [byte [word [word [word]]]], all defaults 0")
+			return nostr, nil
+		}
+		// protocol is bigendian even though the yarc is littlendian
+		fixed[cmdOffset] = byte((reg&0xFF00) >> 8)
+		cmdOffset++
+		fixed[cmdOffset] = byte(reg&0xFF)
+		cmdOffset++
+	}
+	_, err := doFixedCommand(nano, fixed, 0)
 	return nostr, err
 }
 
