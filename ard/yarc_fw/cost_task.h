@@ -112,6 +112,8 @@ namespace CostPrivate {
   bool flagsTest(void);
   void aluRamInit(void);
   bool aluRamTest(void);
+  void writeCheckALUInit(void);
+  bool writeCheckALUTest(void);
 
   typedef struct tr {
     TestInit init;
@@ -120,14 +122,15 @@ namespace CostPrivate {
   } TestRef;
 
   const PROGMEM TestRef Tests[] = {
-    { delayTaskInit,    delayTaskBody,  "delay"     },
-    { m16TestInit,      m16TestBody,    "mem16"     },
-    { regTestInit,      regTestBody,    "reg"       },
-    { ucodeTestInit,    ucodeBasicTest, "ucode"     },
-    { memBasicTestInit, memBasicTest,   "membasic"  },
-    { memHammerInit,    memHammerTest,  "memhammer" },
-    { flagsInit,        flagsTest,      "flags"     },
-    { aluRamInit,       aluRamTest,     "alu"       }   
+    { delayTaskInit,     delayTaskBody,     "delay"     },
+    { m16TestInit,       m16TestBody,       "mem16"     },
+    { regTestInit,       regTestBody,       "reg"       },
+    { ucodeTestInit,     ucodeBasicTest,    "ucode"     },
+    { memBasicTestInit,  memBasicTest,      "membasic"  },
+    { memHammerInit,     memHammerTest,     "memhammer" },
+    { flagsInit,         flagsTest,         "flags"     },
+    { aluRamInit,        aluRamTest,        "alu"       },
+    { writeCheckALUInit, writeCheckALUTest, "WCalu" }  
    };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
@@ -839,6 +842,25 @@ namespace CostPrivate {
     logQueueCallback(aluRamOKCallback);
     return false;
   }
+
+  void writeCheckALUInit() {
+  }
+
+  bool writeCheckALUTest() {
+    byte b = random();
+
+    for (byte i = 0; i < aluChunkSize; ++i) {
+      aluRamData.data[i] = b + 53;
+      b += 17;
+    }
+    // Write to 64-byte chunky 0, 1, 2, or 3. WriteCheckALU() panics
+    // if the write doesn't verify. We only want to call it once since
+    // it's really slow.
+    byte whichChunkOf64 = random();
+    WriteCheckALU((whichChunkOf64 & 0x03) << 6, aluRamData.data, 64);
+    return false;
+  }
+
 #endif // COST
 } // End of CostPrivate namespace
 
