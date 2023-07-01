@@ -25,12 +25,12 @@
 # is necessarily <= 2^15. The hardware translates that to opcode 0xFE, where
 # we place the microcode to move the instruction register to R3.
 
-.opcode call 0xFE 1 .abs
-.slot NOOP ; # TODO - push R3 to @R2; phi1 R2 -= 2
-.slot NOOP ; # TODO - phi2 and store result in R2
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
+#.opcode call 0xFE 1 .abs
+#.slot NOOP ; # TODO - push R3 to @R2; phi1 R2 -= 2
+#.slot NOOP ; # TODO - phi2 and store result in R2
+#.slot FETCH ;
+#.slot DECODE ;
+#.endopcode
 
 # Absolute jump. The instruction register contains the target address, which
 # is necessarily <= 2^15. The hardware translates that to opcode 0xFF, where

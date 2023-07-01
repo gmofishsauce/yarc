@@ -16,63 +16,112 @@
 # boostrap code. Well, for now, it isn't really, it's just some garbage
 # that helps me test assembler features. But it will be the bootstrap.
 
-# The code below was written to explore whether add really works wth PC.
-# 2023-06-28
+.set RESULTS 0x7710
 
-X0:
-	add  r0, r1, r2
-	jmp  X0
+# This one tests that add operations produce the expected flag outputs
+# and tests (again) that we can save the flags in memory with strw.
+L4:
+	ldiw RESULTS, r2
 
-L0:
-	ldiw 0x0001, r0
-	ldiw 0x0002, r0
-	ldiw 0x0003, r0
-	ldiw 0x0004, r0
-	ldiw 0x0005, r0
-	ldiw 0x0006, r0
-L2: jmp L0
+	ldiw 2, r0		# first test value
+	ldiw 1, r1		# second test value
+	add	 r0, r1, r1 # set the flags (expect: nc nz nn nv == 0)
+	mvf	 r0			# move the flags to r0
+	strw r0, @r2	# store r0 in the results
+	ldiw 2, r1		# increment the result pointer
+	add  r1, r2, r2
 
-	ldiw 0x7710, r2 # 0
-	strw r3, @r2    # 4 - stores the value 6
-	ldiw 0x7712, r2 # 6
-	strw r3, @r2    # A - stores the value C
-	ldiw 0x7714, r2 # C - no evidence this executes...
-	strw r3, @r2
-	ldiw 0x7716, r2
-	strw r3, @r2
-	ldiw 0x7718, r2
-	strw r3, @r2
-	ldiw 0x771A, r2
-	strw r3, @r2
-	ldiw 0x771C, r2
-	strw r3, @r2
-	ldiw 0x771E, r2
-	strw r3, @r2
+	ldiw 0x7F, r0	# first test value = 127
+	ldiw 1, r1		# second test value
+	add	 r0, r1, r1 # set the flags (expect: nc nz n v == 0xC)
+	mvf	 r0			# move the flags to r0
+	strw r0, @r2	# store r0 in the results
+	ldiw 2, r1		# increment the result pointer
+	add  r1, r2, r2
+
+L4done:
+	jmp  L4done
+
+# This one tests that we can set bits in the flags with mvf
+L3:
+	ldiw RESULTS, r2
+	ldiw 2, r1
+
+	# move immedate value to flags and then move them to r0
+	mvif 0x00
+	mvf	 r0
+	strw r0, @r2
+	# increment the address by 2 because we don't have store byte yet
+	add  r2, r1, r2
+
+	mvif 0x01
+	mvf	 r0
+	strw r0, @r2
+	add  r2, r1, r2
+
+	mvif 0x02
+	mvf	 r0
+	strw r0, @r2
+	add  r2, r1, r2
+
+	mvif 0x04
+	mvf	 r0
+	strw r0, @r2
+	add  r2, r1, r2
+
+	mvif 0x08
+	mvf	 r0
+	strw r0, @r2
+	add  r2, r1, r2
+
+L3done:
+	jmp  L3done
+
+# June 30 - this gives the result described in the "should see" comments:
+# nano> rn 0xFF 0 0 0
+# nano> db 1
+# 0x7700: 7714 7716 7712 0014 00F0 1122 1122 1122 ? w ? w ? w ? ? ? ? " ? " ? " ?
+# 0x7710: 1122 0014 0010 0012 1122 1122 1122 1122 " ? ? ? ? ? ? ? " ? " ? " ? " ?
+
+L2:
+	ldiw 0x7710, r0                 # at 0 in memory
+	ldiw 2, r1                      # at 4 (ldiw takes 2 words = 4 bytes)
+	add  r0, r1, r2 # 0x7712 in r2  # at 8
+	add  r2, r1, r0 # 0x7714 in r0  # at 0xA in memory (add takes 1 word)
+	add  r0, r1, r1 # 0x7716 in r1  # at 0xC
+	strw r3, @r0    # first strw is at 0xE, so should see PC = 0x10 at 0x7714
+	strw r3, @r1    #                          should see PC = 0x12 at 0x7716
+	strw r3, @r2                    #          and should see 0x14 at 0x7712
+L2done:
+	jmp  L2done
+
+# June 30 - the following works correctly after microcode fix.
+# The increment of the PC in the load immediate was taking the
+# carry bit as input - it should not have been.
 L1:
+	ldiw 0x7710, r0 # at 0
+	ldiw 0x7712, r1 # 4
+	ldiw 0x7714, r2 # 8
+	strw r3, @r0    # at C - should store E
+	strw r3, @r1    # E - 10
+	strw r3, @r2    # 10 - 12
 	jmp  L1
 
-# The code below seemed to show a problem with add. 2023-0627.
-start:
-	ldiw 0, r0
-	ldiw 2, r1
-	ldiw 0x7710, r2
+# Jun 30 - the following appears to work correctly after ALU fix.
+# The ALU table content for the ADD instruction wasn't carrying
+# from the low nybble of the result to the high nybble.
+L0:
+	strw r3, @r0    # should store 2 at 0x7710 assuming run 0xFF 0x7710 0x7712 0x7714
+	strw r3, @r1    # 
+	strw r3, @r2    # 
+	strw r3, @r0    # should store 8 at 0x7712 assuming run 0xFF 0x7710 0x7712 0x7714
+	strw r3, @r1    # 
+	strw r3, @r2    # 
+	strw r3, @r0    # should store E at 0x7714 assuming run 0xFF 0x7710 0x7712 0x7714
+	strw r3, @r1    # 
+	strw r3, @r2    # 
+	strw r3, @r0    # should store 14 at 0x7710 assuming run 0xFF 0x7710 0x7712 0x7714
+	strw r3, @r1    # 
+	strw r3, @r2    # should store 18 at 0x7714
+	jmp  L0
 
-	strw r0, @r2
-loop:
-	add  r1, r0, r0
-	add  r1, r2, r2
-	jmp  loop
-	strw r0, @r2
-	add  r1, r0, r0
-	add  r1, r2, r2
-	strw r0, @r2
-	add  r1, r0, r0
-	add  r1, r2, r2
-	strw r0, @r2
-xx: jmp  xx
-
-notreached:
-	ldiw 2, r1
-	ldiw 0x40, r0
-	add  r1, r0, r0
-	strw r0, @r2

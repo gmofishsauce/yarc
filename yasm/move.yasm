@@ -31,16 +31,30 @@
 .slot DECODE ;
 .endopcode
 
-# MVF - move immediate to flags register
+# MVIF - move immediate to flags register
 # Only the low order 4 bits are relevant - they are V N Z C in bits 3:0.
 # There is no RCW - src1, src2, and dst are not used.
 
-.set K3_MVF K3_NONE
-.set K2_MVF "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=yes"
-.set K1_MVF "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
-.set K0_MVF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set K3_MVIF K3_NONE
+.set K2_MVIF "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=yes"
+.set K1_MVIF "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
+.set K0_MVIF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-.opcode mvf 0xA1 1 .immb
+.opcode mvif 0xA1 1 .immb
+.slot K3_MVIF K2_MVIF K1_MVIF K0_MVIF ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# MVF - move flags register to general register
+# RCW from instruction; only dst is significant
+
+.set K3_MVF K3_NONE # from IR
+.set K2_MVF K2_NONE
+.set K1_MVF "sysdata_src=bus_f reg_in_mux=from_bus dst_wr_en=yes"
+.set K0_MVF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+.opcode mvf 0xA7 3 .src1=3 .src2=7 .dst
 .slot K3_MVF K2_MVF K1_MVF K0_MVF ;
 .slot FETCH ;
 .slot DECODE ;
@@ -85,7 +99,7 @@
 .set K3_LDIW K3_NONE # RCW from instruction
 .set K2_LDIW "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
 .set K1_LDIW "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
-.set K0_LDIW "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set K0_LDIW "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
 .opcode ldiw 0xA6 4 .immw .dst .src1=r3 .src2=const_p2
 .slot K3_LDIW K2_LDIW K1_LDIW K0_LDIW ;
@@ -94,62 +108,3 @@
 .slot DECODE ;
 .endopcode
 
-# TEMPORARY OPERATIONS - WILL BE REPLACED
-
-# Store register to memory indirect. Memory address in src1. Register to write
-# is src2. Destination field not used (no write to a register). No ALU op.
-# RCW comes from IR. ACN is not used. Hex: 0xFF 0xFF 0x1F 0x2F
-#.set K3_STW "src1=r3 src2=const_n1 dst=cond_r3"
-#.set K2_STW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-#.set K1_STW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
-#.set K0_STW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
-#
-#.opcode stw 0xAC 3 .src1 .src2 .dst=7
-#.slot K3_STW K2_STW K1_STW K0_STW ;
-#.slot FETCH ;
-#.slot DECODE ;
-#.endopcode
-
-# Move immediate word to register: mviw rN, value
-#
-#.set MVIW_K3 "src1=r3 src2=const_p2 dst=r0"
-#.set MVIW_K2 "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-#.set MVIW_K1 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
-#.set MVIW_K0 "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
-#
-## Move @R3 to register R{0..3} determined by low order 2 bits of opcode (.rt)
-#.set MVIW_LD_TARGET "MVIW_K3 MVIW_K2 MVIW_K1 MVIW_K0"
-#
-#.opcode mviw 0xB0 2 .rt .immw
-#.slot MVIW_LD_TARGET dst=r0 ;   # move @r3, .rt (r0)
-#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-#.slot FETCH ;
-#.slot DECODE ;
-#.endopcode
-
-#.opcode __mviwr1 0xB1 2 .rt .immw
-#.slot MVIW_LD_TARGET dst=r1 ;   # move @r3, .rt (r1)
-#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-#.slot FETCH ;
-#.slot DECODE ;
-#.endopcode
-
-#.opcode __mviwr2 0xB2 2 .rt .immw
-#.slot MVIW_LD_TARGET dst=r2 ;   # move @r3, .rt (r2)
-#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-#.slot FETCH ;
-#.slot DECODE ;
-#.endopcode
-
-# This would jump to the location (@r3 + 2) which is stupid.
-# Instead, we make it a space-wasting, 4-cycle no-op.
-.opcode __mviwr3 0xB3 2 .rt .immw
-# .slot MVIW_LD_TARGET dst=r3 ;   # move @r3, .rt (r3)
-#.slot NO_FETCH ;         # increment PC phi1 but don't write IR
-#.slot NO_DECODE ;        # increment PC phi2 and write through to PC
-#.slot FETCH ;
-#.slot DECODE ;
-#.endopcode
