@@ -20,24 +20,31 @@
 
 # This one tests that add operations produce the expected flag outputs
 # and tests (again) that we can save the flags in memory with strw.
+# At 7710, should see: FFF5 FFFB FFF3 0000
+# These are: at 7710, the C and N flags; the sum of -2 and -3;
+#                     the C and Z flags; the sum of 1 and -1.
 L4:
 	ldiw RESULTS, r2
 
-	ldiw 2, r0		# first test value
-	ldiw 1, r1		# second test value
-	add	 r0, r1, r1 # set the flags (expect: nc nz nn nv == 0)
+	ldiw 0xFFFE, r0	# first test value
+	ldiw 0xFFFD, r1	# second test value
+	add	 r0, r1, r1 # set the flags (expect: 0xFFFB c nz n nv == 5)
 	mvf	 r0			# move the flags to r0
 	strw r0, @r2	# store r0 in the results
-	ldiw 2, r1		# increment the result pointer
-	add  r1, r2, r2
+	ldiw 2, r0		# increment the result pointer
+	add  r0, r2, r2
+	strw r1, @r2    # save the result value
+	add  r0, r2, r2 # again increment the results pointer
 
-	ldiw 0x7F, r0	# first test value = 127
+	ldiw 0xFFFF, r0	# first test value = -1
 	ldiw 1, r1		# second test value
-	add	 r0, r1, r1 # set the flags (expect: nc nz n v == 0xC)
+	add	 r0, r1, r1 # set the flags (expect: c z nn nv == 3)
 	mvf	 r0			# move the flags to r0
 	strw r0, @r2	# store r0 in the results
-	ldiw 2, r1		# increment the result pointer
-	add  r1, r2, r2
+	ldiw 2, r0		# increment the result pointer
+	add  r0, r2, r2
+	strw r1, @r2    # save the result value
+	add  r0, r2, r2 # and again increment the results pointer
 
 L4done:
 	jmp  L4done
