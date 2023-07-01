@@ -18,6 +18,18 @@
 
 .set RESULTS 0x7710
 
+# This test won't work after the microcode is complete. It tests a
+# partial implementation of the branch instruction that moves the
+# immediate byte to the ALU holding register with sign extension,
+# adds the holding register to r3, and writes the result to r0 for
+# observation.
+	nop3
+L5:
+	nop3
+	interim_br L5
+L5done:
+	jmp L5done
+
 # This one tests that add operations produce the expected flag outputs
 # and tests (again) that we can save the flags in memory with strw.
 # At 7710, should see: FFF5 FFFB FFF3 0000

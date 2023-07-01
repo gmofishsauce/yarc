@@ -14,3 +14,18 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 # Special instructions - the rest of the instructions. There are none yet.
+
+# Two cycle noop. We offer 2 and 3 cycle noops for code that wants to
+# count cycles.
+
+.opcode nop2 0xF8 0
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+.opcode nop3 0xF9 0
+.slot K3_NONE K2_NONE K1_NONE K0_NONE ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
