@@ -18,17 +18,78 @@
 
 .set RESULTS 0x7710
 
+L6:
+	ldiw 0x7710, r2
+	ldiw 0xFFFE, r1
+	ldiw 8, r0
+loop6:
+	strw r0, @r2
+	add  r1, r2, r2 # r2 -= 2
+	add  r1, r0, r0 # r0 -= 2
+	br   nz, loop6
+L6done:
+	ldiw 0x7740, r2 # "got here"
+	jmp L6done
+
 # This test won't work after the microcode is complete. It tests a
 # partial implementation of the branch instruction that moves the
 # immediate byte to the ALU holding register with sign extension,
 # adds the holding register to r3, and writes the result to r0 for
-# observation.
-	nop3
+# observation. So the code runs (ran) straight through to L5done.
 L5:
-	nop3
-	interim_br L5
+	ldiw RESULTS, r2
+	ldiw 2, r1
+
+	ldiw 0xCCCC, r0
+	mvif 0
+	br z, L5done # not zero => noop
+	strw r0, @r2 # should write CCCC
+	add r1, r2, r2
+
+	ldiw 0xBBBB, r0
+	mvif 2
+	br z, L5done # zero => overwrite r0
+	strw r0, @r2
+	add r1, r2, r2
+
+	ldiw 0xAAAA, r0
+	mvif 0
+	br c, L5done # not zero => noop
+	strw r0, @r2 # should write AAAA
+	add r1, r2, r2
+
+	ldiw 0x9999, r0
+	mvif 1
+	br c, L5done # zero => overwrite r0
+	strw r0, @r2
+	add r1, r2, r2
+
+	ldiw 0xCCCC, r0
+	mvif 0
+	br nz, L5done # not zero => write
+	strw r0, @r2 # should store addr
+	add r1, r2, r2
+
+	ldiw 0xBBBB, r0
+	mvif 2
+	br nz, L5done # zero => don't write
+	strw r0, @r2 # should store BBBB
+	add r1, r2, r2
+
+	ldiw 0xAAAA, r0
+	mvif 0
+	br nc, L5done # true, carry is not set
+	strw r0, @r2 # should store addr
+	add r1, r2, r2
+
+	ldiw 0x9999, r0
+	mvif 1
+	br nc, L5done # carry is set - no write
+	strw r0, @r2  # should store 9999
+	add r1, r2, r2
+
 L5done:
-	jmp L5done
+	jmp  L5done
 
 # This one tests that add operations produce the expected flag outputs
 # and tests (again) that we can save the flags in memory with strw.
