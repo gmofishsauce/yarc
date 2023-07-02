@@ -324,9 +324,9 @@ func createRtFixupAction(loc int, ref *symbol, t *token) *fixup {
 }
 
 // Return a fixup entry for a .acn (alu condition nybble)
-//func createAcnFixupAction(loc int, ref *symbol, t *token) *fixup {
-//	return newFixup(".acn", loc, fixupAcn, ref, t)
-//}
+func createAcnFixupAction(loc int, ref *symbol, t *token) *fixup {
+	return newFixup(".acn", loc, fixupAcn, ref, t)
+}
 
 // Return a fixup entry for the src1 field of the RCW
 func createSrc1FixupAction(loc int, ref *symbol, t *token) *fixup {
@@ -359,7 +359,7 @@ var builtinRel *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
 var builtinImmb *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
 var builtinImmw *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
 var builtinRt *symbol = newSymbol(".rt", createRtFixupAction, actionFixup)
-// var builtinAcn *symbol = newSymbol(".acn", createAcnFixupAction, actionFixup)
+var builtinAcn *symbol = newSymbol(".acn", createAcnFixupAction, actionFixup)
 var builtinSrc1 *symbol = newSymbol(".src1", createSrc1FixupAction, actionFixup)
 var builtinSrc2 *symbol = newSymbol(".src2", createSrc2FixupAction, actionFixup)
 var builtinDst *symbol = newSymbol(".dst", createDstFixupAction, actionFixup)
@@ -377,7 +377,7 @@ func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinImmb.name()] = builtinImmb
 	gs.symbols[builtinImmw.name()] = builtinImmw
 	gs.symbols[builtinRt.name()] = builtinRt
-// 	gs.symbols[builtinAcn.name()] = builtinAcn
+ 	gs.symbols[builtinAcn.name()] = builtinAcn
 	gs.symbols[builtinSrc1.name()] = builtinSrc1
 	gs.symbols[builtinSrc2.name()] = builtinSrc2
 	gs.symbols[builtinDst.name()] = builtinDst
