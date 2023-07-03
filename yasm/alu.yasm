@@ -38,30 +38,28 @@
 .endopcode
 
 .dup sub  0x81 add
-# .dup rsub 0x82 add
 
 .set ALU_PHI1_K0_WITH_CARRY "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
 
 # add with carry
-.opcode adc 0x83 3 .src1 .src2 .dst
+.opcode adc 0x82 3 .src1 .src2 .dst
 .slot "K3_NONE ALU_PHI1_K2 K1_NONE ALU_PHI1_K0_WITH_CARRY" ;
 .slot "K3_NONE ALU_PHI2_K2 ALU_PHI2_K1 ALU_PHI2_K0" ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# .dup sbb  0x84 adc # subtract with carry (borrow)
-# .dup rsbb 0x85 adc # reverse subtract with carry (borrow)
+.dup sbb 0x84 adc # reverse subtract with carry (borrow)
 
-# .dup nand 0x86 add
-# .dup or   0x87 add
-# .dup xor  0x88 add
-# .dup not  0x89 add
-# .dup neg  0x8A add
+.dup nand 0x86 add
+.dup or   0x87 add
+.dup xor  0x88 add
+.dup not  0x89 add
+.dup neg  0x8A add
 
 # rotate instruction - we need the carry input, which we either use or not,
 # depending on the src2 argument. See the instruction set document for more.
 
 # .dup rot  0x8B adc # rotate "with carry" (which is either regarded or not)
 
-# ALU operatons 0x0C, 0x0D, 0x0E, and 0x0F not (yet) defined.
+# ALU operatons 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, and 0x0F not (yet) defined.

@@ -41,49 +41,49 @@ L5:
 	ldiw 2, r1
 
 	ldiw 0xCCCC, r0
-	mvif 0
+	ldif 0
 	br z, L5done # not zero => noop
 	strw r0, @r2 # should write CCCC
 	add r1, r2, r2
 
 	ldiw 0xBBBB, r0
-	mvif 2
+	ldif 2
 	br z, L5done # zero => overwrite r0
 	strw r0, @r2
 	add r1, r2, r2
 
 	ldiw 0xAAAA, r0
-	mvif 0
+	ldif 0
 	br c, L5done # not zero => noop
 	strw r0, @r2 # should write AAAA
 	add r1, r2, r2
 
 	ldiw 0x9999, r0
-	mvif 1
+	ldif 1
 	br c, L5done # zero => overwrite r0
 	strw r0, @r2
 	add r1, r2, r2
 
 	ldiw 0xCCCC, r0
-	mvif 0
+	ldif 0
 	br nz, L5done # not zero => write
 	strw r0, @r2 # should store addr
 	add r1, r2, r2
 
 	ldiw 0xBBBB, r0
-	mvif 2
+	ldif 2
 	br nz, L5done # zero => don't write
 	strw r0, @r2 # should store BBBB
 	add r1, r2, r2
 
 	ldiw 0xAAAA, r0
-	mvif 0
+	ldif 0
 	br nc, L5done # true, carry is not set
 	strw r0, @r2 # should store addr
 	add r1, r2, r2
 
 	ldiw 0x9999, r0
-	mvif 1
+	ldif 1
 	br nc, L5done # carry is set - no write
 	strw r0, @r2  # should store 9999
 	add r1, r2, r2
@@ -128,28 +128,28 @@ L3:
 	ldiw 2, r1
 
 	# move immedate value to flags and then move them to r0
-	mvif 0x00
+	ldif 0x00
 	mvf	 r0
 	strw r0, @r2
 	# increment the address by 2 because we don't have store byte yet
 	add  r2, r1, r2
 
-	mvif 0x01
+	ldif 0x01
 	mvf	 r0
 	strw r0, @r2
 	add  r2, r1, r2
 
-	mvif 0x02
+	ldif 0x02
 	mvf	 r0
 	strw r0, @r2
 	add  r2, r1, r2
 
-	mvif 0x04
+	ldif 0x04
 	mvf	 r0
 	strw r0, @r2
 	add  r2, r1, r2
 
-	mvif 0x08
+	ldif 0x08
 	mvf	 r0
 	strw r0, @r2
 	add  r2, r1, r2

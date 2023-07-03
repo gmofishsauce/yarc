@@ -31,65 +31,39 @@
 .slot DECODE ;
 .endopcode
 
-# MVIF - move immediate to flags register
-# Only the low order 4 bits are relevant - they are V N Z C in bits 3:0.
-# There is no RCW - src1, src2, and dst are not used.
-
-.set K3_MVIF K3_NONE
-.set K2_MVIF "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=yes"
-.set K1_MVIF "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
-.set K0_MVIF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
-
-.opcode mvif 0xA1 1 .immb
-.slot K3_MVIF K2_MVIF K1_MVIF K0_MVIF ;
-.slot FETCH ;
-.slot DECODE ;
-.endopcode
-
 # MVF - move flags register to general register
 # RCW from instruction; only dst is significant
+# Only the low order 4 bits of F are implemented;
+# the high order bits are undriven and generally
+# read as 1.
 
 .set K3_MVF K3_NONE # from IR
 .set K2_MVF K2_NONE
 .set K1_MVF "sysdata_src=bus_f reg_in_mux=from_bus dst_wr_en=yes"
 .set K0_MVF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-.opcode mvf 0xA7 3 .src1=3 .src2=7 .dst
+# The destination value of the RCW selects the target register.
+# The other fields in the RCW are hardwired to don't cares.
+.opcode mvf 0xA1 3 .src1=3 .src2=7 .dst
 .slot K3_MVF K2_MVF K1_MVF K0_MVF ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
 
-# LDRW - load memory word
-# RCW from instruction
-# .opcode ldrw 0xA2 3 .src1 .src2=7 .dst
-# === TODO ===
-# .endopcode
+# LDIF - load immediate byte (really nybble) to flags register 3:0
+# Only the low order 4 bits are relevant - they are V N Z C in bits 3:0.
+# There is no RCW - src1, src2, and dst are not used.
 
-# LDRB - load memory byte
-# RCW from instruction
-# .opcode ldrb 0xA3 3 .src1 .src2=7 .dst
-# === TODO ===
-# .endopcode
+.set K3_LDIF K3_NONE # no RCW in this instruction
+.set K2_LDIF "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=yes"
+.set K1_LDIF "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
+.set K0_LDIF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-# STRW - store register to memory word (register indirect)
-# RCW from instruction
-.set K3_STRW K3_NONE
-.set K2_STRW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_STRW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
-.set K0_STRW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
-
-.opcode strw 0xA4 3 .src2 .src1 .dst=7
-.slot K3_STRW K2_STRW K1_STRW K0_STRW ;
+.opcode ldif 0xA2 1 .immb
+.slot K3_LDIF K2_LDIF K1_LDIF K0_LDIF ;
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
-
-# STRB - store low byte of register in memory byte (register indirect)
-# RCW from instruction
-# .opcode strb 0xA5 3 .src1 .src2 .dst=7
-# === TODO ===
-# .endopcode
 
 # LDIW - load immediate word to register
 # RCW from instruction (dst field)
@@ -101,10 +75,51 @@
 .set K1_LDIW "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
 .set K0_LDIW "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-.opcode ldiw 0xA6 4 .immw .dst .src1=r3 .src2=const_p2
-.slot K3_LDIW K2_LDIW K1_LDIW K0_LDIW ;
+.opcode ldiw 0xA3 4 .immw .dst .src1=r3 .src2=const_p2
+.slot K3_LDIW K2_LDIW K1_LDIW K0_LDIW ; # do the move and also alu cycle 1
 .slot NO_DECODE ; # second cycle of PC += 2
 .slot FETCH ;
 .slot DECODE ;
 .endopcode
+
+# LDRW - load memory word
+# RCW from instruction
+# .opcode ldrw 0xA4 4 .src1 .src2=7 .dst
+# === TODO ===
+# .endopcode
+
+# LDRB - load memory byte
+# RCW from instruction
+# .opcode ldrb 0xA5 3 .src1 .src2=7 .dst
+# === TODO ===
+# .endopcode
+
+# STRW - store register to memory word (register indirect)
+# RCW from instruction
+.set K3_STRW K3_NONE
+.set K2_STRW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K1_STRW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
+.set K0_STRW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+.opcode strw 0xA6 3 .src2 .src1 .dst=7
+.slot K3_STRW K2_STRW K1_STRW K0_STRW ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# STRB - store low byte of register in memory byte (register indirect)
+# RCW from instruction
+# .opcode strb 0xA7 3 .src1 .src2 .dst=7
+# === TODO ===
+# .endopcode
+
+# TODO (0xA8 through 0xAB require the new ALU hold => address bus feature)
+# | 0xA8:RCW | LDDW   | immed16, dst | load direct register from @immed16 |
+# | 0xA9:RCW | LDOW   | immed16, @src, dst | load register from @(src + immed16) |
+# | 0xAA:RCW | STDW   | src, immed16 | store diret register to @immed16 |
+# | 0xAB:RCW | STOW   | immed16, src, @dst | store register to @(dst + immed16)  |
+# | 0xAC:IMM | LDIB   | immed8, r0   | load immediate sign extended byte to r0 |
+# | 0xAD:IMM | LDIB   | immed8, r1   | load immediate sign extended byte to r1 |
+# | 0xAE:IMM | LDIB   | immed8, r2   | load immediate sign extended byte to r2 |
+# | 0xAF:IMM | LDIB   | immed8, r3   | load immediate sign extended byte to r3 |
 

@@ -53,8 +53,8 @@ immediate data value.
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
-| 0x0000 - 0x7FFE (even) | CALL | target | Call self-address |
-| 0x0001 - 0x7FFF (odd) | JUMP | target | Jump to self-address - 1 |
+| 0x0000 - 0x7FFE (even) | call | target | Call self-address |
+| 0x0001 - 0x7FFF (odd) | jmp | target | Jump to self-address - 1 |
 
 ### ALU operations
 
@@ -63,22 +63,22 @@ fields, each two or three bits.
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
-| 0x80:RCW | ADD | src1, src2, dst | src1 + src2 => dst, operand in LB |
-| 0x81:RCW | SUB | src1, src2, dst | src1 - src2 => dst, operands in LB |
-| 0x82:RCW | RSUB | src1, src2, dst | src2 - src1 => dst, operands in LB |
-| 0x83:RCW | ADC | src1, src2, dst |  src1 + src2 + C => dst, operands in LB |
-| 0x84:RCW | SBB | src1, src2, dst | src1 - src2 - c => dst, operands in LB |
-| 0x85:RCW | RSBB | src1, src2, dst | src2 - src1 - c => dst, operands in LB |
-| 0x86:RCW | NAND | src1, src2, dst | src1 & ~src2 => dst, operands in LB |
-| 0x87:RCW | OR | src1, src2, dst | src1 OR src2 => dst, operands in LB |
-| 0x88:RCW | XOR | src1, src2, dst | src1 XOR src2 => dst, operands in LB |
-| 0x89:RCW | NOT | ----, src2, dst | ~src2 => dst, operands in LB |
-| 0x8A:RCW | NEG | ----, src2, dst | -src2 => dst, operands in LB |
-| 0x8B:RCW | ROT | src1, src2, dst | rotate (see "Additional Information" below) |
+| 0x80:RCW | add | src1, src2, dst | src1 + src2 => dst, operand in LB |
+| 0x81:RCW | sub | src1, src2, dst | src1 - src2 => dst, operands in LB |
+| 0x82:RCW | adc | src1, src2, dst |  src1 + src2 + C => dst, operands in LB |
+| 0x83:RCW | sbb | src1, src2, dst | src1 - src2 - c => dst, operands in LB |
+| 0x84:RCW | bic | src1, src2, dst | src1 & ~src2 => dst, operands in LB ("bit clear") |
+| 0x85:RCW | bis | src1, src2, dst | src1 OR src2 => dst, operands in LB ("bit set") |
+| 0x86:RCW | xor | src1, src2, dst | src1 XOR src2 => dst, operands in LB |
+| 0x87:RCW | not | ----, src2, dst | ~src2 => dst, operands in LB |
+| 0x88:RCW | neg | ----, src2, dst | -src2 => dst, operands in LB |
+| 0x89:RCW | rot | src1, src2, dst | rotate (see "Additional Information" below) |
+| 0x8A:RCW | cmp | src1, src2, --- | compare src1, src2 (set flags based on subtract) |
+| 0x8B:RCW | TBD | src1, src2, dst | ALU operation 11 (TBD), operands in LB |
 | 0x8C:RCW | TBD | src1, src2, dst | ALU operation 12 (TBD), operands in LB |
 | 0x8D:RCW | TBD | src1, src2, dst | ALU operation 13 (TBD), operands in LB |
 | 0x8E:RCW | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
-| 0x8F:RCW | PASS | src1, src2, dst | src2 => dst |
+| 0x8F:RCW | pass | src1, src2, dst | src2 => dst |
 
 The low byte (LB) of the instruction is interpreted from most significant
 to least significant as a 2-bit _source1_ field in the two MS bits, a 3-bit
@@ -99,57 +99,76 @@ destination field selects either a write to one of the four general register
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
-| 0x9**F**:**OFF** | BR       | flags, offset | Branch on flag condition **F** to offset **OFF**  |
+| 0x9**F**:**OFF** | br       | flags, offset | Branch on flag condition **F** to offset **OFF**  |
 
 The hardware performs a conditional write to the PC enabled by one of 16
 conditions selected by "F", the low-order 4 bits of the upper half of IR.
 The lower byte LB contains the branch offset in 16-bit instruction words
 from -64 through 63.
 
-The assignment of flags to the opcodes 0x9F, F in 0..15 (0xF):
-
-| Value of "F" | Interpretation ("Branch if...") |
-| :----------- | :------------- |
-| 0x0          | Carry set |
-| 0x1          | Zero set |
-| 0x2          | Negative |
-| 0x3          | Signed overflow |
-| 0x4          | True (always taken) |
-| 0x5          | Carry or Zero (unsigned "not above"/"below or equal") |
-| 0x6          | Sign and overflow differ (signed "less"/"not greater or equal")
-| 0x7          | Sign and overflow differ and zero is set (signed "less or equal"/"not greater")
-| 0x8          | Not carry |
-| 0x9          | Not zero |
-| 0xA          | Signed positive or zero (not negative) |
-| 0xB          | No signed overflow |
-| 0xC          | False (never taken) |
-| 0xD          | Not carry and not zero (unsigned "above") |
-| 0xE          | Sign and overflow match (signed greater or equal) |
-| 0xF          | Sign and overflow match or zero is clear (signed greater than) |
+| Value of "F" | Name   | Interpretation ("Branch if...") |
+| :----------- | :---   | :------------- |
+| 0x0          | c      | carry set |
+| 0x1          | z      | zero set (after a subtract or cmp, operands were equal) |
+| 0x2          | n      | negative |
+| 0x3          | v      | signed overflow |
+| 0x4          | always | true (always taken) |
+| 0x5          | ule    | carry or zero (unsigned "not above"/"below or equal") |
+| 0x6          | slt    | sign and overflow differ (signed "less"/"not greater or equal")
+| 0x7          | sle    | sign and overflow differ and zero is set (signed "less or equal"/"not greater")
+| 0x8          | nc     | not carry |
+| 0x9          | nz     | not zero |
+| 0xA          | nn     | signed positive or zero (not negative) |
+| 0xB          | nv     | no signed overflow |
+| 0xC          | never  | false (never taken) |
+| 0xD          | ugt    | not carry and not zero (unsigned "above") |
+| 0xE          | sge    | sign and overflow match (signed greater or equal) |
+| 0xF          | sgt    | sign and overflow match or zero is clear (signed greater than) |
 
 ### Move instructions
 
+The base acronym MV is used only for register to register moves. Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Increment and decrement instructions are grouped here because they follow a pattern similar to loads and stores. Byte immediate values (except for move immediate to flags register) are not because their implementation is significantly different.
+
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
-| 0xA0:RCW | MVR    | src, dst     | register to register move |
-| 0xA1:IMM | MVF    | immed4       | move bits 3:0 to flags VNZC |
-| 0xA2:RCW | LDRW   | @src, dst    | load register from memory word |
-| 0xA3:RCW | LDRB   | @src, dst    | load register from sign extended memory byte |
-| 0xA4:RCW | STRW   | src, @dst    | store register to memory word |
-| 0xA5:RCW | STRB   | src, @dst    | store register to memory byte |
-| 0xA6:RCW | LDIW   | immed16, dst | move immediate word to register |
-| 0xA7:TBD | TBD    | TBD          | TBD |
-| 0xA8:RCW | LDDW   | immed16, dst | load register from @immed16 (load direct) |
-| 0xA9:RCW | LDOW   | immed16, @src, dst | load register from @(src + immed16) |
-| 0xAA:RCW | STDW   | src, immed16 | store register to @immed16 (store direct) |
-| 0xAB:RCW | STOW   | immed16, src, @dst | store register to @(dst + immed16)  |
-| 0xAC:TBD - 0xAF:TBD | TBD  | TBD   | TBD |
+| 0xA0:RCW | mvr    | src, dst     | register to register move |
+| 0xA1:RCW | mvf    | dst          | move flags to general register |
+| 0xA2:IMM | ldif   | immed8       | load immediate bits 3:0 to flags VNZC |
+| 0xA3:RCW | ldiw   | immed16, dst | load immediate word to register |
+| 0xA4:RCW | ldrw   | @src, dst    | load register from memory word |
+| 0xA5:RCW | ldrb   | @src, dst    | load register from sign-extended memory byte |
+| 0xA6:RCW | strw   | src, @dst    | store register to memory word |
+| 0xA7:RCW | strb   | src, @dst    | store register low byte to memory byte |
+| 0xA8:RCW | lddw   | immed16, dst | load direct register from @immed16 |
+| 0xA9:RCW | ldow   | immed16, @src, dst | load register from @(src + immed16) |
+| 0xAA:RCW | stdw   | src, immed16 | store direct register to @immed16 |
+| 0xAB:RCW | stow   | immed16, src, @dst | store register to @(dst + immed16)  |
+| 0xAC:RCW | incw   | dst          | increment dst register by 2 |
+| 0xAD:RCW | incb   | dst          | increment dst register by 1 |
+| 0xAE:RCW | decw   | dst          | decrement dst register by 2 |
+| 0xAF:RCW | decb   | dst          | decrement dst register by 1 |
 
-The opcodes from 0xA8 through 0xAB require the addition of a pending hardware feature.
+The opcodes from 0xA8 through 0xAB require the implementation of a pending hardware feature.
+
+### Small immediate operations
+
+These opcodes use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r2 and r3 generally don't make sense because they are the SP and the PC. Stack allocation at subroutine entry will be handled by special instruction to be defined when the wasm translator's needs are better understood.
+
+| Opcode | Mnemonic | Operands     | Notes |
+| :----- | :------: | :-------     | :---- |
+| 0xC0:IMM | ldib   | immed8, r0   | load immediate sign extended byte to r0 |
+| 0xC1:IMM | ldib   | immed8, r1   | load immediate sign extended byte to r1 |
+| 0xC2:IMM | addib  | immed8, r0   | add immediate sign extended byte to r0  |
+| 0xC3:IMM | addib  | immed8, r1   | add immediate sign extended byte to r1  |
+| 0xC4:IMM | bicib  | immed8, r0   | clear bits in low byte of r0 that are set in immed8 |
+| 0xC5:IMM | bicib  | immed8, r1   | clear bits in low byte of r1 that are set in immed8 |
+| 0xC6:IMM | bisib  | immed8, r0   | set bits in low byte of r0 that are set in immed8 |
+| 0xC7:IMM | bisib  | immed8, r1   | set bits in low byte of r1 that are set in immed8 |
+| 0xC8 - 0xCF | unassigned | TBD   | unassigned |
 
 ### Unassigned opcode block
 
-Opcodes from 0xB000 through 0xEF00 are unassigned. The opcodes 0xB000 through 0xBF00 might be implemented as byte immediate loads and stores similar to LDDW, LDOW, STDW, STOW. Byte immediates take the RCW as the immediate value and as a result require a lot of opcode space.
+Opcodes from 0xC000 through 0xEF00 are unassigned.
 
 ### Special instructions
 
@@ -157,16 +176,16 @@ Interrupt instructions are reserved,  but interrupts are not implemented.
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
-| 0xF000 | PUSHF    |              | Push flags|
-| 0xF100 | POPF     |              | Pop flags |
-| 0xF200 | RET      |              | Return |
-| 0xF300 | RTI      |              | Return from interrupt |
-| 0xF400 | EI       |              | Enable interrupts |
-| 0xF500 | DI       |              | Disable interrupts |
-| 0xF6NN | INT      | NN - value   | R0 := value; interrupt |
-| 0xF700 | TBD      | unknown      | unassigned |
-| 0xF800 | TBD      |              |       |
-| 0xF900 | TBD      |              |       |
+| 0xF000 | pushf    |              | Push flags|
+| 0xF100 | popf     |              | Pop flags |
+| 0xF200 | ret      |              | Return |
+| 0xF300 | rti      |              | Return from interrupt |
+| 0xF400 | ei       |              | Enable interrupts |
+| 0xF500 | di       |              | Disable interrupts |
+| 0xF6NN | int      | NN - value   | R0 := value; interrupt |
+| 0xF700 | TBD      | TBD          | unassigned |
+| 0xF800 | nop2     | none         | no operation, 2 machine cycles |
+| 0xF900 | nop3     | none         | no operation, 3 machine cycles |
 | 0xFA00 | TBD      |              |       |
 | 0xFB00 | TBD      |              |       |
 | 0xFC00 | TBD      |              | Reserved for interrupt support |

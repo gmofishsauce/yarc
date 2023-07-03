@@ -19,7 +19,6 @@
 # holding register with byte sign extension. Add the r3 to the holding
 # register and conditionally write the result back to r3 based on the
 # value of flag selected by the ACN from the instruction register.
-# INTERIM IMPLEMENTATION - first see if we can unconditionally branch.
 
 # Microcode to move the instruction register to the ALU port 2 holding register
 # The high order bit of the src2 field needs to be set along with alu_ctl=alu_in
