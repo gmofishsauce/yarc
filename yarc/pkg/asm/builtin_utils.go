@@ -317,7 +317,7 @@ func fixupRel(gs *globalState, fx *fixup) error {
 	// token t and (memNext + 2) at the point of the instruction must
 	// fit in a signed byte. The value replaces the low byte of the
 	// instruction.
-	val, err := evaluateToken(gs, fx.t, 0, 30*1024-1)
+	val, err := evaluateToken(gs, fx.t, 0, END_MEM-2)
 	if err != nil {
 		return err
 	}
@@ -343,6 +343,9 @@ func fixupRel(gs *globalState, fx *fixup) error {
 func fixupImmb(gs *globalState, fx *fixup) error {
 	// immediate byte fixup: the value of the token t must fit in a
 	// byte. The value replaces the low byte of the instruction.
+	// Note that you can express a byte in either signed or unsigned
+	// fashion, so the following line is correct ... we accept from
+	// the minimum signed value to the maximum unsigned value.
 	val, err := evaluateToken(gs, fx.t, math.MinInt8, math.MaxUint8)
 	if err != nil {
 		return err
@@ -367,33 +370,40 @@ func fixupImmw(gs *globalState, fx *fixup) error {
 	return nil
 }
 
-// Fix up an rt (register target) by placing a general register
-// (in 0..3) in the low order 2 bits of the high byte of the opcode.
-// This is used for mvi reg, value (move immediate to register)
-func fixupRt(gs *globalState, fx *fixup) error {
-	val, err := evaluateToken(gs, fx.t, 0, 3)
+// Shared code for processing the similar .rs, .rt, and .acn directives
+// The lim argument should be the maximum value allowed, which in effect
+// establishes the size of the field that is modified.
+func fixupLSbits(gs *globalState, fx *fixup, lim int) error {
+	val, err := evaluateToken(gs, fx.t, 0, lim)
 	if err != nil {
 		return err
 	}
 	lsByteLocation := 1 + fx.location // high order byte
-	fmt.Printf("fixupRt: write value 0x%1X in low order 2 bits at location %d\n", val, lsByteLocation)
-	gs.mem[lsByteLocation] &^= 0x03
+	//fmt.Printf("fixupLSbits: write value 0x%1X in low order bits at location %d\n", val, lsByteLocation)
+	gs.mem[lsByteLocation] &^= byte(lim)
 	gs.mem[lsByteLocation] |= byte(val)
 	return nil
+}
+
+// Fix up a 1-bit register target by placing a general register (in
+// range 0..1) in the low order bit of the high byte of the opcode.
+// This is used for byte instructions that only apply to r0 or to r1.
+// This is .rs which is a pun on .rt (register target), see below.
+func fixupRs(gs *globalState, fx *fixup) error {
+	return fixupLSbits(gs, fx, 1)
+}
+
+// Fix up a .rt (register target) by placing a general register
+// (in 0..3) in the low order 2 bits of the high byte of the opcode.
+// This is used for mvi reg, value (move immediate to register)
+func fixupRt(gs *globalState, fx *fixup) error {
+	return fixupLSbits(gs, fx, 3)
 }
 
 // Lexing is complete. Fix up an acn (alu condition nybble), the
 // value 0..15 in the low order 4 bits of the instruction opcode.
 func fixupAcn(gs *globalState, fx *fixup) error {
-	val, err := evaluateToken(gs, fx.t, 0, 0xF)
-	if err != nil {
-		return err
-	}
-	msByteLocation := fx.location+1
-	//fmt.Printf("fixupAcn: write value 0x%1X in low order bits at location %d\n", val, msByteLocation)
-	gs.mem[msByteLocation] &^= 0x0F
-	gs.mem[msByteLocation] |= byte(val)
-	return nil
+	return fixupLSbits(gs, fx, 0xF)
 }
 
 func fixupSrc1(gs *globalState, fx *fixup) error {

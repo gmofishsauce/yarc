@@ -340,6 +340,12 @@ func createImmwFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".immw", loc, fixupImmw, ref, t)
 }
 
+// Return a fixup entry for a .rs (r0 or r1 in low bit of high opcode byte)
+func createRsFixupAction(loc int, ref *symbol, t *token) *fixup {
+	return newFixup(".rs", loc, fixupRs, ref, t)
+}
+
+// Return a fixup entry for a .rt (register in low 2 bits of high opcode byte)
 func createRtFixupAction(loc int, ref *symbol, t *token) *fixup {
 	return newFixup(".rt", loc, fixupRt, ref, t)
 }
@@ -380,6 +386,7 @@ var builtinAbs *symbol = newSymbol(".abs", createAbsFixupAction, actionFixup)
 var builtinRel *symbol = newSymbol(".rel", createRelFixupAction, actionFixup)
 var builtinImmb *symbol = newSymbol(".immb", createImmbFixupAction, actionFixup)
 var builtinImmw *symbol = newSymbol(".immw", createImmwFixupAction, actionFixup)
+var builtinRs *symbol = newSymbol(".rs", createRsFixupAction, actionFixup)
 var builtinRt *symbol = newSymbol(".rt", createRtFixupAction, actionFixup)
 var builtinAcn *symbol = newSymbol(".acn", createAcnFixupAction, actionFixup)
 var builtinSrc1 *symbol = newSymbol(".src1", createSrc1FixupAction, actionFixup)
@@ -395,10 +402,12 @@ func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinEndOpcode.name()] = builtinEndOpcode
 	gs.symbols[builtinSlot.name()] = builtinSlot
 	gs.symbols[builtinDup.name()] = builtinDup
+
 	gs.symbols[builtinAbs.name()] = builtinAbs
 	gs.symbols[builtinRel.name()] = builtinRel
 	gs.symbols[builtinImmb.name()] = builtinImmb
 	gs.symbols[builtinImmw.name()] = builtinImmw
+	gs.symbols[builtinRs.name()] = builtinRs
 	gs.symbols[builtinRt.name()] = builtinRt
  	gs.symbols[builtinAcn.name()] = builtinAcn
 	gs.symbols[builtinSrc1.name()] = builtinSrc1
