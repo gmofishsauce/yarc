@@ -28,6 +28,9 @@ import (
 func mustGetNewSymbol(gs *globalState) (*token, error) {
 	name := getToken(gs)
 	if name.kind() != tkSymbol {
+		if name.kind() == tkNewline {
+			return nil, fmt.Errorf("symbol expected on previous line")
+		}
 		return nil, fmt.Errorf("expected symbol, found \"%s\"", name)
 	}
 	if _, ok := gs.symbols[name.text()]; ok {
@@ -205,31 +208,6 @@ func doOpcode(gs *globalState, opName string) error {
 	return nil
 }
 
-// Pack the value of an operand into a field
-//func pack(gs *globalState, operandValue int64, target *byte, arg *token) error {
-//	fmt.Printf("pack(gs, operandValue %d, target 0x%02X, token %s\n", operandValue, *target, arg)
-//	sym := gs.symbols[arg.text()]
-//	var elements []int64
-//	var ok bool
-//	if elements, ok = sym.data().([]int64); !ok {
-//		return fmt.Errorf("%s: not a bitfield", arg.text())
-//	}
-//	if len(elements) != 3 {
-//		return fmt.Errorf("%s: not a bitfield", arg.text())
-//	}
-//	if elements[0] != 8 {
-//		return fmt.Errorf("%s: not in an 8-bit field", arg.text())
-//	}
-//	size := elements[1] - elements[2] + 1
-//	max := int64(math.Pow(2, float64(size))) - 1
-//	if operandValue < 0 || operandValue > max {
-//		return fmt.Errorf("%s: invalid value", arg.text())
-//	}
-//	fmt.Printf("pack(): field size %d max %d\n", size, max)
-//	*target |= byte((operandValue & max) << elements[2])
-//	return nil
-//}
-
 // A label use has been found. Check that the same label isn't
 // previously defined. Define it as the string value of the location.
 // Labels are not key symbols.
@@ -249,6 +227,7 @@ func makeLabel(gs *globalState, label string) error {
 // stack; the input reader has reached EOF at this point. So the token
 // t must have a value that can be obtained without expansion, which
 // makes sense since all the expansions were done during the lex pass.
+// Note: also used when setting the location during the lex pass.
 func evaluateToken(gs *globalState, t *token, min int, max int) (int, error) {
 	switch t.kind() {
 		case tkString: // TODO implement inline byte strings in memory
@@ -296,7 +275,7 @@ func fixupAbs(gs *globalState, fx *fixup) error {
 	// absolute jump or call fixup: the value of token t is the absolute
 	// address of the target. In YARC, target addresses are their own
 	// opcodes, so the value replaces the entire 16-bit opcode.
-	val, err := evaluateToken(gs, fx.t, 0, 30*1024-1) // END_MEM
+	val, err := evaluateToken(gs, fx.t, 0, END_MEM-2)
 	if err != nil {
 		return err
 	}

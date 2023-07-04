@@ -24,6 +24,8 @@ import (
 	"path"
 )
 
+const END_MEM = 30*1024
+
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
 func actionSet(gs *globalState) error {
 	name, err := mustGetNewSymbol(gs)
@@ -36,6 +38,25 @@ func actionSet(gs *globalState) error {
 	}
 	gs.symbols[name.text()] = newSymbol(name.text(), val.tokenText,
 		func(gs *globalState) error { return expand(gs, name.text()) })
+	return nil
+}
+
+// action func for the "." (location) builtin, ".=value". The value can be
+// a symbol, but the symbol must be defined before use. We don't even allow
+// white space around the equals sign. Get past it.
+func actionDot(gs *globalState) error {
+	mustBeEquals := getToken(gs)
+	if mustBeEquals.text() != "=" {
+		return fmt.Errorf("usage: .=value")
+	}
+	val, err := evaluateToken(gs, getToken(gs), 0, END_MEM-2)
+	if err != nil {
+		return err
+	}
+	if val & 1 != 0 {
+		return fmt.Errorf("absolute address: odd addresses not allowed: %d", val)
+	}
+	gs.memNext = val
 	return nil
 }
 
@@ -345,6 +366,7 @@ func createDstFixupAction(loc int, ref *symbol, t *token) *fixup {
 
 // Key symbols. Most, but not all, appear at the start of a line
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
+var builtinDot *symbol = newSymbol(".", nil, actionDot)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
 var builtinBitfield *symbol = newSymbol(".bitfield", nil, actionBitfield)
 var builtinOpcode *symbol = newSymbol(".opcode", nil, actionOpcode)
@@ -366,6 +388,7 @@ var builtinDst *symbol = newSymbol(".dst", createDstFixupAction, actionFixup)
 
 func registerBuiltins(gs *globalState) {
 	gs.symbols[builtinSet.name()] = builtinSet
+	gs.symbols[builtinDot.name()] = builtinDot
 	gs.symbols[builtinInclude.name()] = builtinInclude
 	gs.symbols[builtinBitfield.name()] = builtinBitfield
 	gs.symbols[builtinOpcode.name()] = builtinOpcode
