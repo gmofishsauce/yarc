@@ -17,6 +17,13 @@
 # that helps me test assembler features. But it will be the bootstrap.
 
 .set RESULTS 0x7710
+.set TEST_BASE 0x6000
+
+.=0
+
+	jmp TEST_BASE
+
+.=TEST_BASE
 
 L6:
 	ldiw 0x7710, r2
