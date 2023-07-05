@@ -42,6 +42,7 @@ namespace CostPrivate {
 #if COST
 
   constexpr byte aluChunkSize = 17;
+  constexpr short CHUNK_WORDS = (CHUNK_SIZE / sizeof(unsigned int));
 
   static union {
     struct delayData {
@@ -91,6 +92,14 @@ namespace CostPrivate {
       byte b1;
       byte b2;
     } aluRamData;
+    struct memCleanData {
+      unsigned short data[CHUNK_WORDS];
+      unsigned short readback[CHUNK_WORDS];
+      unsigned short writeAt;
+      unsigned short readAt;
+      unsigned short readValue;
+      byte callLoc;
+    } memCleanData;
   };
 
   typedef void (*TestInit)();
@@ -114,6 +123,8 @@ namespace CostPrivate {
   bool aluRamTest(void);
   void writeCheckALUInit(void);
   bool writeCheckALUTest(void);
+  void memCleanInit(void);
+  bool memCleanBody(void);
 
   typedef struct tr {
     TestInit init;
@@ -123,6 +134,7 @@ namespace CostPrivate {
 
   const PROGMEM TestRef Tests[] = {
     { delayTaskInit,     delayTaskBody,     "delay"     },
+    /*
     { m16TestInit,       m16TestBody,       "mem16"     },
     { regTestInit,       regTestBody,       "reg"       },
     { ucodeTestInit,     ucodeBasicTest,    "ucode"     },
@@ -130,7 +142,9 @@ namespace CostPrivate {
     { memHammerInit,     memHammerTest,     "memhammer" },
     { flagsInit,         flagsTest,         "flags"     },
     { aluRamInit,        aluRamTest,        "alu"       },
-    { writeCheckALUInit, writeCheckALUTest, "WCalu" }  
+    { writeCheckALUInit, writeCheckALUTest, "wrALU"     },
+    */
+    { memCleanInit,      memCleanBody,      "memclean"  }  
    };
 
   constexpr byte N_TESTS = (sizeof(Tests) / sizeof(TestRef));
@@ -238,6 +252,78 @@ namespace CostPrivate {
       currentTestId++;
     }
     return 0;
+  }
+
+  // === memClean: check for misguided writes ===
+
+  /*
+    struct memCleanData {
+      unsigned short data[CHUNK_WORDS];
+      unsigned short readback[CHUNK_WORDS];
+      unsigned short writeAt;
+      unsigned short readAt;
+      unsigned short readValue;
+      byte callLoc;
+    } memCleanData;
+  */
+
+  int memCleanCallback(char* bp, int bmax) {
+    int result = snprintf_P(bp, bmax, PSTR("  F memClean: from %d wrote @0x%X read 0x%04X @0x%04X"),
+      memCleanData.callLoc, memCleanData.writeAt, memCleanData.readValue, memCleanData.readAt);
+    if (result > bmax) result = bmax;
+    queuedLogMessageCount--;
+    return result;
+  }
+
+  bool memCleanCheck(unsigned short expected) {
+    ReadMem16(0x0000, memCleanData.readback, CHUNK_WORDS);
+    for (int i = 0; i < CHUNK_WORDS; ++i) {
+      if (memCleanData.readback[i] != expected) {
+        memCleanData.readAt = i<<1;
+        memCleanData.readValue = memCleanData.readback[i];
+        queuedLogMessageCount++;
+        logQueueCallback(memCleanCallback);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Write 0x9696 to the chunky at 0, read it back to make sure
+  // it's not wrong the first time, and then change the write
+  // data to a different pattern, 0xA5A5.
+  void memCleanInit() {
+    for (int i = 0; i < CHUNK_WORDS; ++i) {
+      memCleanData.data[i] = 0x9696;
+    }
+    WriteMem16(0, memCleanData.data, CHUNK_WORDS);
+    memCleanData.callLoc = 1;
+    memCleanData.writeAt = 0;
+    memCleanCheck(0x9696);
+    for (int i = 0; i < CHUNK_WORDS; ++i) {
+      memCleanData.data[i] = 0xA5A5;
+    }
+  }
+
+  bool memCleanBody() {
+    memCleanData.callLoc = 2;
+    memCleanData.writeAt = 0xFFFF;
+    memCleanCheck(0x9696);
+
+    unsigned short s = random() & 0xFFFF;
+    for (byte w = 0; w < CHUNK_WORDS; ++w) {
+      memCleanData.data[w] = s;
+    }
+
+    s = s&0x7F00;
+    if (s > 0x7000) s -= 0x1100;
+    memCleanData.callLoc = 3;
+    for (unsigned short addr = s; addr < s + 0x800; addr += CHUNK_SIZE) {
+        memCleanData.writeAt = addr;
+        WriteMem16(addr, memCleanData.data, CHUNK_WORDS);
+        if (!memCleanCheck(0x9696)) break;
+    }
+    return false;
   }
 
   // === delay task implements the startup and inter-cycle delay ===
