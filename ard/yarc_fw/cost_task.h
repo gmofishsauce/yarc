@@ -86,19 +86,21 @@ namespace CostPrivate {
     struct aluRamData {
       byte data[aluChunkSize];
       byte readback[aluChunkSize];
-      unsigned short address;
+      ushort address;
       byte ram;
       byte b0;
       byte b1;
       byte b2;
     } aluRamData;
     struct memCleanData {
-      unsigned short data[CHUNK_WORDS];
-      unsigned short readback[CHUNK_WORDS];
-      unsigned short writeAt;
-      unsigned short readAt;
-      unsigned short readValue;
+      ushort data[CHUNK_WORDS];
+      ushort readback[CHUNK_WORDS];
+      ushort writeAt;
+      ushort readAt;
+      ushort readValue;
+      ushort errorCount;
       byte callLoc;
+      byte state;
     } memCleanData;
   };
 
@@ -201,13 +203,12 @@ namespace CostPrivate {
 
   // The test executive
   int internalCostTask() {
-    constexpr int TIMEOUT_HOST_NOT_POLLING = 87; // check about 12 times a second
+    constexpr int TIMEOUT_HOST_NOT_POLLING = 43; // check about 24 times a second
     constexpr int TIMEOUT_NOT_RUNNING = 513; // check about twice a second
     
     // Wait for all previously queued log messages to be formatted and sent
     // to the host. See the block comment above ("General note about...")
     if (queuedLogMessageCount > 0) {
-      SetDisplay(0x38);
       return TIMEOUT_HOST_NOT_POLLING;
     }
     
@@ -216,7 +217,6 @@ namespace CostPrivate {
     }
 
     // COST tests are running
-    SetDisplay(0xC4);
 
     // Is a new test cycle starting? (Including first-time initialization)
     if (currentTestId >= N_TESTS) {
@@ -256,74 +256,116 @@ namespace CostPrivate {
 
   // === memClean: check for misguided writes ===
 
-  /*
-    struct memCleanData {
-      unsigned short data[CHUNK_WORDS];
-      unsigned short readback[CHUNK_WORDS];
-      unsigned short writeAt;
-      unsigned short readAt;
-      unsigned short readValue;
-      byte callLoc;
-    } memCleanData;
-  */
+  constexpr byte S_INIT = 1;          // initializing
+  constexpr byte S_RUN = 2;           // running, includes errors found
+  constexpr byte S_TOO_MANY = 0xFE;   // too many errors logged
+  constexpr byte S_INIT_FAIL = 0xFF;  // couldn't even initialize memory
 
   int memCleanCallback(char* bp, int bmax) {
-    int result = snprintf_P(bp, bmax, PSTR("  F memClean: from %d wrote @0x%X read 0x%04X @0x%04X"),
-      memCleanData.callLoc, memCleanData.writeAt, memCleanData.readValue, memCleanData.readAt);
+    int result = snprintf_P(bp, bmax, PSTR("  F memClean[%d %d]: wr 0x%04X @ 0x%04X rd 0x%04X @ 0x%04X"),
+                                            memCleanData.state, memCleanData.callLoc,
+                                            memCleanData.data[0], memCleanData.writeAt,
+                                            memCleanData.readValue, memCleanData.readAt);
     if (result > bmax) result = bmax;
     queuedLogMessageCount--;
     return result;
   }
 
-  bool memCleanCheck(unsigned short expected) {
-    ReadMem16(0x0000, memCleanData.readback, CHUNK_WORDS);
-    for (int i = 0; i < CHUNK_WORDS; ++i) {
-      if (memCleanData.readback[i] != expected) {
-        memCleanData.readAt = i<<1;
-        memCleanData.readValue = memCleanData.readback[i];
-        queuedLogMessageCount++;
-        logQueueCallback(memCleanCallback);
-        return false;
+  // An error has occurred, queue a print callback with the specifics.
+  void queueCallback(byte callLoc, ushort readAt, ushort readValue) {
+    memCleanData.errorCount++;
+    memCleanData.callLoc = callLoc;
+    memCleanData.readAt = readAt;
+    memCleanData.readValue = readValue;
+    queuedLogMessageCount++;
+    logQueueCallback(memCleanCallback);
+  }
+
+  // Check all of memory, allowing the exceptAddr to have a value that differs
+  // from the rest of memory. To check all of memory, pass END_MEM as the exceptAddr.
+  // The exceptAddr should be even.
+  bool memCheckAll(byte callLoc, ushort exceptAddr) {
+    if (exceptAddr > END_MEM) exceptAddr = END_MEM;
+
+    ushort expected = memCleanData.data[0];
+    ushort addr;
+    for (addr = 0; addr < END_MEM; addr += CHUNK_SIZE) {
+      ReadMem16(addr, memCleanData.readback, CHUNK_WORDS);
+      for (byte i = 0; i < CHUNK_WORDS; ++i) {
+        if (memCleanData.readback[i] != expected) {
+          if ((addr + (i<<1) == exceptAddr) && memCleanData.readback[i] == ~expected) {
+            // The one expected difference. I don't want to turn this test around...
+          } else {
+            queueCallback(callLoc, addr + (i<<1), memCleanData.readback[i]);
+            return false;
+          }
+        }
       }
     }
     return true;
   }
 
-  // Write 0x9696 to the chunky at 0, read it back to make sure
-  // it's not wrong the first time, and then change the write
-  // data to a different pattern, 0xA5A5.
+  // Set all of memory to the writeValue
   void memCleanInit() {
-    for (int i = 0; i < CHUNK_WORDS; ++i) {
-      memCleanData.data[i] = 0x9696;
+    memCleanData.state = S_INIT;
+    memCleanData.errorCount = 0;
+    ushort writeVal = random();
+    for (byte i = 0; i < CHUNK_WORDS; ++i) {
+      memCleanData.data[i] = writeVal;
     }
-    WriteMem16(0, memCleanData.data, CHUNK_WORDS);
-    memCleanData.callLoc = 1;
-    memCleanData.writeAt = 0;
-    memCleanCheck(0x9696);
-    for (int i = 0; i < CHUNK_WORDS; ++i) {
-      memCleanData.data[i] = 0xA5A5;
+    for (ushort addr = 0; addr < END_MEM; addr += CHUNK_SIZE) {
+      SetDisplay(addr >> 8);
+      WriteMem16(addr, memCleanData.data, CHUNK_WORDS);
     }
+    if (!memCheckAll(1, END_MEM)) {
+      // COST doesn't give a way for the init function
+      // to abort a test. So we reserve a state for it.
+      memCleanData.state = S_INIT_FAIL;
+      return;
+    }
+
+    memCleanData.state = S_RUN;
+    memCleanData.writeAt = 0xFFFE; // see comment below
+    SetDisplay(0);
   }
 
+  // Write one word to some location and then scan all of memory.
+  // When we return false, the test is over and memCleanInit() will
+  // be called next time, so we don't have to clear the state.
   bool memCleanBody() {
-    memCleanData.callLoc = 2;
-    memCleanData.writeAt = 0xFFFF;
-    memCleanCheck(0x9696);
-
-    unsigned short s = random() & 0xFFFF;
-    for (byte w = 0; w < CHUNK_WORDS; ++w) {
-      memCleanData.data[w] = s;
+    if (memCleanData.state != S_RUN) {
+      // Either we couldn't even initialize memory or we tried to print too
+      // many errors on a single mega-pass. The error details have already
+      // been printed. COST will start the task over in a second or two.
+      return false;
     }
 
-    s = s&0x7F00;
-    if (s > 0x7000) s -= 0x1100;
-    memCleanData.callLoc = 3;
-    for (unsigned short addr = s; addr < s + 0x800; addr += CHUNK_SIZE) {
-        memCleanData.writeAt = addr;
-        WriteMem16(addr, memCleanData.data, CHUNK_WORDS);
-        if (!memCleanCheck(0x9696)) break;
+    // We must not make changes to anything in memCleanData after we call
+    // memCheckAll() but before we return from this function. If we do,
+    // and memCheckAll() failed and queued a message, the printf will print
+    // the modified values.
+    memCleanData.writeAt += 2;
+    SetDisplay(memCleanData.writeAt>>8);
+    if (memCleanData.writeAt >= END_MEM) {
+      return false;
+    } 
+
+    // Change a word, check all of memory excepting the changed word,
+    // and then put the word back. After we call memCheckAll(), we
+    // cannot make changes to any member of memCleanData that may be printed.
+    ushort alt = ~memCleanData.data[0];
+    WriteMem16(memCleanData.writeAt, &alt, 1);
+    memCheckAll(2, memCleanData.writeAt);
+    WriteMem16(memCleanData.writeAt, memCleanData.data, 1);
+    memCheckAll(3, END_MEM); // END_MEM => no exceptions.
+
+    // If we've accumulated too many errors, end the test.
+    if (memCleanData.errorCount > 10) {
+      memCleanData.state = S_TOO_MANY;
+      return false;
     }
-    return false;
+
+    return true;
   }
 
   // === delay task implements the startup and inter-cycle delay ===
@@ -528,7 +570,7 @@ namespace CostPrivate {
     // all the registers using the YARC utility functions. It was written
     // much later than the rest of the code below it.
 
-    unsigned short regs[4];
+    ushort regs[4];
     for (int i = 0; i < 4; ++i) {
       regs[i] = random();
     }
@@ -781,14 +823,14 @@ namespace CostPrivate {
 
   bool memHammerTest() {
     constexpr short N = 16;
-    unsigned short writeData[N];
-    unsigned short readData[N];
+    ushort writeData[N];
+    ushort readData[N];
 
     mbData.AH = random(0x10, 0x78 - 0x11);
     mbData.AL = 2 * random(0, 0x70);
     mbData.DH = 0;
     mbData.DL = 0;
-    const unsigned short addr = BtoS(mbData.AH, mbData.AL);
+    const ushort addr = BtoS(mbData.AH, mbData.AL);
         
     // We use the misnamed "read data" for all the noise writes
     for (short i = 0, s = random(0, 0x8000); i < N; ++i, s += 137) {
@@ -797,7 +839,7 @@ namespace CostPrivate {
     }    
     WriteMem16(addr, writeData, N);
     for (short i = 1; i < 0x07; ++i) {
-      unsigned short a = addr + (i << 5);
+      ushort a = addr + (i << 5);
       WriteMem16(a, readData, N);
       a = addr - (i << 5);
       WriteMem16(a, readData, N);
@@ -818,7 +860,7 @@ namespace CostPrivate {
   // === flagTest verifies the condition code logic.
 
   int flagsCallback(char* bp, int bmax) {
-    unsigned short memvalues[2];
+    ushort memvalues[2];
     ReadMem16(SCRATCH_MEM, memvalues, 2);
     int result = snprintf_P(bp, bmax,
       PSTR("  F flagTest: (%d) flags 0x%02X cond 0x%02X SCRATCH 0x%04X 0x%04X"),
@@ -832,7 +874,7 @@ namespace CostPrivate {
     flagsData.location = 1; // i.e. do the first test in flagsTest()
     flagsData.flags = 0;
     flagsData.condition = 0;
-    unsigned short memval = 0x3C3C;
+    ushort memval = 0x3C3C;
     WriteMem16(SCRATCH_MEM, &memval, 1);
     WriteMem16(SCRATCH_MEM + 2, &memval, 1);
   }
@@ -905,7 +947,7 @@ namespace CostPrivate {
       b += 131;
     }
 
-    unsigned short addr = random(0, END_ALU_MEM - aluChunkSize);
+    ushort addr = random(0, END_ALU_MEM - aluChunkSize);
     WriteALU(addr, aluRamData.data, aluChunkSize);
 
     for (byte ram = 0; ram < 3; ++ram) {

@@ -40,6 +40,8 @@
 // put the task table in ROM (see task_runner.h). We make similar use
 // of PROGMEM for data tables in several of the task modules.
 
+typedef unsigned short ushort;
+
 #include "task_decls.h"
 #include "port_decls.h"
 #include "small_task_decls.h"
