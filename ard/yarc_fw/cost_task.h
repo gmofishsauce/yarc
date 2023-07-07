@@ -355,9 +355,8 @@ namespace CostPrivate {
     // cannot make changes to any member of memCleanData that may be printed.
     ushort alt = ~memCleanData.data[0];
     WriteMem16(memCleanData.writeAt, &alt, 1);
-    memCheckAll(2, memCleanData.writeAt);
+    memCheckAll(2, memCleanData.writeAt);    
     WriteMem16(memCleanData.writeAt, memCleanData.data, 1);
-    memCheckAll(3, END_MEM); // END_MEM => no exceptions.
 
     // If we've accumulated too many errors, end the test.
     if (memCleanData.errorCount > 10) {

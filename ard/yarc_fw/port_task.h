@@ -286,8 +286,22 @@ namespace PortPrivate {
     // Read and write the first byte of YARC RAM as the quickest
     // possible check for basic functionality. This is supposed
     // to work with the YARC still in the power on reset state.
-    unsigned short toWrite = 0xAA;
-    unsigned short toRead = 0x55;
+    byte b1 = random();
+    byte b2;
+    WriteMem8(0, &b1, 1);
+    ReadMem8(0, &b2, 1);
+    if (b1 != b2) {
+      panic(PANIC_POST, 1);
+    }
+    
+    WriteMem8(1, &b1, 1);
+    ReadMem8(1, &b2, 1);
+    if (b1 != b2) {
+      panic(PANIC_POST, 2);
+    }
+  
+    ushort toWrite = random();
+    ushort toRead;
     WriteMem16(0, &toWrite, 1);
     ReadMem16(0, &toRead, 1);
     if (toWrite != toRead) {
