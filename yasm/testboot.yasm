@@ -1,0 +1,98 @@
+# Copyright (c) 2023 Jeff Berkowitz (pdxjjb@gmail.com)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+# boostrap code. Well, for now, it isn't really, it's just some garbage
+# that helps me test assembler features. But it will be the bootstrap.
+
+.set REGSAVE 0x7000		# Avoid this area, as the Nano saves registers here.
+.set RESULTS 0x7710     # Put test results here ...
+.set LINEBUF 0x7740		# through here, where the eventual line buffer starts.
+.set TEST_BASE 0x400    # Leave 0x400 bytes for tests, for now.
+
+.=0
+
+	jmp TEST_BASE
+halt:					# there is no halt opcode
+	jmp halt
+
+# test failures come to fail_pos: or fail_neg:
+# everything loops at halt: waiting for Nano.
+# halt with result type in r2, details in r0.
+
+fail_pos:				# positive test failed
+	ldiw 0xBAD1, r2
+	jmp halt
+fail_neg:				# negative test failed
+	ldiw 0xBAD2, r2
+	jmp halt
+success:
+	ldiw 0xD00B, r2		# time for a doobie!
+	jmp halt
+
+.=TEST_BASE
+
+# Test the carry flag
+test_c:
+	ldif 0x01			# set c flag in flags
+	br	 c, c_pos_ok
+	ldiw 0x01, r0
+	jmp  fail_pos
+c_pos_ok:
+	br	 nc, c_neg_fail
+	jmp	 test_z
+c_neg_fail:
+	ldiw 0x02, r0
+	jmp	 fail_neg
+
+# Test the zero flag
+test_z:
+	ldif 0x02			# set z flag in flags
+	br	 z, z_pos_ok
+	ldiw 0x03, r0
+	jmp  fail_pos
+z_pos_ok:
+	br	 nz, z_neg_fail
+	jmp	 test_n
+z_neg_fail:
+	ldiw 0x04, r0
+	jmp	 fail_neg
+
+test_n:
+	ldif 0x04			# set n flag in flags
+	br	 n, n_pos_ok
+	ldiw 0x05, r0
+	jmp  fail_pos
+n_pos_ok:
+	br	 nn, n_neg_fail
+	jmp	 test_v
+n_neg_fail:
+	ldiw 0x06, r0
+	jmp	 fail_neg
+
+test_v:
+	ldif 0x08			# set v flag in flags
+	br	 v, v_pos_ok
+	ldiw 0x07, r0
+	jmp  fail_pos
+v_pos_ok:
+	br	 nv, v_neg_fail
+	jmp	 tests_done
+v_neg_fail:
+	ldiw 0x08, r0
+	jmp	 fail_neg
+
+tests_done:
+	# Successful completion
+	jmp success

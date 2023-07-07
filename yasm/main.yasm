@@ -21,6 +21,6 @@
 # instruction set definitions
 .include "inst.yasm"
 
-# bootstrap code
-.include "boot.yasm"
+# test and bootstrap code
+.include "testboot.yasm"
 
