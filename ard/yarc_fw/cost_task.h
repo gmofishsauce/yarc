@@ -136,7 +136,6 @@ namespace CostPrivate {
 
   const PROGMEM TestRef Tests[] = {
     { delayTaskInit,     delayTaskBody,     "delay"     },
-    /*
     { m16TestInit,       m16TestBody,       "mem16"     },
     { regTestInit,       regTestBody,       "reg"       },
     { ucodeTestInit,     ucodeBasicTest,    "ucode"     },
@@ -145,7 +144,6 @@ namespace CostPrivate {
     { flagsInit,         flagsTest,         "flags"     },
     { aluRamInit,        aluRamTest,        "alu"       },
     { writeCheckALUInit, writeCheckALUTest, "wrALU"     },
-    */
     { memCleanInit,      memCleanBody,      "memclean"  }  
    };
 
@@ -256,10 +254,10 @@ namespace CostPrivate {
 
   // === memClean: check for misguided writes ===
 
-  constexpr byte S_INIT = 1;          // initializing
-  constexpr byte S_RUN = 2;           // running, includes errors found
-  constexpr byte S_TOO_MANY = 0xFE;   // too many errors logged
-  constexpr byte S_INIT_FAIL = 0xFF;  // couldn't even initialize memory
+  constexpr byte S_INIT_0 = 1;
+  constexpr byte S_INIT_1 = 2;
+  constexpr byte S_RUN_0 = 3;
+  constexpr byte S_RUN_1 = 4;
 
   int memCleanCallback(char* bp, int bmax) {
     int result = snprintf_P(bp, bmax, PSTR("  F memClean[%d %d]: wr 0x%04X @ 0x%04X rd 0x%04X @ 0x%04X"),
@@ -305,66 +303,75 @@ namespace CostPrivate {
     return true;
   }
 
-  // Set all of memory to the writeValue
+  // In order to have a consistent state-based implementation that doesn't
+  // run for too long on any call, all the code is in the body function.
   void memCleanInit() {
-    memCleanData.state = S_INIT;
-    memCleanData.errorCount = 0;
-    ushort writeVal = random();
-    for (byte i = 0; i < CHUNK_WORDS; ++i) {
-      memCleanData.data[i] = writeVal;
-    }
-    for (ushort addr = 0; addr < END_MEM; addr += CHUNK_SIZE) {
-      SetDisplay(addr >> 8);
-      WriteMem16(addr, memCleanData.data, CHUNK_WORDS);
-    }
-    if (!memCheckAll(1, END_MEM)) {
-      // COST doesn't give a way for the init function
-      // to abort a test. So we reserve a state for it.
-      memCleanData.state = S_INIT_FAIL;
-      return;
-    }
-
-    memCleanData.state = S_RUN;
-    memCleanData.writeAt = 0xFFFE; // see comment below
-    SetDisplay(0);
+    memCleanData.state = S_INIT_0;
   }
 
   // Write one word to some location and then scan all of memory.
   // When we return false, the test is over and memCleanInit() will
-  // be called next time, so we don't have to clear the state.
+  // be called next time, so we don't have to clear any state. The
+  // states are arranged so that each state performs no more than
+  // one complete pass over memory, ensuring that we don't lock up
+  // here and terminate the serial session with the host. Any call
+  // to memCheckAll() is a complete pass over memory.
   bool memCleanBody() {
-    if (memCleanData.state != S_RUN) {
-      // Either we couldn't even initialize memory or we tried to print too
-      // many errors on a single mega-pass. The error details have already
-      // been printed. COST will start the task over in a second or two.
-      return false;
+    switch (memCleanData.state) {
+      case S_INIT_0: {
+        memCleanData.errorCount = 0;
+        memCleanData.writeAt = 0;
+        ushort writeVal = random();
+        for (byte i = 0; i < CHUNK_WORDS; ++i) {
+          memCleanData.data[i] = writeVal;
+        }
+        for (ushort addr = 0; addr < END_MEM; addr += CHUNK_SIZE) {
+          SetDisplay(addr >> 8);
+          WriteMem16(addr, memCleanData.data, CHUNK_WORDS);
+        }
+        memCleanData.state = S_INIT_1;
+        return true;
+      }
+      case S_INIT_1: {
+        // If we couldn't even initialize memory to a single value,
+        // don't proceed with the test.
+        if (!memCheckAll(1, END_MEM)) {
+          return false;
+        }
+        SetDisplay(0);
+        memCleanData.state = S_RUN_0;
+        return true;
+      }
+      case S_RUN_0: {
+        memCleanData.writeAt += (random() & 0xFFE);
+        if (memCleanData.writeAt >= END_MEM) {
+          return false;
+        }
+        // Change a word, check all of memory excepting the changed word,
+        // and then put the word back.
+        ushort alt = ~memCleanData.data[0];
+        WriteMem16(memCleanData.writeAt, &alt, 1);
+        memCheckAll(2, memCleanData.writeAt);    
+        WriteMem16(memCleanData.writeAt, memCleanData.data, 1);
+        memCleanData.state = S_RUN_1;
+        return true;
+      }
+      case S_RUN_1: {
+        if (memCleanData.errorCount > 10) {
+          return false;
+        }
+        if (stopping) {
+          return false;
+        }
+        SetDisplay(memCleanData.writeAt>>8);
+        memCleanData.state = S_RUN_0;
+        return true;
+      }
+      default:
+        panic(PANIC_ARGUMENT, 20);
     }
 
-    // We must not make changes to anything in memCleanData after we call
-    // memCheckAll() but before we return from this function. If we do,
-    // and memCheckAll() failed and queued a message, the printf will print
-    // the modified values.
-    memCleanData.writeAt += 2;
-    SetDisplay(memCleanData.writeAt>>8);
-    if (memCleanData.writeAt >= END_MEM) {
-      return false;
-    } 
-
-    // Change a word, check all of memory excepting the changed word,
-    // and then put the word back. After we call memCheckAll(), we
-    // cannot make changes to any member of memCleanData that may be printed.
-    ushort alt = ~memCleanData.data[0];
-    WriteMem16(memCleanData.writeAt, &alt, 1);
-    memCheckAll(2, memCleanData.writeAt);    
-    WriteMem16(memCleanData.writeAt, memCleanData.data, 1);
-
-    // If we've accumulated too many errors, end the test.
-    if (memCleanData.errorCount > 10) {
-      memCleanData.state = S_TOO_MANY;
-      return false;
-    }
-
-    return true;
+    return false;
   }
 
   // === delay task implements the startup and inter-cycle delay ===

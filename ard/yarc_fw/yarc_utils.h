@@ -92,7 +92,7 @@ void swizzleAddressToR1R0(unsigned short addr) {
 // in the ACR will change during a single call.
 void WriteCheckALU(unsigned short offset, byte *data, unsigned short n) {
   if ((offset&0x1FFC) != offset || n != 64) {
-    panic(PANIC_ARGUMENT, 10);
+    panic(PANIC_ARGUMENT, 9);
   }
 
   for (unsigned short addr = offset; addr < offset + n; ++addr, ++data) {
