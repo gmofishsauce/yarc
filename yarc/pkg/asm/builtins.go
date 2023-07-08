@@ -26,6 +26,33 @@ import (
 
 const END_MEM = 30*1024
 
+// action func for the .scope builtin. Open a (really "the") scope.
+func actionScope(gs *globalState) error {
+	scopeName, err := mustGetNewSymbol(gs)
+	if err != nil {
+		return err
+	}
+	if gs.inScope {
+		return fmt.Errorf("%s: invalid scope", scopeName.text())
+	}
+	gs.scope = append(gs.scope, scopeName.text())
+	gs.inScope = true
+	return nil
+}
+
+// action func for the .endscope builtin. Forget everything in scope.
+func actionEndscope(gs *globalState) error {
+	if !gs.inScope {
+		return fmt.Errorf(".endscope unexpected")
+	}
+	for _, s := range gs.scope {
+		delete(gs.symbols, s)
+	}
+	gs.scope = []string{}
+	gs.inScope = false
+	return nil
+}
+
 // action func for the .set builtin. Create a new symbol that is not a key symbol.
 func actionSet(gs *globalState) error {
 	name, err := mustGetNewSymbol(gs)
@@ -38,6 +65,9 @@ func actionSet(gs *globalState) error {
 	}
 	gs.symbols[name.text()] = newSymbol(name.text(), val.tokenText,
 		func(gs *globalState) error { return expand(gs, name.text()) })
+	if gs.inScope {
+		gs.scope = append(gs.scope, name.text())
+	}
 	return nil
 }
 
@@ -371,6 +401,8 @@ func createDstFixupAction(loc int, ref *symbol, t *token) *fixup {
 }
 
 // Key symbols. Most, but not all, appear at the start of a line
+var builtinScope *symbol = newSymbol(".scope", nil, actionScope)
+var builtinEndscope *symbol = newSymbol(".endscope", nil, actionEndscope)
 var builtinSet *symbol = newSymbol(".set", nil, actionSet)
 var builtinDot *symbol = newSymbol(".", nil, actionDot)
 var builtinInclude *symbol = newSymbol(".include", nil, actionInclude)
@@ -394,6 +426,8 @@ var builtinSrc2 *symbol = newSymbol(".src2", createSrc2FixupAction, actionFixup)
 var builtinDst *symbol = newSymbol(".dst", createDstFixupAction, actionFixup)
 
 func registerBuiltins(gs *globalState) {
+	gs.symbols[builtinScope.name()] = builtinScope
+	gs.symbols[builtinEndscope.name()] = builtinEndscope
 	gs.symbols[builtinSet.name()] = builtinSet
 	gs.symbols[builtinDot.name()] = builtinDot
 	gs.symbols[builtinInclude.name()] = builtinInclude

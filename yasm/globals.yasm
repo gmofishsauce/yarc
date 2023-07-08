@@ -1,0 +1,53 @@
+# Copyright (c) 2022 Jeff Berkowitz (pdxjjb@gmail.com)
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+# Global symbols for the assembly language (also used in the microcode).
+
+# general registers - these values make sense in src1, src2, or dst
+.set r0 0
+.set r1 1
+.set r2 2
+.set r3 3
+
+.set PC r3
+.set SP r2
+
+# Branch conditions (ACN values for use with .acn)
+.set c   0x00
+.set z   0x01
+.set n   0x02
+.set v   0x03
+.set always 0x04
+.set ule 0x05
+.set slt 0x06
+.set sle 0x07
+.set nc  0x08
+.set nz  0x09
+.set nn  0x0A
+.set nv  0x0B
+.set never 0x0C
+.set ugt 0x0D
+.set sge 0x0E
+.set sgt 0x0F
+
+# General register src2 constant registers. It's unfortunate
+# that these need to be global, but they are referenced in
+# the fixed values of fixups which are executed after the
+# microcode scope ends.
+.set const_p2 4   # 4 in src2 makes the value positive 2 (p2)
+.set const_p1 5   # 5 makes the value positive 1 (p1)
+.set const_n2 6   # 6 makes the value negative 2 (n2)
+.set const_n1 7   # 7 makes the value negative 1 (n1)
+

@@ -13,7 +13,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-# Architecture file for YARC
+# Architecture file for YARC. All symbols defined here are local to
+# the microcode. Global symbols that will be visible in the assembly
+# language should be defined in globals.yasm.
 
 # The "no op" value for all microcode fields is all 1s. We fill the
 # control store with 0xFF FF FF FF ... before writing any microcode.
@@ -27,16 +29,8 @@
 .set pass 1       # default - pass the carry or IR bit
 .set force_low 0  # non-default - force the bit to zero
 
-# general registers - these values make sense in src1, src2, or dst
-.set r0 0
-.set r1 1
-.set r2 2
-.set r3 3
-
-.set PC r3
-.set SP r2
-.set src1_none 3 # arbitrary value to use when acn is none
-.set src2_none 7 # arbitrary value to use when acn is none
+.set src1_none 3 # arbitrary value to use when src1 is not used
+.set src2_none 7 # arbitrary value to use when src2 is not used
 .set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
 # data bus drivers for memory writes
@@ -48,12 +42,6 @@
 .set bus_tbd_5 5        # unused
 .set bus_tbd_6 6        # unused
 .set bus_none  7        # "none"
-
-# General register src2 constant registers
-.set const_p2 4   # 4 in src2 makes the value positive 2 (p2)
-.set const_p1 5   # 5 makes the value positive 1 (p1)
-.set const_n2 6   # 6 makes the value negative 2 (n2)
-.set const_n1 7   # 7 makes the value negative 1 (n1)
 
 # General register conditional writes. These
 # are primarily targeted as enabling branches
@@ -106,24 +94,6 @@
 # Similarly for the ALU Condition Nybble (ACN)
 .set acn_from_uc 1
 .set acn_from_ir 0
-
-# Branch conditions (ACN values for use with .acn)
-.set c   0x00
-.set z   0x01
-.set n   0x02
-.set v   0x03
-.set always 0x04
-.set ule 0x05
-.set slt 0x06
-.set sle 0x07
-.set nc  0x08
-.set nz  0x09
-.set nn  0x0A
-.set nv  0x0B
-.set never 0x0C
-.set ugt 0x0D
-.set sge 0x0E
-.set sgt 0x0F
 
 # Microcode words, 32 bits
 # K3: register control word 31:24

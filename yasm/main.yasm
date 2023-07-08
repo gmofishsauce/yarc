@@ -15,12 +15,22 @@
 
 # main file for yarc instruction set and bootstrap
 
+# global symbols defined always and everywhere
+.include "globals.yasm"
+
+# Ensure that symbols defined specifically for use in the microcode
+# don't pollute the symbol namespace for the assembly language.
+.scope microcode
+
 # hardware definitions
 .include "arch.yasm"
 
 # instruction set definitions
 .include "inst.yasm"
 
+.endscope
+
+# Assembly language
 # test and bootstrap code
 .include "testboot.yasm"
 

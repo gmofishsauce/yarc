@@ -289,6 +289,8 @@ type globalState struct {
 	opcodeValue byte
 	symbols     symbolTable
 	fixups      fixupTable
+	inScope     bool
+	scope       []string
 	mem         []byte // memory, 0x0000 .. 0x77FF
 	memNext     int
 	wcs         []uint32 // writeable control store, 0x0000 .. 0x1FFF
@@ -314,6 +316,7 @@ func newGlobalState(reader io.ByteReader, mainSourceFile string) *globalState {
 	gs.reader = new(stackingNameLineByteReader)
 	gs.fixups = []*fixup{}
 	gs.symbols = make(symbolTable)
+	gs.scope = []string{}
 	gs.reader.push(newNameLineByteReader(mainSourceFile, reader))
 	registerBuiltins(gs)
 	return gs
