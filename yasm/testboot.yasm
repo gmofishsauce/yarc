@@ -23,7 +23,19 @@
 
 .=0
 
-	jmp TEST_BASE
+	ldiw REGSAVE, SP	# stack is predecrement / postincrement
+	ldiw 0xBAD3, r0
+	call subr
+	jmp halt
+
+subr:
+	ldiw 0xD00D, r0		# Dood!
+	ret
+	ldiw 0xBAD4, r0
+	jmp halt			# in case ret doesn't
+
+#	jmp TEST_BASE
+
 halt:					# there is no halt opcode
 	jmp halt
 

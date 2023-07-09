@@ -78,7 +78,7 @@
 # register, Bit 0 selected between the 0xFE microcode and the 0xFF microcode.
 # For the move to r3, we unconditionally force it low with the magic microcode
 # bit "ir0_en" in K0 in order to keep the address even. The microcode to push
-# the address for calls is next.
+# the address for call instructions follows this.
 .set K3_ABS "src1=r3 src2=const_n1 dst=r3"
 .set K2_ABS "K2_NONE"
 .set K1_ABS "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=yes"
@@ -89,25 +89,25 @@
 # place the microcode to push the PC, decrement the stack pointer, and move the
 # instruction register to R3.
 
-# TODO - phi1 r2 -= 2
-.set K3_PHI1_DECSP "src1=r3 src2=const_n1 dst=cond_r3"
-.set K2_PHI1_DECSP "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+# phi1 r2 -= 2
+.set K3_PHI1_DECSP "src1=r2 src2=const_n2 dst=cond_r3"
+.set K2_PHI1_DECSP "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
 .set K1_PHI1_DECSP "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
-.set K0_PHI1_DECSP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set K0_PHI1_DECSP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-# TODO - phi2 r2 -= 2 and store in r2
-.set K3_PHI2_DECSP "src1=r3 src2=const_n1 dst=cond_r3"
-.set K2_PHI2_DECSP "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_PHI2_DECSP "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
+# phi2 r2 -= 2 and store in r2
+.set K3_PHI2_DECSP "src1=r3 src2=const_n1 dst=r2"
+.set K2_PHI2_DECSP "acn=alu_add alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=no"
+.set K1_PHI2_DECSP "sysdata_src=bus_none reg_in_mux=from_alu dst_wr_en=yes"
 .set K0_PHI2_DECSP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-# TODO - store r3 @r2
-.set K3_STR3 "src1=r3 src2=const_n1 dst=cond_r3"
+# store r3 @r2
+.set K3_STR3 "src1=r2 src2=r3 dst=cond_r3"
 .set K2_STR3 "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_STR3 "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
-.set K0_STR3 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set K1_STR3 "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
+.set K0_STR3 "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-# TODO - call. 6 cycles: decrement SP is 2, save PC, load PC, fetch and decode.
+# Call. 6 cycles: decrement SP by 2, save PC, load PC, fetch and decode.
 .opcode call 0xFE 1 .abs
 .slot K3_PHI1_DECSP K2_PHI1_DECSP K1_PHI1_DECSP K0_PHI1_DECSP ;
 .slot K3_PHI2_DECSP K2_PHI2_DECSP K1_PHI2_DECSP K0_PHI2_DECSP ;
@@ -120,22 +120,22 @@
 # Return from function or subroutine. Pop the stack into r3
 # and increment r2.
 
-# TODO - load r3 from @r2
-.set K3_LDR3 "src1=r3 src2=const_n1 dst=cond_r3"
+# Q: can we merge this with the next cycle (phi1 of increment)?
+.set K3_LDR3 "src1=r2 src2=const_n1 dst=r3"
 .set K2_LDR3 "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_LDR3 "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
-.set K0_LDR3 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set K1_LDR3 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=yes"
+.set K0_LDR3 "rw=read m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-# TODO - phi1 of increment SP
-.set K3_PHI1_INCSP "src1=r3 src2=const_n1 dst=cond_r3"
-.set K2_PHI1_INCSP "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+# phi1 of increment SP (Q: merge with previous cycle?)
+.set K3_PHI1_INCSP "src1=r3 src2=const_p2 dst=cond_r3"
+.set K2_PHI1_INCSP "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
 .set K1_PHI1_INCSP "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
-.set K0_PHI1_INCSP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+.set K0_PHI1_INCSP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
-# TODO - phi2 of increment SP
-.set K3_PHI2_INCSP "src1=r3 src2=const_n1 dst=cond_r3"
-.set K2_PHI2_INCSP "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_PHI2_INCSP "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
+# phi2 of increment SP
+.set K3_PHI2_INCSP "src1=r3 src2=const_n1 dst=r2"
+.set K2_PHI2_INCSP "acn=alu_add alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=no"
+.set K1_PHI2_INCSP "sysdata_src=bus_none reg_in_mux=from_alu dst_wr_en=yes"
 .set K0_PHI2_INCSP "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
 # TODO - ret
@@ -149,8 +149,9 @@
 
 # Absolute jump. The instruction register contains the target address, which
 # is necessarily < 2^15. The hardware translates that to opcode 0xFF, where
-# we place the microcode to move the instruction register to R3. We suppress
-# bit 0, which has to be a 1 for a jump, to construct the target address.
+# we place the microcode to move the instruction register to R3. In the
+# microcode we suppress bit 0, which has to be a 1 for a jump, to construct
+# the target address, which has to be even.
 
 .opcode jmp 0xFF 1 .abs
 .slot K3_ABS K2_ABS K1_ABS K0_ABS ;
