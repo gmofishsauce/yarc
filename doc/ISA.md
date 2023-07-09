@@ -43,9 +43,7 @@ of which may execute for up to 64 clocks (one microcode word per clock).
 The lower byte of each of these 127 opcodes is available for use by the
 microcode (it is held in the lower half of the instruction register, IRL,
 while the instructions executes, and microcoded controls may move or apply
-its value in a number of ways). It is variously used to identify registers,
-hold the address offset for branch instructions, or to act as a short
-immediate data value.
+its value in a number of ways). It is variously used as the Register Control Word (RCW) to identify registers, to hold the address offset for branch instructions, or to act as a short immediate data value.
 
 ## Instruction set details
 
@@ -54,11 +52,11 @@ immediate data value.
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
 | 0x0000 - 0x7FFE (even) | call | target | Call self-address |
-| 0x0001 - 0x7FFF (odd) | jmp | target | Jump to self-address - 1 |
+| 0x0001 - 0x7FFF (odd) | jmp | target | Jump to target - 1 |
 
 ### ALU operations
 
-The low byte (LB) of these opcodes encodes the three operands in three
+The low byte (RCW) of these opcodes encodes the three operands in three
 fields, each two or three bits.
 
 | Opcode | Mnemonic | Operands | Notes |
@@ -80,9 +78,7 @@ fields, each two or three bits.
 | 0x8E:RCW | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
 | 0x8F:RCW | pass | src1, src2, dst | src2 => dst |
 
-The low byte (LB) of the instruction is interpreted from most significant
-to least significant as a 2-bit _source1_ field in the two MS bits, a 3-bit
-_source2_ field, and a 3-bit _destination_ field in the 3 LS bits.
+The low byte of the instruction is interpreted from most significant to least significant as a 2-bit _source1_ field in the two MS bits, a 3-bit _source2_ field, and a 3-bit _destination_ field in the 3 LS bits.
 
 Together, these three fields are called the Register Control Word (RCW).
 The RCW may come either from the low byte of the instruction register or from
@@ -132,9 +128,9 @@ The base acronym MV is used only for register to register moves. Instructions wh
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
 | 0xA0:RCW | mvr    | src, dst     | register to register move |
-| 0xA1:RCW | mvf    | dst          | move flags to general register |
-| 0xA2:IMM | ldif   | immed8       | load immediate bits 3:0 to flags VNZC |
-| 0xA3:RCW | ldiw   | immed16, dst | load immediate word to register |
+| 0xA1:00  | TBD    | unassigned   | unassigned |
+| 0xA2:00  | TBD    | unassigned   | unassigned |
+| 0xA3:00  | TBD    | unassigned   | unassigned |
 | 0xA4:RCW | ldrw   | @src, dst    | load register from memory word |
 | 0xA5:RCW | ldrb   | @src, dst    | load register from sign-extended memory byte |
 | 0xA6:RCW | strw   | src, @dst    | store register to memory word |
@@ -143,16 +139,13 @@ The base acronym MV is used only for register to register moves. Instructions wh
 | 0xA9:RCW | ldow   | immed16, @src, dst | load register from @(src + immed16) |
 | 0xAA:RCW | stdw   | src, immed16 | store direct register to @immed16 |
 | 0xAB:RCW | stow   | immed16, src, @dst | store register to @(dst + immed16)  |
-| 0xAC:RCW | incw   | dst          | increment dst register by 2 |
-| 0xAD:RCW | incb   | dst          | increment dst register by 1 |
-| 0xAE:RCW | decw   | dst          | decrement dst register by 2 |
-| 0xAF:RCW | decb   | dst          | decrement dst register by 1 |
+| 0xAC:0xAF| TBD    | TBD          | unassigned |
 
 The opcodes from 0xA8 through 0xAB require the implementation of a pending hardware feature.
 
-### Small immediate operations
+### Immediate operations
 
-These opcodes use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r2 and r3 generally don't make sense because they are the SP and the PC. Stack allocation at subroutine entry will be handled by special instruction to be defined when the wasm translator's needs are better understood.
+The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r2 and r3 generally don't make sense because they are the SP and the PC. The word operations 0xC8..0xCB each require two words but support all four registers.
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
@@ -164,7 +157,11 @@ These opcodes use the low bits of the opcode word for an 8-bit immediate value, 
 | 0xC5:IMM | bicib  | immed8, r1   | clear bits in low byte of r1 that are set in immed8 |
 | 0xC6:IMM | bisib  | immed8, r0   | set bits in low byte of r0 that are set in immed8 |
 | 0xC7:IMM | bisib  | immed8, r1   | set bits in low byte of r1 that are set in immed8 |
-| 0xC8 - 0xCF | unassigned | TBD   | unassigned |
+| 0xC8:RCW | ldiw   | immed16, dst   | load immediate value to register |
+| 0xC9:RCW | addiw  | immed16, dst   | add immediate value to register |
+| 0xCA:RCW | biciw  | immed16, dst   | clear bits in dst that are set in immed16 |
+| 0xCB:RCW | bisiw  | immed16, dst   | set bits in dst that are set in immed16 |
+| 0xCC - 0xCF | unassigned | TBD     | unassigned |
 
 ### Unassigned opcode block
 
@@ -174,24 +171,24 @@ Opcodes from 0xC000 through 0xEF00 are unassigned.
 
 Interrupt instructions are reserved,  but interrupts are not implemented.
 
-| Opcode | Mnemonic | Operands     | Notes |
-| :----- | :------: | :-------     | :---- |
-| 0xF000 | pushf    |              | Push flags|
-| 0xF100 | popf     |              | Pop flags |
-| 0xF200 | ret      |              | Return |
-| 0xF300 | rti      |              | Return from interrupt |
-| 0xF400 | ei       |              | Enable interrupts |
-| 0xF500 | di       |              | Disable interrupts |
-| 0xF6NN | int      | NN - value   | R0 := value; interrupt |
-| 0xF700 | TBD      | TBD          | unassigned |
-| 0xF800 | nop2     | none         | no operation, 2 machine cycles |
-| 0xF900 | nop3     | none         | no operation, 3 machine cycles |
-| 0xFA00 | TBD      |              |       |
-| 0xFB00 | TBD      |              |       |
-| 0xFC00 | TBD      |              | Reserved for interrupt support |
-| 0xFD00 | TBD      |              | Reserved for interrupt support |
-| 0xFE00 | TBD      |              | Hardwired as implementation of CALL |
-| 0xFF00 | TBD      |              | Hardwired as implementation of JMP |
+| Opcode   | Mnemonic | Operands | Notes  |
+| :-----   | :------: | :------- | :----  |
+| 0xF0:IM8 | ldif     | imm8     | load immediate flags from imm8 3:0 (V N Z C) |
+| 0xF1:RCW | mvf      | dst      | move flags to register dst |
+| 0xF200   |          |          |        |
+| 0xF300   |          |          |        |
+| 0xF400   |          |          |        |
+| 0xF500   |          |          |        |
+| 0xF6NN   |          |          |        |
+| 0xF700   |          |          |        |
+| 0xF800   | nop2     | none     | no operation, 2 machine cycles |
+| 0xF900   | nop3     | none     | no operation, 3 machine cycles |
+| 0xFA00   | ret      | none     | return |
+| 0xFB00   | TBD      | TBD      | unassigned |
+| 0xFC00   | TBD      |          | Reserved for interrupt support |
+| 0xFD00   | TBD      |          | Reserved for interrupt support |
+| 0xFE00   | TBD      |          | Hardwired as implementation of CALL |
+| 0xFF00   | TBD      |          | Hardwired as implementation of JMP |
 
 ### Additional Information
 
