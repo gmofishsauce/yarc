@@ -123,7 +123,7 @@ from -64 through 63.
 
 ### Move instructions
 
-The base acronym MV is used only for register to register moves. Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Increment and decrement instructions are grouped here because they follow a pattern similar to loads and stores. Byte immediate values (except for move immediate to flags register) are not because their implementation is significantly different.
+The base acronym MV is used only for register to register moves. Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Other instructions involving immediate values are grouped separately (below).
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |

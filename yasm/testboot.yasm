@@ -13,49 +13,89 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-# boostrap code. Well, for now, it isn't really, it's just some garbage
-# that helps me test assembler features. But it will be the bootstrap.
+# startup code
 
-.set REGSAVE 0x7000		# Avoid this area, as the Nano saves registers here.
+.set REGSAVE 0x7000		# Avoid 0x7000..0x7800. Stack grows down from here.
 .set RESULTS 0x7710     # Put test results here ...
-.set LINEBUF 0x7740		# through here, where the eventual line buffer starts.
-.set TEST_BASE 0x400    # Leave 0x400 bytes for tests, for now.
+.set LINEBUF 0x7740		# to  here, where the eventual line buffer starts.
 
-.=0
+# "Vectors" - jump to HALT when done, probably via success:, fail_pos:,
+# or fail_neg: at the end of a test or all tests.
 
-	ldiw REGSAVE, SP	# stack is predecrement / postincrement
-	ldiw 0xBAD3, r0
-	call subr
-	jmp halt
+ZERO:
+	jmp init			# execution starts here. Initialize and test.
+HALT:					# execution always ends here, result in r0.
+	jmp HALT			# also SP = 0x7000 if success, lower if failure.
+success:				# load success code to r0 and halt.
+	ldiw 0xD00D, r0		# Dood! It worked!
+	jmp  HALT
+fail_pos:				# positive test failed, detailed code in r0
+	ldiw 0xBAD1, r1
+	jmp HALT
+fail_neg:				# negative test failed, detailed code in r0
+	ldiw 0xBAD2, r1
+	jmp HALT
+init:					# initialize the machine and run tests (for now)
+	ldiw REGSAVE, SP	# stack is predecrement push / pop postincrement
 
-subr:
-	ldiw 0xD00D, r0		# Dood!
-	ret
-	ldiw 0xBAD4, r0
-	jmp halt			# in case ret doesn't
+# Here is the program I want to be able to write.
+# In order to do this I need to add the addressing
+# feature to the YARC, implement .db, .dw, and .align,
+# add the new microcode, and implement the system
+# call feature.
 
-#	jmp TEST_BASE
+# message:
+# .db 'Hark! A YARC!', 0
+# .align 2
+# 
+# PRINT_HELLO:
+# 	pushiw	message
+# 	pushiw	LINEBUF
+# 	call	copy
+# 	addiw	4, SP
+# 	system	sendbuf
+# 	jmp HALT
+# 
+# srcaddr: .dw 0
+# dstaddr: .dw 0
 
-halt:					# there is no halt opcode
-	jmp halt
+# Copy bytes from from the first argument to the second,
+# stopping after copying the terminating nul byte. We
+# need memory locations for both addresses because of
+# YARC's desperate shortage of registers.
 
-# test failures come to fail_pos: or fail_neg:
-# everything loops at halt: waiting for Nano.
-# halt with result type in r2, details in r0.
+# copy:
+# 	ldow	6, @SP, r0	# load r0 from @(SP + 6)
+# 	stdw r0, @srcaddr	# first argument (srcaddr)
+# 	ldow	4, @SP, r0	# load r0 from @(SP + 4)
+# 	stdw r0, @dstaddr	# second argument (dstaddr)
+# 
+# copyloop:
+# 	lddw r0, @srcaddr   # load the srcaddr
+# 	ldrb @r0, r1		# load a byte from source to r1
+# 	addib 1, r0
+# 	stdw r0, @srcaddr   # increment and save srcaddr
+# 	lddw @dstaddr, r0	# load the destination addr to r0
+# 	strb r1, @r0		# store the byte there
+# 	addib 1, r0			# increment and save the dstaddr
+# 	stdw r0, @dstaddr
+# 	cmp r1, 0			# was that saved byte a nul?
+# 	br nz, copyloop		# no, continue
+# 	ret					# done
 
-fail_pos:				# positive test failed
-	ldiw 0xBAD1, r2
-	jmp halt
-fail_neg:				# negative test failed
-	ldiw 0xBAD2, r2
-	jmp halt
-success:
-	ldiw 0xD00B, r2		# time for a doobie!
-	jmp halt
+# End of the goal program.
 
-.=TEST_BASE
+# Run all the tests
 
-# Test the carry flag
+run_tests:
+	call test_c
+	call test_z
+	call test_n
+	call test_v
+	jmp  success
+
+# === tests ===
+# Test the flags, starting with the carry flag
 test_c:
 	ldif 0x01			# set c flag in flags
 	br	 c, c_pos_ok
@@ -63,7 +103,7 @@ test_c:
 	jmp  fail_pos
 c_pos_ok:
 	br	 nc, c_neg_fail
-	jmp	 test_z
+	ret					# success
 c_neg_fail:
 	ldiw 0x02, r0
 	jmp	 fail_neg
@@ -76,7 +116,7 @@ test_z:
 	jmp  fail_pos
 z_pos_ok:
 	br	 nz, z_neg_fail
-	jmp	 test_n
+	ret					# success
 z_neg_fail:
 	ldiw 0x04, r0
 	jmp	 fail_neg
@@ -88,7 +128,7 @@ test_n:
 	jmp  fail_pos
 n_pos_ok:
 	br	 nn, n_neg_fail
-	jmp	 test_v
+	ret					# success
 n_neg_fail:
 	ldiw 0x06, r0
 	jmp	 fail_neg
@@ -100,11 +140,8 @@ test_v:
 	jmp  fail_pos
 v_pos_ok:
 	br	 nv, v_neg_fail
-	jmp	 tests_done
+	ret					# success
 v_neg_fail:
 	ldiw 0x08, r0
 	jmp	 fail_neg
 
-tests_done:
-	# Successful completion
-	jmp success
