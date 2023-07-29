@@ -1,7 +1,8 @@
 .DS_Store
 ki/YARC/YARC-backups
 ki/Project/YARC-backups
-pcb/V501-backups
+pcb/V501/V501-backups
+pcb/V501-backups/
 yarc/yarc
 Nano.log
 yarc.bin
