@@ -1,0 +1,52 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid d60807f5-1f73-4a51-8f52-ff2764d64fa5)
+
+  (paper "USLetter")
+
+  (title_block
+    (title "V503 Addressing Unit (Upper Half)")
+  )
+
+  (lib_symbols
+  )
+
+
+  (sheet (at 35.56 26.67) (size 213.36 63.5) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 42dc057a-5d52-4c26-a435-a117badee174)
+    (property "Sheetname" "UpperHalf" (at 35.56 25.9584 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "UpperHalf.kicad_sch" (at 35.56 90.7546 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "V503"
+        (path "/d60807f5-1f73-4a51-8f52-ff2764d64fa5" (page "2"))
+      )
+    )
+  )
+
+  (sheet (at 35.56 101.6) (size 212.09 66.04) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid 9b1d77fd-a71f-49f6-9744-75ce4d8ca94f)
+    (property "Sheetname" "LowerHalf" (at 35.56 100.8884 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "LowerHalf.kicad_sch" (at 35.56 168.2246 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (instances
+      (project "V503"
+        (path "/d60807f5-1f73-4a51-8f52-ff2764d64fa5" (page "3"))
+      )
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)
