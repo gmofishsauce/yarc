@@ -33,15 +33,21 @@
 .set src2_none 7 # arbitrary value to use when src2 is not used
 .set dst_none  7 # arbitrary value to use when dst_wr_en is high
 
-# data bus drivers for memory writes
+# data bus drivers for sysdata_src
 .set bus_gr    0        # general register drives bus
-.set bus_sp    1        # stack (PSP or RSP) drives bus
+.set bus_addr  1        # address bus drives the data bus
 .set bus_ir    2        # instruction register drives bus
 .set bus_f     3        # flags register drives bus
 .set bus_mem   4        # memory drives bus (memory read)
 .set bus_tbd_5 5        # unused
 .set bus_tbd_6 6        # unused
 .set bus_none  7        # "none"
+
+# address bus drivers for sysaddr_src
+.set addr_gr   3        # general register drives address
+.set addr_alu  2        # ALU result holding register drives address
+.set addr_ix   1        # index register drives address
+.set addr_none 0        # nothing drives the address bus ("none")
 
 # General register conditional writes. These
 # are primarily targeted as enabling branches
@@ -95,6 +101,18 @@
 .set acn_from_uc 1
 .set acn_from_ir 0
 
+# Kludge for index register support: when set to normal, the RCW:src1 field
+# drives the general register port 1 address (2 bits) and RCW:src2 drives
+# the general register port 2 address. When set to cross, the RCW:src1 field
+# drives both addresses and the third bit (:2) of port 2 address is zero.
+# This allows using the RCW:src1 field of the instruction word to select a
+# general register to be written to memory though the port 2 transceivers.
+# In such a cycle, the sysaddr bus should not be driven by the general
+# registers because the src1 and src2 registers are the same. This setting
+# is intended for use when an index register provides the memory address.
+.set rcw_normal 1
+.set rcw_cross  0
+
 # Microcode words, 32 bits
 # K3: register control word 31:24
 #
@@ -132,9 +150,10 @@
 .bitfield alu_load_flgs 32  16:16   # when low, clock the flags (most ALU phi2 or write to flags)
 
 # busses and stack 15:8
-.bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (gr sp ir f mem tbd tbd none)
+.bitfield sysdata_src   32   15:13  # 1 of 8 data bus drivers (bus_gr sp ir f mem tbd tbd none)
 .bitfield reg_in_mux    32   12:12  # register input mux, 1 = sysdata, 0 = alu output
-.bitfield ctl_TBD_11_9  32   11:9   # unused, formerly the stack controls
+.bitfield rcw_routing   32   11:11  # rcw_normal or rcw_cross, described above.
+.bitfield sysaddr_src   32   10:9   # sysaddr_src (addr_gr alu ix or none)
 .bitfield dst_wr_en     32    8:8   # enable (conditional or unconditional) write to GRs
 
 # control lines 7:0
