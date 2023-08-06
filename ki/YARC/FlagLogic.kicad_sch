@@ -3911,7 +3911,7 @@
   (symbol (lib_id "power:GND") (at 142.24 196.85 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 35d8c078-faaa-40d7-a834-90177ffb2559)
-    (property "Reference" "#PWR?" (at 142.24 203.2 0)
+    (property "Reference" "#PWR0158" (at 142.24 203.2 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 142.24 201.93 0)
@@ -3927,7 +3927,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/2ffac34c-e3cb-492f-a745-89749c95e306"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0158") (unit 1)
         )
       )
     )

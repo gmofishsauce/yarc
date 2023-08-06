@@ -3280,7 +3280,7 @@
   (symbol (lib_id "power:GND") (at 172.72 142.24 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 749765b0-6c44-4895-ab6d-561fe7b820fc)
-    (property "Reference" "#PWR?" (at 172.72 148.59 0)
+    (property "Reference" "#PWR0209" (at 172.72 148.59 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 167.64 142.24 0)
@@ -3296,7 +3296,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/feebb92e-360c-455c-a141-048b807a0420"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0209") (unit 1)
         )
       )
     )
@@ -3518,7 +3518,7 @@
   (symbol (lib_id "power:GND") (at 236.22 114.3 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid e5f2826e-349c-4dad-9c64-46ddd2386065)
-    (property "Reference" "#PWR?" (at 236.22 120.65 0)
+    (property "Reference" "#PWR0210" (at 236.22 120.65 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 241.3 114.3 0)
@@ -3534,7 +3534,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/feebb92e-360c-455c-a141-048b807a0420"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0210") (unit 1)
         )
       )
     )

@@ -1559,7 +1559,7 @@
   (symbol (lib_id "power:GND") (at 146.05 68.58 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 30c1d019-857e-47fc-9291-adb47c96ec14)
-    (property "Reference" "#PWR?" (at 146.05 74.93 0)
+    (property "Reference" "#PWR0215" (at 146.05 74.93 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 146.05 73.66 0)
@@ -1575,7 +1575,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/a71dcb28-687f-4ebb-8f7d-60fc197ba42e"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0215") (unit 1)
         )
       )
     )
@@ -1852,7 +1852,7 @@
   (symbol (lib_id "power:VCC") (at 176.53 73.66 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid a11abb43-51fb-4258-ad19-25a3c4a989f1)
-    (property "Reference" "#PWR?" (at 176.53 77.47 0)
+    (property "Reference" "#PWR0214" (at 176.53 77.47 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "VCC" (at 176.53 69.85 0)
@@ -1868,7 +1868,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/a71dcb28-687f-4ebb-8f7d-60fc197ba42e"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0214") (unit 1)
         )
       )
     )
@@ -1915,7 +1915,7 @@
   (symbol (lib_id "power:VCC") (at 243.84 139.7 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid d4153157-09a8-40b3-9f22-afa031be3229)
-    (property "Reference" "#PWR?" (at 243.84 143.51 0)
+    (property "Reference" "#PWR0211" (at 243.84 143.51 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "VCC" (at 243.84 134.62 0)
@@ -1931,7 +1931,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/a71dcb28-687f-4ebb-8f7d-60fc197ba42e"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0211") (unit 1)
         )
       )
     )
@@ -2003,7 +2003,7 @@
   (symbol (lib_id "power:VCC") (at 147.32 26.67 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid ee497a21-09c3-4b6c-a8f0-d4ea1286148b)
-    (property "Reference" "#PWR?" (at 147.32 30.48 0)
+    (property "Reference" "#PWR0213" (at 147.32 30.48 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "VCC" (at 147.32 21.59 0)
@@ -2019,7 +2019,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/a71dcb28-687f-4ebb-8f7d-60fc197ba42e"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0213") (unit 1)
         )
       )
     )
@@ -2066,7 +2066,7 @@
   (symbol (lib_id "power:GND") (at 243.84 165.1 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid f9c216d6-c5d1-43b4-9020-ec5f30d8199a)
-    (property "Reference" "#PWR?" (at 243.84 171.45 0)
+    (property "Reference" "#PWR0212" (at 243.84 171.45 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (at 243.84 170.18 0)
@@ -2082,7 +2082,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/a71dcb28-687f-4ebb-8f7d-60fc197ba42e"
-          (reference "#PWR?") (unit 1)
+          (reference "#PWR0212") (unit 1)
         )
       )
     )
