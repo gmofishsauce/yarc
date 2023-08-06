@@ -280,23 +280,6 @@
     )
   )
 
-  (sheet (at 29.21 204.47) (size 66.04 7.62) (fields_autoplaced)
-    (stroke (width 0.1524) (type solid))
-    (fill (color 0 0 0 0.0000))
-    (uuid 39927ce2-e2db-424f-b8d0-f15d67a3ef8b)
-    (property "Sheetname" "Microcode Control" (at 29.21 203.7584 0)
-      (effects (font (size 1.27 1.27)) (justify left bottom))
-    )
-    (property "Sheetfile" "MicrocodeControl.kicad_sch" (at 29.21 212.6746 0)
-      (effects (font (size 1.27 1.27)) (justify left top))
-    )
-    (instances
-      (project "YARC"
-        (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca" (page "6"))
-      )
-    )
-  )
-
   (sheet (at 152.4 134.62) (size 43.18 22.86)
     (stroke (width 0.1524) (type solid))
     (fill (color 0 0 0 0.0000))
