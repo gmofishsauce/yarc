@@ -1,12 +1,16 @@
 .DS_Store
-ki/YARC/YARC-backups
-ki/Project/YARC-backups
-pcb/V501/V501-backups
-pcb/V501-backups/
-pcb/V502/V502-backups
-pcb/V503/V502-backups
-pcb/V503/V503-backups
+
+# KiCad keeps a lot of backups
+YARC-backups
+V501-backups
+V502-backups
+V503-backups
+
+# Binaries and generated files
 yarc/yarc
 Nano.log
 yarc.bin
+
+# Editor noise
 .vscode
+*.swp
