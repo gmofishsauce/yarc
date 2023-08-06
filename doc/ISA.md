@@ -5,16 +5,15 @@
 YARC is a 16-bit computer with a 15-bit address space. There are 30k bytes
 of main memory. The top 2k of the address space is reserved for I/O registers.
 
-YARC has four general registers r0 through r3 and a few special registers.
-IR holds the currently-executing opcode. There is a flags register F containing
-the traditional C, Z, N, and V (Carry, Zero, Negative, Overflow) flags.
+YARC has four general registers r0 through r3, four index registers ix0 through ix3,  and a few special registers. General register r3 is reserved for use as the program counter (PC). Index register ix3 is reserved for use as the stack pointer (SP). There is a flags register F containing the traditional C, Z, N, and V (Carry, Zero, Negative, Overflow) flags. There are also non-architectural registers holding an ALU input, the previous ALU output, and the currently executing instruction.
 
 The hardware dictates a number of restrictions. ALU operations take 2 cycles
 called "phase 1" (phi1) and "phase 2" (phi2).  ALU operands may be registers,
 not memory. The ALU has a transparent holding register that can be loaded from
 memory in a single cycle, but that cycle may not be either an ALU phase 1 or 2
-cycle. Also, no register may be used as an address or data in the same cycle
-during which it is updated.
+cycle. Also, no register may be used in the same cycle that it is updated.
+
+The index registers have an incrementer/decrementer capable of adding the values -4 .. +3 to any index register. Index register increments also take two cycles, the second of which is a "dead" cycle (the system address bus is not driven).
 
 ## Instruction set overview
 
@@ -125,6 +124,8 @@ from -64 through 63.
 
 The base acronym MV is used only for register to register moves. Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Other instructions involving immediate values are grouped separately (below).
 
+These instructions refer to the general registers. The index registers are discussed separately (below).
+
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
 | 0xA0:RCW | mvr    | src, dst     | register to register move |
@@ -135,17 +136,15 @@ The base acronym MV is used only for register to register moves. Instructions wh
 | 0xA5:RCW | ldrb   | @src, dst    | load register from sign-extended memory byte |
 | 0xA6:RCW | strw   | src, @dst    | store register to memory word |
 | 0xA7:RCW | strb   | src, @dst    | store register low byte to memory byte |
-| 0xA8:RCW | lddw   | immed16, dst | load direct register from @immed16 |
-| 0xA9:RCW | ldow   | immed16, @src, dst | load register from @(src + immed16) |
-| 0xAA:RCW | stdw   | src, immed16 | store direct register to @immed16 |
-| 0xAB:RCW | stow   | immed16, src, @dst | store register to @(dst + immed16)  |
-| 0xAC:0xAF| TBD    | TBD          | unassigned |
-
-The opcodes from 0xA8 through 0xAB require the implementation of a pending hardware feature.
+| 0xA8:RCW | lddw   | immed16, dst | load direct register *dst* from @immed16 |
+| 0xA9:RCW | ldsw   | immed16, @src, dst | load register *dst* from @(src + immed16) |
+| 0xAA:RCW | stdw   | src, immed16 | store direct register *src* to @immed16 |
+| 0xAB:RCW | stsw   | immed16, src, @dst | store register *src* to @(dst + immed16)  |
+| 0xAC:0xAF| TBD    | TBD          | unassigned (4 opcodes) |
 
 ### Immediate operations
 
-The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r2 and r3 generally don't make sense because they are the SP and the PC. The word operations 0xC8..0xCB each require two words but support all four registers.
+The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r3 generally don't make sense because it is the PC. The word operations 0xC8..0xCB each require two words but support all four registers.
 
 | Opcode | Mnemonic | Operands     | Notes |
 | :----- | :------: | :-------     | :---- |
@@ -161,11 +160,22 @@ The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit imm
 | 0xC9:RCW | addiw  | immed16, dst   | add immediate value to register |
 | 0xCA:RCW | biciw  | immed16, dst   | clear bits in dst that are set in immed16 |
 | 0xCB:RCW | bisiw  | immed16, dst   | set bits in dst that are set in immed16 |
-| 0xCC - 0xCF | unassigned | TBD     | unassigned |
+| 0xCC - 0xCF | unassigned | TBD     | unassigned (4 opcodes) |
 
 ### Unassigned opcode block
 
-Opcodes from 0xC000 through 0xEF00 are unassigned.
+Opcodes from 0xC000 through 0xDF00 are unassigned (32 opcodes)
+
+### Index register (E-line) operations
+
+For these operations, the index register 0..3 is encoded in the LS bits of the upper byte of the instruction word. Instructions E0, E4, E8, and EC refer to index register 0. E1, E5, ... refer to index register 1, etc. Note that index register 3 is the stack pointer. E-line operations treat the stack pointer exactly like the other index registers. Separate push and pop operations provide a shorthand for some operations on ix3 (SP).
+
+| Opcode     | Mnemonic | Operands    | Notes  |
+| :-----     | :------: | :-------    | :----  |
+| 0xE0..0xE3 | ldx  | ix, incr, dst   | load the general register *dst* from the address in index register 0..3 and add *incr* to the index register value. |
+| 0xE4..0xE7 | stx  | src, ix, incr   | store the general register *src* to the address in index register 0..3 and add *incr* to the index register value.  |
+| 0xE8..0xEB | mvrx | src, dst        | move general register *src* to index register *dst* |
+| 0xEC..0xEF | mvxr | src, dst        | move index register *src* to general register *dst* |
 
 ### Special instructions
 
