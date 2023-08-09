@@ -3293,7 +3293,7 @@
   (symbol (lib_id "74xx:74LS32") (at 256.54 152.4 0) (unit 5)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 22d28cdc-2c10-4a53-8051-b8df0e16af51)
-    (property "Reference" "U?" (at 248.92 142.24 0)
+    (property "Reference" "U147" (at 248.92 142.24 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Value" "74LS32" (at 254 152.4 0)
@@ -3322,7 +3322,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/51c42971-ddd1-444d-b989-88f84ae04d0f"
-          (reference "U?") (unit 5)
+          (reference "U147") (unit 5)
         )
       )
     )
@@ -3768,7 +3768,7 @@
   (symbol (lib_id "74xx:74LS574") (at 53.34 170.18 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid 9bd2b312-8117-47dd-9956-c5cb9aadb026)
-    (property "Reference" "U?" (at 55.3594 149.86 0)
+    (property "Reference" "U146" (at 55.3594 149.86 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Value" "74LS574" (at 55.3594 152.4 0)
@@ -3803,7 +3803,7 @@
     (instances
       (project "YARC"
         (path "/22e0f8e1-b0d7-4d47-bb7c-8ef04cd95fca/51c42971-ddd1-444d-b989-88f84ae04d0f"
-          (reference "U?") (unit 1)
+          (reference "U146") (unit 1)
         )
       )
     )
