@@ -1973,7 +1973,7 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 4e5d7c5b-53bf-4db3-b43d-15834b3425af)
   )
-  (label "SYSDATA9" (at 231.14 40.64 90)
+  (label "SYSDATA9" (at 231.14 40.64 90) (fields_autoplaced)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 5757d29e-5192-4928-9bde-01bba5bff6bd)
   )
