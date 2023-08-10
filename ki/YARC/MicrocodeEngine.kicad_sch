@@ -4260,7 +4260,7 @@
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid bbba050c-fb18-49c1-a515-d9f7a0aaeaec)
   )
-  (label "K09" (at 160.02 26.67 90) (fields_autoplaced)
+  (label "K9" (at 160.02 26.67 90) (fields_autoplaced)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid bcf70a96-c151-4c34-bb01-08e158c9f38f)
   )

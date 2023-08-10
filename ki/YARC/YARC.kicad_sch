@@ -416,14 +416,14 @@
     )
   )
 
-  (sheet (at 149.86 53.34) (size 33.02 38.1) (fields_autoplaced)
+  (sheet (at 115.57 53.34) (size 20.32 38.1) (fields_autoplaced)
     (stroke (width 0.1524) (type solid))
     (fill (color 0 0 0 0.0000))
     (uuid ab31a2b6-5416-47ce-a658-779ff6faeebe)
-    (property "Sheetname" "Stacks" (at 149.86 52.6284 0)
+    (property "Sheetname" "Stacks" (at 115.57 52.6284 0)
       (effects (font (size 1.27 1.27)) (justify left bottom))
     )
-    (property "Sheetfile" "Stacks.kicad_sch" (at 149.86 92.0246 0)
+    (property "Sheetfile" "Stacks.kicad_sch" (at 115.57 92.0246 0)
       (effects (font (size 1.27 1.27)) (justify left top))
     )
     (instances
