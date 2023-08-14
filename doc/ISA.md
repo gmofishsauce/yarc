@@ -53,7 +53,7 @@ its value in a number of ways). It is variously used as the Register Control Wor
 | 0x0000 - 0x7FFE (even) | call | target | Call self-address |
 | 0x0001 - 0x7FFF (odd) | jmp | target | Jump to target - 1 |
 
-### ALU operations
+### 8-Line: ALU operations
 
 The low byte (RCW) of these opcodes encodes the three operands in three
 fields, each two or three bits.
@@ -71,7 +71,7 @@ fields, each two or three bits.
 | 0x88:RCW | neg | ----, src2, dst | -src2 => dst, operands in LB |
 | 0x89:RCW | rot | src1, src2, dst | rotate (see "Additional Information" below) |
 | 0x8A:RCW | cmp | src1, src2, --- | compare src1, src2 (set flags based on subtract) |
-| 0x8B:RCW | TBD | src1, src2, dst | ALU operation 11 (TBD), operands in LB |
+| 0x8B:RCW | asf | src1, src2, dst | shift (see "Additional Information" below) |
 | 0x8C:RCW | TBD | src1, src2, dst | ALU operation 12 (TBD), operands in LB |
 | 0x8D:RCW | TBD | src1, src2, dst | ALU operation 13 (TBD), operands in LB |
 | 0x8E:RCW | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
@@ -86,11 +86,11 @@ the high byte of the microcode as selected by a microcode bit.
 The source1 field of the RCW selects one of 4 general registers to the first
 of the two ALU inputs. The source2 field selects either one of 4 general
 registers (0..3) or one of four small constant registers (2, 1, -2, or -1,
-encoded by the values 4..7) to the second ALU input. These values have special predefined meanings for the ROT (rotate) instruction. Finally, the 3-bit
+encoded by the values 4..7) to the second ALU input. These values have special predefined meanings for the ROT (rotate) and SHF (shift) instructions. Finally, the 3-bit
 destination field selects either a write to one of the four general register
 (0..3) or a conditional write (4..7). Conditional writes are explained next.
 
-### Conditional branches
+### 9-Line: Conditional branches
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
@@ -120,7 +120,7 @@ from -64 through 63.
 | 0xE          | sge    | sign and overflow match (signed greater or equal) |
 | 0xF          | sgt    | sign and overflow match or zero is clear (signed greater than) |
 
-### Move instructions
+### A-Line: Move instructions
 
 The base acronym MV is used only for register to register moves. Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Other instructions involving immediate values are grouped separately (below).
 
@@ -142,7 +142,9 @@ These instructions refer to the general registers. The index registers are discu
 | 0xAB:RCW | stsw   | immed16, src, @dst | store register *src* to @(dst + immed16)  |
 | 0xAC:0xAF| TBD    | TBD          | unassigned (4 opcodes) |
 
-### Immediate operations
+### Opcodes B0 - BF unassigned
+
+### C-Line: Immediate operations
 
 The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r3 generally don't make sense because it is the PC. The word operations 0xC8..0xCB each require two words but support all four registers.
 
@@ -160,22 +162,23 @@ The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit imm
 | 0xC9:RCW | addiw  | immed16, dst   | add immediate value to register |
 | 0xCA:RCW | biciw  | immed16, dst   | clear bits in dst that are set in immed16 |
 | 0xCB:RCW | bisiw  | immed16, dst   | set bits in dst that are set in immed16 |
-| 0xCC - 0xCF | unassigned | TBD     | unassigned (4 opcodes) |
+| 0xCC:RCW | cmpiw  | immed16, src2  | set flags based on immed16 - src2 |
+| 0xCD - 0xCF | unassigned | TBD     | unassigned (3 opcodes) |
 
-### Unassigned opcode block
+### Index register operations
 
-Opcodes from 0xC000 through 0xDF00 are unassigned (32 opcodes)
-
-### Index register (E-line) operations
-
-For these operations, the index register 0..3 is encoded in the LS bits of the upper byte of the instruction word. Instructions E0, E4, E8, and EC refer to index register 0. E1, E5, ... refer to index register 1, etc. Note that index register 3 is the stack pointer. E-line operations treat the stack pointer exactly like the other index registers. Separate push and pop operations provide a shorthand for some operations on ix3 (SP).
+For these operations, the index register 0..3 is encoded in the LS bits of the upper byte of the instruction word. Instructions D0, D4, D8, and DC refer to index register 0. D1, D5, ... refer to index register 1, etc. Note that index register 3 is the stack pointer. These operations treat the stack pointer exactly like the other index registers. Separate push and pop operations provide a shorthand for some operations on ix3 (SP).
 
 | Opcode     | Mnemonic | Operands    | Notes  |
 | :-----     | :------: | :-------    | :----  |
-| 0xE0..0xE3 | ldx  | ix, incr, dst   | load the general register *dst* from the address in index register 0..3 and add *incr* to the index register value. |
-| 0xE4..0xE7 | stx  | src, ix, incr   | store the general register *src* to the address in index register 0..3 and add *incr* to the index register value.  |
-| 0xE8..0xEB | mvrx | src, dst        | move general register *src* to index register *dst* |
-| 0xEC..0xEF | mvxr | src, dst        | move index register *src* to general register *dst* |
+| 0xD0..0xD3 | ldxb  | ix, dst, incr   | load sign-extended byte to general register *dst* from the address in index register ix and add *incr* to the index register value. |
+| 0xD4..0xD7 | stxb  | src, ix, incr   | store low order byte from general register *src* to the byte address in index register ix and add *incr* to the index register value.  |
+| 0xD8..0xDB | ldxw | ix, incr, dst | load word to general register *dst* from the address in index register ix and add *incr* to the index register value |
+| 0xDC..0xDF | stxw | src, ix, incr | store word from general register *src* from the address in index register ix and add *incr* to the index register value |
+| 0xE0..0xE3 | mvrx | src, dst        | move general register *src* to index register *dst* |
+| 0xE4..0xE7 | mvxr | src, dst        | move index register *src* to general register *dst* |
+| 0xE8..0xEB | ldxi | immed16, ix     | load immediate value to index register |
+| 0xEC..0xEF | unassigned | TBD | unassigned (4 opcodes) |
 
 ### Special instructions
 
@@ -210,6 +213,8 @@ The rotate instruction rotates the register specified by src1 and places the res
 | 5          | 1                    | Rotate left through carry. The LS bit is set to the value of the carry flag. The carry flag is set to the value of the MS bit. Other bits are shifted left one position. |
 | 6          | -2                   | Rotate right. The MS bit and carry flag are set to the value of the LS bit. Other bits are shifted right one position. |
 | 7          | -1                   | Rotate right through carry. The MS bit is set to the value of the carry flag. The carry flag is set to the value of the LS bit. Other bits are shifted right one position. |
+
+For asf (arithmetic shift), the carry flag is not affected. The src2 operand specifies the amount of the shift, -1 or -2 positions (right) or 1 or 2 positions (left). For right shifts, the MS bit of the word is duplicated. For left shifts, zeroes are introduced.
 
 ### Additional Opcodes
 
