@@ -8,12 +8,9 @@ of main memory. The top 2k of the address space is reserved for I/O registers.
 YARC has four general registers r0 through r3, four index registers ix0 through ix3,  and a few special registers. General register r3 is reserved for use as the program counter (PC). Index register ix3 is reserved for use as the stack pointer (SP). There is a flags register F containing the traditional C, Z, N, and V (Carry, Zero, Negative, Overflow) flags. There are also non-architectural registers holding an ALU input, the previous ALU output, and the currently executing instruction.
 
 The hardware dictates a number of restrictions. ALU operations take 2 cycles
-called "phase 1" (phi1) and "phase 2" (phi2).  ALU operands may be registers,
-not memory. The ALU has a transparent holding register that can be loaded from
-memory in a single cycle, but that cycle may not be either an ALU phase 1 or 2
-cycle. Also, no register may be used in the same cycle that it is updated.
+called "phase 1" (phi1) and "phase 2" (phi2).  ALU operands may be general registers, not memory or index registers. The ALU has a transparent holding register that can be loaded from memory in a single cycle, but that cycle may not be either an ALU phase 1 or 2 cycle. Index registers may be incremented or decremented by small constants only.
 
-The index registers have an incrementer/decrementer capable of adding the values -4 .. +3 to any index register. Index register increments also take two cycles, the second of which is a "dead" cycle (the system address bus is not driven).
+No register may be used in the same cycle that it is updated. The index registers have an incrementer/decrementer capable of adding the values -4 .. +3 to any index register. Index register increments also require a cycle which may not use an index register to address memory.
 
 ## Instruction set overview
 
@@ -44,14 +41,18 @@ microcode (it is held in the lower half of the instruction register, IRL,
 while the instructions executes, and microcoded controls may move or apply
 its value in a number of ways). It is variously used as the Register Control Word (RCW) to identify registers, to hold the address offset for branch instructions, or to act as a short immediate data value.
 
+The lower half (0x80nn ... 0xBFnn) of this instruction space includes ALU operations, branches, and all special instructions. The upper half (0xC0nn ... 0xFCnn) is divided into byte and word operations: C0 ... C7 are byte operations, C8 ... CF word operations, etc. The last four instruction slots 0xFCnn through 0xFFnn are reserved by hardware for the implementation of interrupts, jumps, and calls.
+
+The following subsections are divided into "lines" defined by the upper digit (nybble) of the opcode, 0 through F.
+
 ## Instruction set details
 
-### Absolute calls and jumps
+### 0-line through 7-line: Absolute calls and jumps
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
 | 0x0000 - 0x7FFE (even) | call | target | Call self-address |
-| 0x0001 - 0x7FFF (odd) | jmp | target | Jump to target - 1 |
+| 0x0001 - 0x7FFF (odd) | jmp | target | Jump to (self-address - 1) |
 
 ### 8-Line: ALU operations
 
@@ -94,12 +95,11 @@ destination field selects either a write to one of the four general register
 
 | Opcode | Mnemonic | Operands | Notes |
 | :----- | :------: | :------- | :---- |
-| 0x9**F**:**OFF** | br       | flags, offset | Branch on flag condition **F** to offset **OFF**  |
+| 0x9**F**:**OFF** | br       | cond, offset | Branch on flag condition **F** to offset **OFF**  |
 
 The hardware performs a conditional write to the PC enabled by one of 16
 conditions selected by "F", the low-order 4 bits of the upper half of IR.
-The lower byte LB contains the branch offset in 16-bit instruction words
-from -64 through 63.
+The lower byte LB contains the branch offset in bytes. The offset must be even.
 
 | Value of "F" | Name   | Interpretation ("Branch if...") |
 | :----------- | :---   | :------------- |
@@ -120,84 +120,96 @@ from -64 through 63.
 | 0xE          | sge    | sign and overflow match (signed greater or equal) |
 | 0xF          | sgt    | sign and overflow match or zero is clear (signed greater than) |
 
-### A-Line: Move instructions
+### A-Line: Unassigned opcodes
 
-The base acronym MV is used only for register to register moves. Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Other instructions involving immediate values are grouped separately (below).
+All A-line opcodes are currently unassigned. In YARC, execution of undefined opcodes causes the machine to loop forever (i.e. hang) executing no-op cycles.
 
-These instructions refer to the general registers. The index registers are discussed separately (below).
+### B-Line: Move and other instructions including push and pop
 
-| Opcode | Mnemonic | Operands     | Notes |
-| :----- | :------: | :-------     | :---- |
-| 0xA0:RCW | mvr    | src, dst     | register to register move |
-| 0xA1:00  | TBD    | unassigned   | unassigned |
-| 0xA2:00  | TBD    | unassigned   | unassigned |
-| 0xA3:00  | TBD    | unassigned   | unassigned |
-| 0xA4:RCW | ldrw   | @src, dst    | load register from memory word |
-| 0xA5:RCW | ldrb   | @src, dst    | load register from sign-extended memory byte |
-| 0xA6:RCW | strw   | src, @dst    | store register to memory word |
-| 0xA7:RCW | strb   | src, @dst    | store register low byte to memory byte |
-| 0xA8:RCW | lddw   | immed16, dst | load direct register *dst* from @immed16 |
-| 0xA9:RCW | ldsw   | immed16, @src, dst | load register *dst* from @(src + immed16) |
-| 0xAA:RCW | stdw   | src, immed16 | store direct register *src* to @immed16 |
-| 0xAB:RCW | stsw   | immed16, src, @dst | store register *src* to @(dst + immed16)  |
-| 0xAC:0xAF| TBD    | TBD          | unassigned (4 opcodes) |
-
-### Opcodes B0 - BF unassigned
-
-### C-Line: Immediate operations
-
-The byte opcodes 0xC0..0xC7 use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these instructions. Byte operations on r3 generally don't make sense because it is the PC. The word operations 0xC8..0xCB each require two words but support all four registers.
-
-| Opcode | Mnemonic | Operands     | Notes |
-| :----- | :------: | :-------     | :---- |
-| 0xC0:IMM | ldib   | immed8, r0   | load immediate sign extended byte to r0 |
-| 0xC1:IMM | ldib   | immed8, r1   | load immediate sign extended byte to r1 |
-| 0xC2:IMM | addib  | immed8, r0   | add immediate sign extended byte to r0  |
-| 0xC3:IMM | addib  | immed8, r1   | add immediate sign extended byte to r1  |
-| 0xC4:IMM | bicib  | immed8, r0   | clear bits in low byte of r0 that are set in immed8 |
-| 0xC5:IMM | bicib  | immed8, r1   | clear bits in low byte of r1 that are set in immed8 |
-| 0xC6:IMM | bisib  | immed8, r0   | set bits in low byte of r0 that are set in immed8 |
-| 0xC7:IMM | bisib  | immed8, r1   | set bits in low byte of r1 that are set in immed8 |
-| 0xC8:RCW | ldiw   | immed16, dst   | load immediate value to register |
-| 0xC9:RCW | addiw  | immed16, dst   | add immediate value to register |
-| 0xCA:RCW | biciw  | immed16, dst   | clear bits in dst that are set in immed16 |
-| 0xCB:RCW | bisiw  | immed16, dst   | set bits in dst that are set in immed16 |
-| 0xCC:RCW | cmpiw  | immed16, src2  | set flags based on immed16 - src2 |
-| 0xCD - 0xCF | unassigned | TBD     | unassigned (3 opcodes) |
-
-### Index register operations
-
-For these operations, the index register 0..3 is encoded in the LS bits of the upper byte of the instruction word. Instructions D0, D4, D8, and DC refer to index register 0. D1, D5, ... refer to index register 1, etc. Note that index register 3 is the stack pointer. These operations treat the stack pointer exactly like the other index registers. Separate push and pop operations provide a shorthand for some operations on ix3 (SP).
-
-| Opcode     | Mnemonic | Operands    | Notes  |
-| :-----     | :------: | :-------    | :----  |
-| 0xD0..0xD3 | ldxb  | ix, dst, incr   | load sign-extended byte to general register *dst* from the address in index register ix and add *incr* to the index register value. |
-| 0xD4..0xD7 | stxb  | src, ix, incr   | store low order byte from general register *src* to the byte address in index register ix and add *incr* to the index register value.  |
-| 0xD8..0xDB | ldxw | ix, incr, dst | load word to general register *dst* from the address in index register ix and add *incr* to the index register value |
-| 0xDC..0xDF | stxw | src, ix, incr | store word from general register *src* from the address in index register ix and add *incr* to the index register value |
-| 0xE0..0xE3 | mvrx | src, dst        | move general register *src* to index register *dst* |
-| 0xE4..0xE7 | mvxr | src, dst        | move index register *src* to general register *dst* |
-| 0xE8..0xEB | ldxi | immed16, ix     | load immediate value to index register |
-| 0xEC..0xEF | unassigned | TBD | unassigned (4 opcodes) |
-
-### Special instructions
-
-Interrupt instructions are reserved,  but interrupts are not implemented.
+The base acronym MV is used only for register to register moves. Memory accesses are called loads (LD) and stores (ST).
 
 | Opcode   | Mnemonic | Operands | Notes  |
 | :-----   | :------: | :------- | :----  |
-| 0xF0:IM8 | ldif     | imm8     | load immediate flags from imm8 3:0 (V N Z C) |
-| 0xF1:RCW | mvf      | dst      | move flags to register dst |
-| 0xF200   |          |          |        |
-| 0xF300   |          |          |        |
-| 0xF400   |          |          |        |
-| 0xF500   |          |          |        |
-| 0xF6NN   |          |          |        |
-| 0xF700   |          |          |        |
-| 0xF800   | nop2     | none     | no operation, 2 machine cycles |
-| 0xF900   | nop3     | none     | no operation, 3 machine cycles |
-| 0xFA00   | ret      | none     | return |
-| 0xFB00   | TBD      | TBD      | unassigned |
+| 0xB0:IM8 | ldif     | imm8     | load immediate flags from imm8 3:0 (V N Z C) |
+| 0xB1:RCW | mvfr     | dst      | move flags to register **dst** |
+| 0xB200   | mvrf     | src      |  move register **src** to flags |
+| 0xB3:RCW | mvr      | src, dst | register to register move |
+| 0xB400   | TBD      |          |  unassigned      |
+| 0xB500   | ret      | none     | return |
+| 0xB600   | nop2     | none     | no operation, 2 machine cycles |
+| 0xB700   | nop3     | none     | no operation, 3 machine cycles |
+| 0xB8:RCW | pop      | dst      | @++ix3 => general register *dst* |
+| 0xB9:RCW | pop2     |          | pop r3 then pop r2 |
+| 0xBA:RCW | popall   |          | pop r3, r2 r1, r0 |
+| 0xBB     | TBD      |          | unassigned |
+| 0xBC:RCW | push     | src      | general register *src* => @ix3-- |   
+| 0xBD:RCW | push2    |          | push r2 then push r3 (PC) |   
+| 0xBE:RCW | pushall  | src      | push r0, r1, r2, r3 |   
+| 0xBF     | TBD   |             | unassigned |
+
+### C-Line: Load and store instructions
+
+Instructions which involve memory are named LD (load) or ST (store). Instructions make only a single memory reference except for LDDW/STDW and LDOW/STOW which read a value from code stream for use as an address in addition to the load or store. Other instructions involving immediate values are grouped separately (below).
+
+All C-, D-, E- and F-line instructions reserved the lower half of the line (e.g. C0 - C7) for byte operations and the upper half (e.g. C8 - CF) for word operations.
+
+C-line and D-line instructions refer to the general registers. E-line and F-line instructions refer to index registers.
+
+| Opcode | Mnemonic | Operands     | Notes |
+| :----- | :------: | :-------     | :---- |
+| 0xC0:RCW | ldrb   | @src, dst    | load register from sign-extended memory byte |
+| 0xC1:RCW | lddb   | immed16, dst | load direct register *dst* from sign-extended byte @immed16 |
+| 0xC2:RCW | ldsb   | immed16, @src, dst | load register *dst* from sign-extended byte @(src + immed16) |
+| 0xC3     | TBD    |              | unassigned |
+| 0xC4:RCW | strb   | src, @dst    | store register *src* low byte to memory byte |
+| 0xC5:RCW | stdb   | src, immed16 | store direct register *src* low byte to @immed16 |
+| 0xC6:RCW | stsb   | immed16, src, @dst | store direct register *src* low byte to @(dst + immed16)  |
+| 0xC7:RCW | TBD    |              | unassigned |
+| 0xC8:RCW | ldrw   | @src, dst    | load register from memory word |
+| 0xC9:RCW | lddw   | immed16, dst | load direct register *dst* from @immed16 |
+| 0xCA:RCW | ldsw   | immed16, @src, dst | load register *dst* from @(src + immed16) |
+| 0xCB     | TBD    |              | unassigned |
+| 0xCC:RCW | strw   | src, @dst    | store register to memory word |
+| 0xCD:RCW | stdw   | src, immed16 | store direct register *src* to @immed16 |
+| 0xCE:RCW | stsw   | immed16, src, @dst | store register *src* to @(dst + immed16)  |
+| 0xCF     | TBD    |              | unassigned |
+
+### D-Line: Immediate operations
+
+The byte opcodes 0xD0..0xD7 use the low bits of the opcode word for an 8-bit immediate value, so the RCW is not available for register specification. The target register must be specified in the opcode bits. This consumes a lot of opcode space, so only r0 and r1 are supported as targets for these byte instructions. Byte operations on r3 generally don't make sense because it is the PC. The word operations 0xD8..0xDB each require two words but support all four general registers.
+
+| Opcode | Mnemonic | Operands     | Notes |
+| :----- | :------: | :-------     | :---- |
+| 0xD0:IMM | ldib   | immed8, r0   | load immediate sign extended byte to r0 |
+| 0xD1:IMM | ldib   | immed8, r1   | load immediate sign extended byte to r1 |
+| 0xD2:IMM | addib  | immed8, r0   | add immediate sign extended byte to r0  |
+| 0xD3:IMM | addib  | immed8, r1   | add immediate sign extended byte to r1  |
+| 0xD4:IMM | bicib  | immed8, r0   | clear bits in low byte of r0 that are set in immed8 |
+| 0xD5:IMM | bicib  | immed8, r1   | clear bits in low byte of r1 that are set in immed8 |
+| 0xD6:IMM | bisib  | immed8, r0   | set bits in low byte of r0 that are set in immed8 |
+| 0xD7:IMM | bisib  | immed8, r1   | set bits in low byte of r1 that are set in immed8 |
+| 0xD8:RCW | ldiw   | immed16, dst   | load immediate value to register |
+| 0xD9:RCW | addiw  | immed16, dst   | add immediate value to register |
+| 0xDA:RCW | biciw  | immed16, dst   | clear bits in dst that are set in immed16 |
+| 0xDB:RCW | bisiw  | immed16, dst   | set bits in dst that are set in immed16 |
+| 0xDC:RCW | cmpiw  | immed16, src2  | set flags based on immed16 - src2 |
+| 0xDD - 0xDF | unassigned |     | unassigned (3 opcodes) |
+
+### E- and F-lines: Index register operations
+
+For these operations, the index register 0..3 is encoded in the LS bits of the upper byte of the instruction word. Instructions D0, D4, D8, and DC refer to index register ix0. D1, D5, ... refer to index register ix1, etc.
+
+Index register 3 is the stack pointer. These operations treat the stack pointer exactly like the other index registers. Separate push and pop operations provide a shorthand for some operations on ix3 (SP).
+
+| Opcode     | Mnemonic | Operands    | Notes  |
+| :-----     | :------: | :-------    | :----  |
+| 0xE0..0xE3 | ldxb  | ix, dst, incr   | load sign-extended byte to general register *dst* from the address in index register ix and add *incr* to the index register value. |
+| 0xE4..0xE7 | stxb  | src, ix, incr   | store low order byte from general register *src* to the byte address in index register ix and add *incr* to the index register value.  |
+| 0xE8..0xEB | ldxw | ix, incr, dst | load word to general register *dst* from the address in index register ix and add *incr* to the index register value |
+| 0xEC..0xEF | stxw | src, ix, incr | store word from general register *src* from the address in index register ix and add *incr* to the index register value |
+| 0xF0..0xF3 | mvrx | src, dst        | move general register *src* to index register *dst* |
+| 0xF4..0xF7 | mvxr | src, dst        | move index register *src* to general register *dst* |
+| 0xF8..0xFB | ldxi | immed16, ix     | load immediate value to index register |
 | 0xFC00   | TBD      |          | Reserved for interrupt support |
 | 0xFD00   | TBD      |          | Reserved for interrupt support |
 | 0xFE00   | TBD      |          | Hardwired as implementation of CALL |
@@ -214,13 +226,5 @@ The rotate instruction rotates the register specified by src1 and places the res
 | 6          | -2                   | Rotate right. The MS bit and carry flag are set to the value of the LS bit. Other bits are shifted right one position. |
 | 7          | -1                   | Rotate right through carry. The MS bit is set to the value of the carry flag. The carry flag is set to the value of the LS bit. Other bits are shifted right one position. |
 
-For asf (arithmetic shift), the carry flag is not affected. The src2 operand specifies the amount of the shift, -1 or -2 positions (right) or 1 or 2 positions (left). For right shifts, the MS bit of the word is duplicated. For left shifts, zeroes are introduced.
-
-### Additional Opcodes
-
-Opcodes 0xC0 - 0xFB were reserved for FORTH primitives in a previous iteration of the design. The intent now is to implement a Wasm-to-YARC translator and not implement the FORTH environment.
-
-Opcodes 0xFC and 0xFD are reserved for a possible implementation of hardware and software interrupts.
-
-Opcodes 0xFE and 0xFF are reserved by hardware as the implementation of CALL and JMP.
+For asf (arithmetic shift), the carry flag is not affected. The src2 operand specifies the amount of the shift as above, -1 or -2 positions right (corresponding to divide by 2 or 4) or 1 or 2 positions left (corresponding to multiply by 2 or 4). For right shifts, the MS bit of the word is duplicated at the left. For left shifts, zeroes are introduced at the right.
 
