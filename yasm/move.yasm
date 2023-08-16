@@ -55,7 +55,7 @@
 # There is no RCW - src1, src2, and dst are not used.
 
 .set K3_LDIF K3_NONE # no RCW in this instruction
-.set K2_LDIF "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=yes"
+.set K2_LDIF "acn=alu_pass alu_ctl=alu_none alu_load_hold=no alu_load_flgs=yes"
 .set K1_LDIF "sysdata_src=bus_ir reg_in_mux=from_bus dst_wr_en=no"
 .set K0_LDIF "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
@@ -97,7 +97,7 @@
 # STRW - store register to memory word (register indirect)
 # RCW from instruction
 .set K3_STRW K3_NONE
-.set K2_STRW "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K2_STRW "acn=alu_pass alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
 .set K1_STRW "sysdata_src=bus_gr reg_in_mux=from_bus dst_wr_en=no"
 .set K0_STRW "rw=write m16_en=bit16 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
@@ -120,7 +120,7 @@
 # | 0xAB:RCW | STOW   | immed16, src, @dst | store register to @(dst + immed16)  |
 
 .set K3_LDD "src1=r3 src2=const_n1 dst=cond_r3"
-.set K2_LDD "acn=alu_0x0F alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K2_LDD "acn=alu_pass alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
 # This next definition K1_LDD needs the new control bit to use the ALU holding register as an address
 .set K1_LDD "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
 .set K0_LDD "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"

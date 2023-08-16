@@ -49,36 +49,36 @@
 		}
 	  });
 
-	// contents.innerText =
-	// 	"sk 0 " + "0x" + kmap.get("k0").toString(16) + "\n" + 
-	// 	"sk 1 " + "0x" + kmap.get("k1").toString(16) + "\n" + 
-	// 	"sk 2 " + "0x" + kmap.get("k2").toString(16) + "\n" + 
-	// 	"sk 3 " + "0x" + kmap.get("k3").toString(16) + "\n";
-
-	  contents.innerText =
-		"WriteByteToK(3, 0x" + kmap.get("k3").toString(16) + "); //" + comments.get("k3") + "\n" +
-		"WriteByteToK(2, 0x" + kmap.get("k2").toString(16) + "); //" + comments.get("k2") + "\n" + 
-		"WriteByteToK(1, 0x" + kmap.get("k1").toString(16) + "); //" + comments.get("k1") + "\n" + 
-		"WriteByteToK(0, 0x" + kmap.get("k0").toString(16) + "); //" + comments.get("k0") + "\n";
+      contents.innerText =
+		"WriteK(" +
+			  "0x" + kmap.get("k3").toString(16) +
+			", 0x" + kmap.get("k2").toString(16) +
+			", 0x" + kmap.get("k1").toString(16) +
+			", 0x" + kmap.get("k0").toString(16) +
+		");" + "\n\n" +
+		".set K3_TERM" + comments.get("k3") + "\n" +
+		".set K2_TERM" + comments.get("k2") + "\n" +
+		".set K1_TERM" + comments.get("k1") + "\n" +
+		".set K0_TERM" + comments.get("k0")
 
 	  // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
-	  rcw_from_instruction = gebi("k0-rcw_ir_uc-1-4").value == 0;
-	  gebi("k3-src1-3-6").disabled = rcw_from_instruction;
-	  gebi("k3-src2-7-3").disabled = rcw_from_instruction;
-	  gebi("k3-dst-7-0").disabled = rcw_from_instruction;
-	  gebi("k2-alu_op-15-4").disabled = rcw_from_instruction;
-
-	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
-		if (gebi("k0-ir_clk-1-5").value == 0) {
-		  alert("warning: clocking undriven sysdata into IR");
-		}
-		if (gebi("k0-rw-1-7").value == 0) {
-		  alert("warning: clocking undriven sysdata into memory");
-		}
-		if (gebi("k1-dst_wr_en-1-0").value == 0 && gebi("k1-reg_in_mux-1-4").value == 1) {
-		  alert("warning: clocking undriven sysdata into a general register");
-		}
-	  }
+		//	  rcw_from_instruction = gebi("k0-rcw_ir_uc-1-4").value == 0;
+		//	  gebi("k3-src1-3-6").disabled = rcw_from_instruction;
+		//	  gebi("k3-src2-7-3").disabled = rcw_from_instruction;
+		//	  gebi("k3-dst-7-0").disabled = rcw_from_instruction;
+		//	  gebi("k2-alu_op-15-4").disabled = rcw_from_instruction;
+		//
+		//	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
+		//		if (gebi("k0-ir_clk-1-5").value == 0) {
+		//		  alert("warning: clocking undriven sysdata into IR");
+		//		}
+		//		if (gebi("k0-rw-1-7").value == 0) {
+		//		  alert("warning: clocking undriven sysdata into memory");
+		//		}
+		//		if (gebi("k1-dst_wr_en-1-0").value == 0 && gebi("k1-reg_in_mux-1-4").value == 1) {
+		//		  alert("warning: clocking undriven sysdata into a general register");
+		//		}
+		//	  }
 	}
 
     </script>
@@ -130,16 +130,16 @@
         <option value="3">alu_adc</option>
         <option value="4">alu_sbb</option>
         <option value="5">alu_rsbb</option>
-        <option value="6">alu_nand</option>
-        <option value="7">alu_or</option>
-        <option value="8">alu_xor</option>
-        <option value="9">alu_not</option>
-        <option value="10">alu_neg</option>
-        <option value="11">alu_rot</option>
-        <option value="12">alu_0x0C</option>
-        <option value="13">alu_0x0D</option>
+        <option value="6">alu_neg</option>
+        <option value="7">alu_cmp</option>
+        <option value="8">alu_nand</option>
+        <option value="9">alu_or</option>
+        <option value="10">alu_xor</option>
+        <option value="11">alu_not</option>
+        <option value="12">alu_rot</option>
+        <option value="13">alu_shf</option>
         <option value="14">alu_0x0E</option>
-        <option value="15" selected>alu_0x0F</option>
+        <option value="15" selected>alu_pass</option>
 	  </select> &nbsp;
 	  alu_ctl: <select id="k2-alu_ctl-3-2" onchange="collect()">
         <option value="0">alu_phi1</option>
@@ -162,7 +162,7 @@
 	  K1:
 	  sysdata_src: <select id="k1-sysdata_src-7-5" onchange="collect()">
 	    <option value="0">bus_gr</option>
-	    <option value="1">bus_sp</option>
+	    <option value="1">bus_addr</option>
 	    <option value="2">bus_ir</option>
 	    <option value="3">bus_f</option>
 	    <option value="4">bus_mem</option>
@@ -174,6 +174,16 @@
 	    <option value="0">from_alu</option>
 	    <option value="1" selected>from_bus</option>
 	  </select> &nbsp;
+	  rcw_cross: <select id="k1-rcw_cross-1-3" onchange="collect()">
+	    <option value="0">rcw_cross</option>
+	    <option value="1" selected>rcw_normal</option>
+	  </select> &nbsp;
+	  sysaddr_src: <select id="k1-sysaddr_src-3-1" onchange="collect()">
+	    <option value="0">addr_op</option>
+	    <option value="1">addr_ix</option>
+	    <option value="2">addr_alu</option>
+	    <option value="3" selected>addr_gr</option>
+      </select> &nbsp;
 	  dst_wr_en: <select id="k1-dst_wr_en-1-0" onchange="collect()">
 		<option value="0">yes</option>
 		<option value="1" selected>no</option>

@@ -59,24 +59,24 @@ The following subsections are divided into "lines" defined by the upper digit (n
 The low byte (RCW) of these opcodes encodes the three operands in three
 fields, each two or three bits.
 
-| Opcode | Mnemonic | Operands | Notes |
-| :----- | :------: | :------- | :---- |
-| 0x80:RCW | add | src1, src2, dst | src1 + src2 => dst, operand in LB |
-| 0x81:RCW | sub | src1, src2, dst | src1 - src2 => dst, operands in LB |
-| 0x82:RCW | adc | src1, src2, dst |  src1 + src2 + C => dst, operands in LB |
-| 0x83:RCW | sbb | src1, src2, dst | src1 - src2 - c => dst, operands in LB |
-| 0x84:RCW | bic | src1, src2, dst | src1 & ~src2 => dst, operands in LB ("bit clear") |
-| 0x85:RCW | bis | src1, src2, dst | src1 OR src2 => dst, operands in LB ("bit set") |
-| 0x86:RCW | xor | src1, src2, dst | src1 XOR src2 => dst, operands in LB |
-| 0x87:RCW | not | ----, src2, dst | ~src2 => dst, operands in LB |
-| 0x88:RCW | neg | ----, src2, dst | -src2 => dst, operands in LB |
-| 0x89:RCW | rot | src1, src2, dst | rotate (see "Additional Information" below) |
-| 0x8A:RCW | cmp | src1, src2, --- | compare src1, src2 (set flags based on subtract) |
-| 0x8B:RCW | asf | src1, src2, dst | shift (see "Additional Information" below) |
-| 0x8C:RCW | TBD | src1, src2, dst | ALU operation 12 (TBD), operands in LB |
-| 0x8D:RCW | TBD | src1, src2, dst | ALU operation 13 (TBD), operands in LB |
-| 0x8E:RCW | TBD | src1, src2, dst | ALU operation 14 (TBD), operands in LB |
-| 0x8F:RCW | pass | src1, src2, dst | src2 => dst |
+| Opcode | Mnemonic | Operands        | Notes |
+| :----- | :------: | :-------        | :---- |
+| 0x80:RCW | add    | src1, src2, dst | src1 + src2 => dst |
+| 0x81:RCW | sub    | src1, src2, dst | src2 - src1 => dst |
+| 0x82:RCW | rsub   | src1, src2, dst | src1 - src2 => dst |
+| 0x83:RCW | adc    | src1, src2, dst | src1 + src2 + C => dst |
+| 0x84:RCW | sbb    | src1, src2, dst | src2 - src1 - C => dst |
+| 0x85:RCW | rsbb   | src1, src2, dst | src1 - src2 - C => dst |
+| 0x86:RCW | neg    | ----, src2, dst | -src2 => dst |
+| 0x87:RCW | cmp    | src1, src2      | src2 - src1; no dst; set flags |
+| 0x88:RCW | bic    | src1, src2, dst | src1 & ~src2 => dst ("bit clear") |
+| 0x89:RCW | bis    | src1, src2, dst | src1 OR src2 => dst ("bit set") |
+| 0x8A:RCW | xor    | src1, src2, dst | src1 XOR src2 => dst |
+| 0x8B:RCW | not    | ----, src2, dst | ~src2 => dst |
+| 0x8C:RCW | rot    | src1, src2, dst | rotate (see "Additional Information") |
+| 0x8D:RCW | shf    | src1, src2, dst | shift (see "Additional Information") |
+| 0x8E:RCW | TBD    | src1, src2, dst | ALU operation 14 (TBD) |
+| 0x8F:RCW | pass   | src1, src2, dst | src2 => dst |
 
 The low byte of the instruction is interpreted from most significant to least significant as a 2-bit _source1_ field in the two MS bits, a 3-bit _source2_ field, and a 3-bit _destination_ field in the 3 LS bits.
 
@@ -87,9 +87,29 @@ the high byte of the microcode as selected by a microcode bit.
 The source1 field of the RCW selects one of 4 general registers to the first
 of the two ALU inputs. The source2 field selects either one of 4 general
 registers (0..3) or one of four small constant registers (2, 1, -2, or -1,
-encoded by the values 4..7) to the second ALU input. These values have special predefined meanings for the ROT (rotate) and SHF (shift) instructions. Finally, the 3-bit
-destination field selects either a write to one of the four general register
-(0..3) or a conditional write (4..7). Conditional writes are explained next.
+encoded by the values 4..7) to the second ALU input. These values have special predefined meanings for the ROT (rotate) and SHF (shift) instructions. Finally, the 3-bit destination field selects either a write to one of the four general register
+(0..3) or a conditional write (4..7). Conditional writes are explained below.
+
+#### Additional Information
+
+The rotate instruction rotates the register specified by src1 and places the result in dst (often, src1 and dst will be the same). The rotation is specified by src2, which is usually one of the small constant registers 4..7. The operations are:
+
+| src2 value | Small constant value | Meaning |
+|:---------- | :------------------- | :------ |
+| 4          | 2                    | Rotate left. The LS bit and carry flag in the dst are set to the value of the MS bit from src1. Other bits are shifted left one position. |
+| 5          | 1                    | Rotate left through carry. The LS bit is set to the value of the carry flag. The carry flag is set to the value of the MS bit. Other bits are shifted left one position. |
+| 6          | -2                   | Rotate right. The MS bit and carry flag are set to the value of the LS bit. Other bits are shifted right one position. |
+| 7          | -1                   | Rotate right through carry. The MS bit is set to the value of the carry flag. The carry flag is set to the value of the LS bit. Other bits are shifted right one position. |
+
+For shf (shift), the carry flag is not affected. The src2 operand specifies the amount of the shift:
+
+| src2 value | Small constant value | Meaning |
+|:---------- | :------------------- | :------ |
+| 4          | 2                    | Shift left (multiply by 2) |
+| 5          | 1                    | Arithmetic shift right. Duplicate MSB. |
+| 6          | -2                   | Logical shift right two positions. Set 2 high order bits to 0. |
+| 7          | -1                   | Logical shift right. Set MSB to 0. |
+
 
 ### 9-Line: Conditional branches
 
@@ -215,7 +235,7 @@ Index register 3 is the stack pointer. These operations treat the stack pointer 
 | 0xFE00   | TBD      |          | Hardwired as implementation of CALL |
 | 0xFF00   | TBD      |          | Hardwired as implementation of JMP |
 
-### Additional Information
+#### Additional Information
 
 The rotate instruction rotates the register specified by src1 and places the result in dst (often, src1 and dst will be the same). The rotation is specified by src2, which is usually one of the small constant registers 4..7. The operations are:
 
