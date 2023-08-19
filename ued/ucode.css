@@ -1,2 +1,47 @@
-/* styles for the microcode controls only - main regions inline in page  */
-#Urw { border: 2px solid red; position: absolute; left:250px; top:250px; }
+.ucc {
+  border: 2px solid red;
+  position: absolute;
+}
+
+body {
+  background-color: linen;
+  margin-left: 40px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+  color: maroon;
+}
+
+#controls {
+  height: 500px;
+}
+
+#canvas {
+  /*width: 1350px;
+  height: 500px;*/
+  background: #ffffff;
+}
+
+#glasspane {
+  border: 2px solid blue;
+  position: relative;
+  top: -506px;
+  width: 1350px;
+  height: 500px;
+}
+
+#palette {
+  border: 2px solid violet;
+  position: relative;
+  top: -360px;
+  width: 1350px;
+  height: 500px;
+}
+
+#microcode {
+  font-family: "Lucida Console", "Courier New", monospace;
+  width: 1350px;
+  border: 1px solid black;
+}
+
