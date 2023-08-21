@@ -71,8 +71,10 @@ class Path extends Drawable {
         console.log("finishDraw(): not overridden");
     }
 
+	// Optional override
     beforeBeginDraw() {}
 
+	// Optional override
     afterFinishDraw() {}
 
     draw() { // final
@@ -94,17 +96,21 @@ class Quad extends Path {
         return this.btPoints[0];
     }
 
+	upperRight() {
+        return this.btPoints[1];
+	}
+
     topMiddle() {
         let btTopLen = this.btPoints[1].btX - this.btPoints[0].btX;
         return new Point(this.btPoints[0].btX + btTopLen / 2, this.btPoints[0].btY);
     }
 
-    lowerLeft() {
-        return this.btPoints[3];
-    }
-
     lowerRight() {
         return this.btPoints[2];
+    }
+
+    lowerLeft() {
+        return this.btPoints[3];
     }
 
     bottomMiddle() {
@@ -160,7 +166,9 @@ class Rect extends Quad {
 }
 
 // This is a gross implementation inheritance cheat. We
-// make Trapezoid a funny kind of Rectangle.
+// make Trapezoid a funny kind of Rectangle. They all
+// narrow toward the bottom, which is a silly software
+// restriction but a good block diagram practice.
 class Trap extends Rect {
     constructor(ctx, ul, sz) {
         super(ctx, ul, sz);
@@ -321,9 +329,116 @@ function drawGrid(ctx) {
 }
 
 let init = false;
-let controls;
-let areas;
-let lines;
+
+let controls; // array of controls
+let src1, src2, dst, alu_ctl, acn, alu_load_hold,
+	alu_load_flgs, sysdata_src, reg_in_mux, rcw_cross,
+	sysaddr_src, dst_wr_en, rw, m16_en, load_ir,
+	rcw_ir_uc, carry_en, load_flgs_mux, acn_ir_uc, ir0_en;
+
+let areas; // array of areas
+let areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
+    areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux;
+
+let lines; // array of fixed lines
+
+function initialize(ctx) {
+
+	// Quads
+	areaRegInMux = new Trap(ctx, new Point(1, 1), new Point(6, 0.5));
+	areaBank1 = new Rect(ctx, new Point(1, 2), new Point(3, 2));
+	areaBank2 = new Rect(ctx, new Point(4, 2), new Point(3, 2));
+	areaPort2Hold = new Rect(ctx, new Point(4, 4.5), new Point(3, 0.5));
+	areaAlu = new Trap(ctx, new Point(1, 5.5), new Point(6, 1));
+	areaMem = new Rect(ctx, new Point(12, 2), new Point(4, 5));
+	areaIx = new Rect(ctx, new Point(17, 2), new Point(4, 5));
+	areaIr = new Rect(ctx, new Point(23, 5), new Point(3, 1));
+	areaFlagsMux = new Trap(ctx, new Point(6.5, 7), new Point(4.5, 0.5));
+	areaFlags = new Rect(ctx, new Point(6.5, 8), new Point(4.5, 0.5));
+	areaAluOut = new Rect(ctx, new Point(2, 7), new Point(4, 0.5));
+
+	// Fixed lines
+	mainAddrBus = new Line(ctx, new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
+	mainDataBus = new Line(ctx, new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5));
+
+	// Controls. Their variable names and IDs match the microcode
+	// definitions and documentation, so makes sense in context.
+	src1 = new Control(ctx, "src1", new Point(14, 1));
+	src2 = new Control(ctx, "src2", new Point(14, 2));
+	dst = new Control(ctx, "dst", new Point(14, 3));
+	alu_ctl = new Control(ctx, "alu_ctl", new Point(14, 4));
+	acn = new Control(ctx, "acn", new Point(14, 5));
+	alu_load_hold = new Control(ctx, "alu_load_hold", new Point(14, 6));
+	alu_load_flgs = new Control(ctx, "alu_load_flgs", new Point(14, 7));
+	sysdata_src = new Control(ctx, "sysdata_src", new Point(14, 8));
+	reg_in_mux = new Control(ctx, "reg_in_mux", new Point(18, 1));
+	rcw_cross = new Control(ctx, "rcw_cross", new Point(18, 2));
+	sysaddr_src = new Control(ctx, "sysaddr_src", new Point(18, 3));
+	dst_wr_en = new Control(ctx, "dst_wr_en", new Point(18, 4));
+	rw = new Control(ctx, "rw", new Point(18, 5));
+	m16_en = new Control(ctx, "m16_en", new Point(18, 6));
+	load_ir = new Control(ctx, "load_ir", new Point(18, 7));
+	rcw_ir_uc = new Control(ctx, "rcw_ir_uc", new Point(18, 8));
+	carry_en = new Control(ctx, "carry_en", new Point(22, 1));
+	load_flgs_mux = new Control(ctx, "load_flgs_mux", new Point(22, 2));
+	acn_ir_uc = new Control(ctx, "acn_ir_uc", new Point(22, 3));
+	ir0_en = new Control(ctx, "ir0_en", new Point(22, 4));
+	carry_en = new Control(ctx, "carry_en", new Point(7, 6));
+
+	controls = [src1, src2, dst, alu_ctl, acn, alu_load_hold,
+		alu_load_flgs, sysdata_src, reg_in_mux, rcw_cross,
+		sysaddr_src, dst_wr_en, rw, m16_en, load_ir,
+		rcw_ir_uc, carry_en, load_flgs_mux, acn_ir_uc,
+		ir0_en];
+
+	areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
+		areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux];
+
+	lines = [mainAddrBus, mainDataBus];
+
+	src1.setCenterTop(areaBank1.topMiddle());
+	src2.setCenterTop(areaBank2.topMiddle());
+	dst.setLowerLeft(areaBank1.lowerLeft());
+	dst_wr_en.setLowerRight(areaBank2.lowerRight());
+	alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
+	alu_ctl.setCenterTop(areaAlu.topMiddle());
+	acn.setCenterBottom(areaAlu.bottomMiddle());
+	reg_in_mux.setCenterTop(areaRegInMux.topMiddle());
+	rw.setCenterTop(areaMem.topMiddle());
+	m16_en.setCenterBottom(areaMem.bottomMiddle());
+	sysaddr_src.setCenterTop(new Point(12, 0));
+	sysdata_src.setCenterBottom(new Point(12, 10));
+	alu_load_flgs.setCenterTop(areaFlags.topMiddle());
+	load_flgs_mux.setCenterTop(areaFlagsMux.topMiddle());
+	load_ir.setCenterTop(areaIr.topMiddle());
+	ir0_en.setCenterBottom(areaIr.bottomMiddle());
+	rcw_cross.setCenterBottom(areaIx.bottomMiddle());
+	rcw_ir_uc.setCenterTop(areaIr.bottomMiddle());
+	p = areaIr.bottomMiddle();
+	p.btY += 1;
+	acn_ir_uc.setCenterBottom(p);
+}
+
+function applyRules(ctx) {
+    // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
+    //	  rcw_from_instruction = gebi("k0-rcw_ir_uc-1-4").value == 0;
+    //	  gebi("k3-src1-3-6").disabled = rcw_from_instruction;
+    //	  gebi("k3-src2-7-3").disabled = rcw_from_instruction;
+    //	  gebi("k3-dst-7-0").disabled = rcw_from_instruction;
+    //	  gebi("k2-alu_op-15-4").disabled = rcw_from_instruction;
+    //
+    //	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
+    //		if (gebi("k0-ir_clk-1-5").value == 0) {
+    //		  alert("warning: clocking undriven sysdata into IR");
+    //		}
+    //		if (gebi("k0-rw-1-7").value == 0) {
+    //		  alert("warning: clocking undriven sysdata into memory");
+    //		}
+    //		if (gebi("k1-dst_wr_en-1-0").value == 0 && gebi("k1-reg_in_mux-1-4").value == 1) {
+    //		  alert("warning: clocking undriven sysdata into a general register");
+    //		}
+    //	  }
+}
 
 function redraw() {
     const canvas = document.getElementById("canvas");
@@ -332,65 +447,11 @@ function redraw() {
     ctx.lineWidth = 0.5;
     ctx.fillStyle = "rgb(224, 224, 224)";
 
+	// for layout, this is helpful
     // drawGrid(ctx);
 
     if (!init) {
-        let x1 = 0;
-        let y1 = 0;
-        let szX = 0.5;
-        let szY = 0.5;
-        // Quads
-        areaRegInMux = new Trap(ctx, new Point(1, 1), new Point(6, 0.5));
-        areaBank1 = new Rect(ctx, new Point(1, 2), new Point(3, 2));
-        areaBank2 = new Rect(ctx, new Point(4, 2), new Point(3, 2));
-        areaPort2Hold = new Rect(ctx, new Point(4, 4.5), new Point(3, 0.5));
-        areaAlu = new Trap(ctx, new Point(1, 5.5), new Point(6, 1));
-        areaMem = new Rect(ctx, new Point(12, 2), new Point(4, 5));
-        areaIx = new Rect(ctx, new Point(17, 2), new Point(4, 5));
-        areaIr = new Rect(ctx, new Point(23, 5), new Point(3, 1));
-        areaFlagsMux = new Trap(ctx, new Point(6.5, 7), new Point(4.5, 0.5));
-        areaFlags = new Rect(ctx, new Point(6.5, 8), new Point(4.5, 0.5));
-        areaAluOut = new Rect(ctx, new Point(2, 7), new Point(4, 0.5));
-
-        // Lines including arrows (the temporary grid was drawn above)
-        arrowToRegs = new Arrow(ctx, areaRegInMux.bottomMiddle(), areaBank1.btPoints[1]);
-        mainAddrBus = new Arrow(ctx, new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
-
-        // Controls. Their variable names and IDs match the microcode
-        // definitions and documentation, so makes sense in context.
-        src1 = new Control(ctx, "src1", new Point(14, 1));
-        src2 = new Control(ctx, "src2", new Point(14, 2));
-        dst = new Control(ctx, "dst", new Point(14, 3));
-        alu_ctl = new Control(ctx, "alu_ctl", new Point(14, 4));
-        acn = new Control(ctx, "acn", new Point(14, 5));
-        alu_load_hold = new Control(ctx, "alu_load_hold", new Point(14, 6));
-        alu_load_flgs = new Control(ctx, "alu_load_flgs", new Point(14, 7));
-        sysdata_src = new Control(ctx, "sysdata_src", new Point(14, 8));
-        reg_in_mux = new Control(ctx, "reg_in_mux", new Point(18, 1));
-        rcw_cross = new Control(ctx, "rcw_cross", new Point(18, 2));
-        sysaddr_src = new Control(ctx, "sysaddr_src", new Point(18, 3));
-        dst_wr_en = new Control(ctx, "dst_wr_en", new Point(18, 4));
-        rw = new Control(ctx, "rw", new Point(18, 5));
-        m16_en = new Control(ctx, "m16_en", new Point(18, 6));
-        load_ir = new Control(ctx, "load_ir", new Point(18, 7));
-        rcw_ir_uc = new Control(ctx, "rcw_ir_uc", new Point(18, 8));
-        carry_en = new Control(ctx, "carry_en", new Point(22, 1));
-        load_flgs_mux = new Control(ctx, "load_flgs_mux", new Point(22, 2));
-        acn_ir_uc = new Control(ctx, "acn_ir_uc", new Point(22, 3));
-        ir0_en = new Control(ctx, "ir0_en", new Point(22, 4));
-
-
-        controls = [src1, src2, dst, alu_ctl, acn, alu_load_hold,
-            alu_load_flgs, sysdata_src, reg_in_mux, rcw_cross,
-            sysaddr_src, dst_wr_en, rw, m16_en, load_ir,
-            rcw_ir_uc, carry_en, load_flgs_mux, acn_ir_uc,
-            ir0_en
-        ];
-        areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
-            areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux
-        ];
-
-        lines = [arrowToRegs, mainAddrBus];
+		initialize(ctx);
         init = true;
     }
 
@@ -402,35 +463,14 @@ function redraw() {
         lines[i].draw();
     }
 
-    src1.setCenterTop(areaBank1.topMiddle());
-    src2.setCenterTop(areaBank2.topMiddle());
-    dst.setLowerLeft(areaBank1.lowerLeft());
-    dst_wr_en.setLowerRight(areaBank2.lowerRight());
-    alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
-    alu_ctl.setCenterTop(areaAlu.topMiddle());
-    acn.setCenterBottom(areaAlu.bottomMiddle());
-    reg_in_mux.setCenterTop(areaRegInMux.topMiddle());
-    rw.setCenterTop(areaMem.topMiddle());
-    m16_en.setCenterBottom(areaMem.bottomMiddle());
-    sysaddr_src.setCenterTop(new Point(12, 0));
-    sysdata_src.setCenterBottom(new Point(12, 10));
-    alu_load_flgs.setCenterTop(areaFlags.topMiddle());
-    load_flgs_mux.setCenterTop(areaFlagsMux.topMiddle());
-    load_ir.setCenterTop(areaIr.topMiddle());
-    ir0_en.setCenterBottom(areaIr.bottomMiddle());
-    rcw_cross.setCenterBottom(areaIx.bottomMiddle());
-    rcw_ir_uc.setCenterTop(areaIr.bottomMiddle());
-    p = areaIr.bottomMiddle();
-    p.btY += 1;
-    acn_ir_uc.setCenterBottom(p);
-
-
     for (let i = 0; i < controls.length; i++) {
         controls[i].draw();
     }
 
+	applyRules(ctx)
 }
 
+// This is called at onload() time and every time something changes
 function collect() {
     const kmap = new Map();
     const comments = new Map();
@@ -444,11 +484,9 @@ function collect() {
     comments.set("k0", "");
 
     Array.from(gebi('controls').elements).forEach((ctl) => {
-        // console.log(ctl.id + ": " + ctl.value);
         a = ctl.id.split("-");
         if (a.length == 4 && a[0].startsWith("k")) { // if it's a "k control" (microcode setting):
             // a[0] is the k-register; a[1] is the field name; a[2] is the AND pattern; a[3] is the shift
-            //console.log(ctl.id + ": " + a[0] + " " + a[1] + " " + a[2] + " " + a[3] + " " + kmap.get(a[0]));
             kmap.set(a[0], kmap.get(a[0]) & ~(a[2] << a[3]));
             kmap.set(a[0], kmap.get(a[0]) | ((ctl.value & a[2]) << a[3]));
             comments.set(a[0], comments.get(a[0]) + " " + a[1] + "=" + ctl.options[ctl.selectedIndex].text);
@@ -469,22 +507,4 @@ function collect() {
 
     redraw();
 
-    // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
-    //	  rcw_from_instruction = gebi("k0-rcw_ir_uc-1-4").value == 0;
-    //	  gebi("k3-src1-3-6").disabled = rcw_from_instruction;
-    //	  gebi("k3-src2-7-3").disabled = rcw_from_instruction;
-    //	  gebi("k3-dst-7-0").disabled = rcw_from_instruction;
-    //	  gebi("k2-alu_op-15-4").disabled = rcw_from_instruction;
-    //
-    //	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
-    //		if (gebi("k0-ir_clk-1-5").value == 0) {
-    //		  alert("warning: clocking undriven sysdata into IR");
-    //		}
-    //		if (gebi("k0-rw-1-7").value == 0) {
-    //		  alert("warning: clocking undriven sysdata into memory");
-    //		}
-    //		if (gebi("k1-dst_wr_en-1-0").value == 0 && gebi("k1-reg_in_mux-1-4").value == 1) {
-    //		  alert("warning: clocking undriven sysdata into a general register");
-    //		}
-    //	  }
 }
