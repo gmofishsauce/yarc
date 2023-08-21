@@ -48,6 +48,10 @@
 		}
 	}
 
+	// Closed polygons and lines including multilines are all "Paths".
+	// They include an array of points. Their implementation of Draw()
+	// is broken into a shareable begin() and a finish() that must be
+	// overridden to produce either a stroked line or filled figure.
 	class Path extends Drawable {
 		btPoints; // array of Point
 
@@ -72,30 +76,68 @@
 			console.log("finishDraw(): not overridden");
 		}
 
-		draw() {
+		beforeBeginDraw() {
+		}
+
+		afterFinishDraw() {
+		}
+
+		draw() { // final
+			this.beforeBeginDraw();
 			this.beginDraw();
 			this.finishDraw();
+			this.afterFinishDraw();
 		}
 	}
 
-	// function to compute the corner points of a rectangle.
-	// function because it's in the calling sequence of the ctor.
-	function rectPoints(ul, sz) {
-		result =
-		[ new Point(ul.btX,          ul.btY),
-		  new Point(ul.btX + sz.btX, ul.btY),
-		  new Point(ul.btX + sz.btX, ul.btY + sz.btY),
-		  new Point(ul.btX,          ul.btY + sz.btY)
-		];
-		return result;
+	// Four sided polygons. Allows for rectangle and
+	// trapezoid subclasses. Abstract - does not override finishDraw().
+	class Quad extends Path {
+		constructor(ctx, corners) {
+			super(ctx, corners);
+		}
+
+		upperLeft() {
+			return this.btPoints[0];
+		}
+
+		topMiddle() {
+			let btTopLen = this.btPoints[1].btX - this.btPoints[0].btX;
+			return new Point(this.btPoints[0].btX + btTopLen / 2, this.btPoints[0].btY); 
+		}
+
+		lowerLeft() {
+			return this.btPoints[3];
+		}
+
+		lowerRight() {
+			return this.btPoints[2];
+		}
+		
+		bottomMiddle() {
+			let btTopLen = this.btPoints[1].btX - this.btPoints[0].btX;
+			return new Point(this.btPoints[0].btX + btTopLen / 2, this.btPoints[2].btY); 
+		}
 	}
 
-	class Rect extends Path {
+	class Rect extends Quad {
 		btUL;
 		btSz;
 
+		// Compute the corner points of a rectangle. Static
+		// because it's in the calling sequence of the ctor.
+		static rectPoints(ul, sz) {
+			let result =
+			[ new Point(ul.btX,          ul.btY),
+			  new Point(ul.btX + sz.btX, ul.btY),
+			  new Point(ul.btX + sz.btX, ul.btY + sz.btY),
+			  new Point(ul.btX,          ul.btY + sz.btY)
+			];
+			return result;
+		}
+
 		constructor(ctx, ul, sz) {
-			super(ctx, rectPoints(ul, sz));
+			super(ctx, Rect.rectPoints(ul, sz));
 			this.btUL = ul;
 			this.btSz = sz;
 		}
@@ -105,6 +147,35 @@
 			let px = this.btUL.scale();
 			this.ctx.lineTo(px[0], px[1]);
 			this.ctx.fill();
+
+			// put a box around it
+			let ss = this.ctx.strokeStyle;
+			let lw = this.ctx.lineWidth;
+		    this.ctx.strokeStyle = "rgb(0, 0, 192)";
+		    this.ctx.lineWidth = 1.5;
+			this.ctx.beginPath();
+			px = this.btPoints[0].scale();
+			this.ctx.moveTo(px[0], px[1]);
+			for (let i = 1; i < this.btPoints.length; i++) {
+				px = this.btPoints[i].scale();
+				this.ctx.lineTo(px[0], px[1]);
+			}
+			this.ctx.closePath();
+			this.ctx.stroke();
+			this.ctx.strokeStyle = ss;
+			this.ctx.lineWidth = lw;
+		}
+	}
+
+	// This is a gross implementation inheritance cheat. We
+	// make Trapezoid a funny kind of Rectangle.
+	class Trap extends Rect {
+		constructor(ctx, ul, sz) {
+			super(ctx, ul, sz);
+			this.btPoints[2].btX -= 0.5;
+			this.btPoints[3].btX += 0.5;
+			this.btUL = ul;
+			this.btSz = sz;
 		}
 	}
 
@@ -126,6 +197,45 @@
 		}
 	}
 
+	class Arrow extends Line {
+		saveWidth;
+		saveStyle;
+		saveFill;
+
+		constructor(ctx, btStart, btEnd) {
+            super(ctx, btStart, btEnd);
+            this.btStart = btStart;
+            this.btEnd = btEnd;
+        }
+
+		beforeBeginDraw() {
+			this.saveWidth = this.ctx.lineWidth;
+			this.saveColor = this.ctx.strokeStyle;
+			this.saveFill  = this.ctx.fillStyle;
+			this.ctx.lineWidth = 3.5;
+			this.ctx.strokeStyle = "rgb(0, 192, 0)";
+			this.ctx.fillStyle = "rgb(0, 192, 0)";
+		}
+
+		finishDraw() {
+			super.finishDraw();
+			// Arrowhead
+			console.log(`${this.ctx.lineWidth} ${this.ctx.strokeStyle}`);
+			this.ctx.beginPath();
+			let px = this.btPoints[this.btPoints.length - 1].scale();
+			this.ctx.moveTo(px[0], px[1]);
+			this.ctx.lineTo(px[0] - 7, px[1] - 7);
+			this.ctx.lineTo(px[0] + 7, px[1] - 7);
+			this.ctx.fill();
+		}
+
+		afterFinishDraw() {
+			this.ctx.lineWidth = this.saveWidth;
+			this.ctx.strokeStyle = this.saveStyle;
+			this.ctx.fillStyle = this.saveFill;
+		}
+	}
+
 	// A Control is an HTML control. We just position
 	// it in 50-pixel box units on the glass pane over
 	// the canvas.
@@ -133,10 +243,10 @@
 		id;		// control id for gebi()
 		btUL;	// upper left, in box coords
 
-		constructor(ctx, id, ulX, ulY) {
+		constructor(ctx, id, ul) {
 			super(ctx);
 			this.id = id;
-			this.btUL = new Point(ulX, ulY);
+			this.btUL = ul;
 		}
 
 		draw() {
@@ -144,6 +254,47 @@
 			gebi(this.id).style.position = "absolute";
 			gebi(this.id).style.left = `${px[0]}px`;
 			gebi(this.id).style.top  = `${px[1]}px`;
+		}
+
+		moveTo(p) {
+			this.btUL = p;
+		}
+
+		// Set the upper left coordinates of this control
+		setUpperLeft(p) {
+			this.btUL = p;
+		}
+
+		setLowerLeft(p) {
+			let r = gebi(this.id).getBoundingClientRect(); // pixel space
+			let btClientHeight = r.height / SCALE;
+			let result = new Point(p.btX, p.btY - btClientHeight);
+			this.btUL = result;
+		}
+		
+		setLowerRight(p) {
+			let r = gebi(this.id).getBoundingClientRect(); // pixel space
+			let btClientHeight = r.height / SCALE;
+			let btClientWidth = r.width / SCALE;
+			let result = new Point(p.btX - btClientWidth, p.btY - btClientHeight);
+			this.btUL = result;
+		}
+
+		// Center the top of this control over the point argument.
+		setCenterTop(p) {
+			let r = gebi(this.id).getBoundingClientRect(); // pixel space
+			let btClientWidth = r.width / SCALE;
+			let result = new Point(p.btX - btClientWidth / 2, p.btY);
+			this.btUL = result;
+		}
+
+		// Center the bottom of this control over the point argument.
+		setCenterBottom(p) {
+			let r = gebi(this.id).getBoundingClientRect(); // pixel space
+			let btClientWidth = r.width / SCALE;
+			let btClientHeight = r.height / SCALE;
+			let result = new Point(p.btX - btClientWidth / 2, p.btY - btClientHeight);
+			this.btUL = result;
 		}
 	}
 
@@ -160,6 +311,8 @@
 
 	let init = false;
 	let controls;
+	let areas;
+	let lines;
 
     function redraw() {
       const canvas = document.getElementById("canvas");
@@ -169,43 +322,81 @@
       ctx.fillStyle = "rgb(224, 224, 224)";
 
 	  drawGrid(ctx);
-	  r = new Rect(ctx, new Point(1, 1), new Point(3, 3));
-	  r.draw();
 
 	  if (!init) {
-		src1          = new Control(ctx, "src1",          5, 5);
-		src2          = new Control(ctx, "src2",          1, 2);
-		dst           = new Control(ctx, "dst",           1, 3);
-		alu_ctl       = new Control(ctx, "alu_ctl",       1, 4);
-		acn           = new Control(ctx, "acn",           1, 5);
-		alu_load_hold = new Control(ctx, "alu_load_hold", 1, 6);
-		alu_load_flgs = new Control(ctx, "alu_load_flgs", 1, 7);
-		sysdata_src   = new Control(ctx, "sysdata_src",   1, 8);
-		reg_in_mux    = new Control(ctx, "reg_in_mux",    4, 1);
-		rcw_cross     = new Control(ctx, "rcw_cross",     4, 2);
-		sysaddr_src   = new Control(ctx, "sysaddr_src",   4, 3);
-		dst_wr_en     = new Control(ctx, "dst_wr_en",     4, 4);
-		rw            = new Control(ctx, "rw",            4, 5);
-		m16_en        = new Control(ctx, "m16_en",        4, 6);
-		load_ir       = new Control(ctx, "load_ir",       4, 7);
-		rcw_ir_uc     = new Control(ctx, "rcw_ir_uc",     4, 8);
-		carry_en      = new Control(ctx, "carry_en",      8, 1);
-		load_flgs_mux = new Control(ctx, "load_flgs_mux", 8, 2);
-		acn_ir_uc     = new Control(ctx, "acn_ir_uc",     8, 3);
-		ir0_en        = new Control(ctx, "ir0_en",        8, 4);
+		let x1 = 0; let y1 = 0; let szX = 0.5; let szY = 0.5;
+		// Quads
+		areaRegInMux = new Trap(ctx, new Point(1, 1), new Point(6, 0.5));
+		areaBank1 = new Rect(ctx, new Point(1, 2), new Point(3, 2));
+		areaBank2 = new Rect(ctx, new Point(4, 2), new Point(3, 2));
+		areaPort2Hold = new Rect(ctx, new Point(4, 4.5), new Point(3, 0.5));
+		areaAlu = new Trap(ctx, new Point(1, 5.5), new Point(6, 1));
+		areaMem = new Rect(ctx, new Point(10, 2), new Point(3, 5));
+		areaIx = new Rect(ctx, new Point(15, 2), new Point(3, 5));
 
+		areaIr = new Rect(ctx, new Point(x1, y1), new Point(szX, szY));
+		areaFlags = new Rect(ctx, new Point(x1, y1), new Point(szX, szY));
+
+		// Lines including arrows (the temporary grid was drawn above)
+		arrowToRegs = new Arrow(ctx, areaRegInMux.bottomMiddle(), areaBank1.btPoints[1]);
+
+		// Controls. Their variable names and IDs match the microcode
+		// definitions and documentation, so makes sense in context.
+		src1          = new Control(ctx, "src1",          new Point(14, 1));
+		src2          = new Control(ctx, "src2",          new Point(14, 2));
+		dst           = new Control(ctx, "dst",           new Point(14, 3));
+		alu_ctl       = new Control(ctx, "alu_ctl",       new Point(14, 4));
+		acn           = new Control(ctx, "acn",           new Point(14, 5));
+		alu_load_hold = new Control(ctx, "alu_load_hold", new Point(14, 6));
+		alu_load_flgs = new Control(ctx, "alu_load_flgs", new Point(14, 7));
+		sysdata_src   = new Control(ctx, "sysdata_src",   new Point(14, 8));
+		reg_in_mux    = new Control(ctx, "reg_in_mux",    new Point(18, 1));
+		rcw_cross     = new Control(ctx, "rcw_cross",     new Point(18, 2));
+		sysaddr_src   = new Control(ctx, "sysaddr_src",   new Point(18, 3));
+		dst_wr_en     = new Control(ctx, "dst_wr_en",     new Point(18, 4));
+		rw            = new Control(ctx, "rw",            new Point(18, 5));
+		m16_en        = new Control(ctx, "m16_en",        new Point(18, 6));
+		load_ir       = new Control(ctx, "load_ir",       new Point(18, 7));
+		rcw_ir_uc     = new Control(ctx, "rcw_ir_uc",     new Point(18, 8));
+		carry_en      = new Control(ctx, "carry_en",      new Point(22, 1));
+		load_flgs_mux = new Control(ctx, "load_flgs_mux", new Point(22, 2));
+		acn_ir_uc     = new Control(ctx, "acn_ir_uc",     new Point(22, 3));
+		ir0_en        = new Control(ctx, "ir0_en",        new Point(22, 4));
+
+		
 		controls = [src1, src2, dst, alu_ctl, acn, alu_load_hold,
 		            alu_load_flgs, sysdata_src, reg_in_mux, rcw_cross,
 		 		    sysaddr_src, dst_wr_en, rw, m16_en, load_ir,
 		 		    rcw_ir_uc, carry_en, load_flgs_mux, acn_ir_uc,
 		 		    ir0_en];
+		areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
+		         areaMem, areaIx, areaIr, areaFlags];
 
+		lines = [arrowToRegs];
 		init = true;
 	  }
+
+	  for (let i = 0; i < areas.length; i++) {
+		areas[i].draw();
+	  }
+
+	  for (let i = 0; i < lines.length; i++) {
+		lines[i].draw();
+	  }
+
+	  src1.setCenterTop(areaBank1.topMiddle());
+	  src2.setCenterTop(areaBank2.topMiddle());
+	  dst.setLowerLeft(areaBank1.lowerLeft());
+	  dst_wr_en.setLowerRight(areaBank2.lowerRight());
+	  alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
+	  alu_ctl.setCenterTop(areaAlu.topMiddle());
+	  acn.setCenterBottom(areaAlu.bottomMiddle());
+	  reg_in_mux.setCenterTop(areaRegInMux.topMiddle());
 
 	  for (let i = 0; i < controls.length; i++) {
 		controls[i].draw();
 	  }
+
     }
 
     </script>
