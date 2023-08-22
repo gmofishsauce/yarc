@@ -198,13 +198,27 @@ class Line extends Path {
 }
 
 class Arrow extends Line {
+	name;
+	visible;
     saveWidth;
     saveStyle;
     saveFill;
 
-    constructor(ctx, btStart, btEnd) {
+    constructor(ctx, name, visible, btStart, btEnd) {
         super(ctx, btStart, btEnd);
+		this.name = name;
+		this.visible = visible;
     }
+
+	draw() {
+		if (this.visible) {
+			super.draw();
+		}
+	}
+
+	setVisible(aBoolean) {
+		this.visible = aBoolean;
+	}
 
     beforeBeginDraw() {
         this.saveWidth = this.ctx.lineWidth;
@@ -255,28 +269,71 @@ class Arrow extends Line {
     }
 }
 
-// A Control is an HTML control. We just position
-// it in 50-pixel box units on the glass pane over
-// the canvas.
+// A Control is an HTML select control in a label.
+// We just position it in 50-pixel box units on the
+// glass pane over the canvas and provide a few
+// accessors for the embedded selector.
 class Control extends Drawable {
     id; // control id for gebi()
     btUL; // upper left, in box coords
+	label; // gebi(this.id)
+	ctl; // select control child of label
 
     constructor(ctx, id, ul = new Point(0, 0)) {
         super(ctx);
         this.id = id;
         this.btUL = ul;
+		this.label = gebi(id);
+		this.ctl = gebi(id).children[0];
     }
 
-	disable(tOrF) {
-		gebi(this.id).children[0].disabled = tOrF;
+	// I just couldn't hack having a "disabled" property,
+	// even though that's how HTML does it. Move along.
+	enable(aBoolean) {
+		this.ctl.disabled = !aBoolean;
+	}
+
+	enabled() {
+		return !this.ctl.disabled;
+	}
+
+	value() {
+		//console.log(`${this.ctl.options.selectedIndex}`);
+		return this.ctl.options.selectedIndex;
+	}
+
+	valueName() { // e.g. "alu_add" when acn[0] is chosen
+		//console.log(`${this.ctl.options[this.value()].text}`);
+		return this.ctl.options[this.value()].text;
+	}
+
+	// If the argument is true, enable our selector. If not,
+	// first set our selector to its maximum value and then
+	// disable it. Thus the disabled state of all controls
+	// would be {max}{max} ... == 0b111... == 0xFF... == noop.
+	setActive(aBool) {
+		if (!aBool) {
+			this.enable(true);
+			this.ctl.selectedIndex = this.ctl.options.length - 1;
+		}
+		this.enable(aBool)
+	}
+
+	// Set our select control to the index of the argument name
+	setByName(name) {
+		//console.log(`${this.ctl.length} ${this.ctl.options[0]}`);
+		for (let i = 0; i < this.ctl.length; ++i) {
+			if (this.ctl.options[i].text == name) {
+				this.ctl.selectedIndex = i;
+			}
+		}
 	}
 
     draw() {
         let px = this.btUL.scale();
-        gebi(this.id).style.position = "absolute";
-        gebi(this.id).style.left = `${px[0]}px`;
-        gebi(this.id).style.top = `${px[1]}px`;
+        this.label.style.position = "absolute";
+        this.label.style.left = `${px[0]}px`;
+        this.label.style.top = `${px[1]}px`;
     }
 
     moveTo(p) {
@@ -285,18 +342,18 @@ class Control extends Drawable {
 
     // Set the upper left coordinates of this control
     setUpperLeft(p) {
-        this.btUL = p;
+        this.moveTo(p);
     }
 
     setLowerLeft(p) {
-        let r = gebi(this.id).getBoundingClientRect(); // pixel space
+        let r = this.label.getBoundingClientRect(); // pixel space
         let btClientHeight = r.height / SCALE;
         let result = new Point(p.btX, p.btY - btClientHeight);
         this.btUL = result;
     }
 
     setLowerRight(p) {
-        let r = gebi(this.id).getBoundingClientRect(); // pixel space
+        let r = this.label.getBoundingClientRect(); // pixel space
         let btClientHeight = r.height / SCALE;
         let btClientWidth = r.width / SCALE;
         let result = new Point(p.btX - btClientWidth, p.btY - btClientHeight);
@@ -305,7 +362,7 @@ class Control extends Drawable {
 
     // Center the top of this control over the point argument.
     setCenterTop(p) {
-        let r = gebi(this.id).getBoundingClientRect(); // pixel space
+        let r = this.label.getBoundingClientRect(); // pixel space
         let btClientWidth = r.width / SCALE;
         let result = new Point(p.btX - btClientWidth / 2, p.btY);
         this.btUL = result;
@@ -313,7 +370,7 @@ class Control extends Drawable {
 
     // Center the bottom of this control over the point argument.
     setCenterBottom(p) {
-        let r = gebi(this.id).getBoundingClientRect(); // pixel space
+        let r = this.label.getBoundingClientRect(); // pixel space
         let btClientWidth = r.width / SCALE;
         let btClientHeight = r.height / SCALE;
         let result = new Point(p.btX - btClientWidth / 2, p.btY - btClientHeight);
@@ -344,7 +401,7 @@ let areas; // array of areas
 let areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
     areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux;
 
-let arrows; // array of fixed arrows
+let arrows; // array of arrows
 
 function initialize(ctx) {
 
@@ -361,15 +418,14 @@ function initialize(ctx) {
 	areaFlags = new Rect(ctx, new Point(6.5, 8), new Point(4.5, 0.5));
 	areaAluOut = new Rect(ctx, new Point(2, 7), new Point(4, 0.5));
 
-	// Fixed arrows
-	mainAddrBus = new Arrow(ctx, new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
-	mainDataBus = new Arrow(ctx, new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5));
-	/* for testing the code to draw manhattan arrowheads. Also add to arrows[].
-	aN = new Arrow(ctx, new Point(9, 4), new Point(9, 3));
-	aE = new Arrow(ctx, new Point(9, 4), new Point(10, 4));
-	aW = new Arrow(ctx, new Point(9, 4), new Point(8, 4));
-	aS = new Arrow(ctx, new Point(9, 4), new Point(9, 5));
-	*/
+	// Arrows
+	mainAddrBus = new Arrow(ctx, "sysaddr", true,
+		new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
+	mainDataBus = new Arrow(ctx, "sysdata", true,
+		new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5));
+	busToReg = new Arrow(ctx, "busToReg", false,
+		new Point(areaRegInMux.topMiddle().btX, areaRegInMux.topMiddle().btY - 0.5),
+		areaRegInMux.topMiddle());
 
 	// Controls. Their variable names and IDs match the microcode
 	// definitions and documentation, so makes sense in context.
@@ -404,12 +460,11 @@ function initialize(ctx) {
 	areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
 		areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux];
 
-	arrows = [mainAddrBus, mainDataBus];
+	arrows = [mainAddrBus, mainDataBus, busToReg];
 
 	src1.setCenterTop(areaBank1.topMiddle());
 	src2.setCenterTop(areaBank2.topMiddle());
 	dst.setLowerLeft(areaBank1.lowerLeft());
-	dst.disable(true);
 	dst_wr_en.setCenterBottom(areaBank2.bottomMiddle());
 	alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
 	alu_ctl.setCenterTop(areaAlu.topMiddle());
@@ -431,41 +486,64 @@ function initialize(ctx) {
 	carry_en.setUpperLeft(new Point(7, 5.5));
 }
 
+// data bus selector codes 5 and 6 are "tbd". Code 7 is "undriven".
+function dataBusActive() {
+	return sysdata_src.value() <= 4;
+}
+
 function applyRules(ctx) {
-    // Apply a few rules, e.g. can't set K3 fields or ALU op if they come from the instruction.
-    //	  rcw_from_instruction = gebi("k0-rcw_ir_uc-1-4").value == 0;
-    //	  gebi("k3-src1-3-6").disabled = rcw_from_instruction;
-    //	  gebi("k3-src2-7-3").disabled = rcw_from_instruction;
-    //	  gebi("k3-dst-7-0").disabled = rcw_from_instruction;
-    //	  gebi("k2-alu_op-15-4").disabled = rcw_from_instruction;
-    //
-    //	  if (gebi("k1-sysdata_src-7-5").value == 7) { // don't clock an undriven bus into anything
-    //		if (gebi("k0-ir_clk-1-5").value == 0) {
-    //		  alert("warning: clocking undriven sysdata into IR");
-    //		}
-    //		if (gebi("k0-rw-1-7").value == 0) {
-    //		  alert("warning: clocking undriven sysdata into memory");
-    //		}
-    //		if (gebi("k1-dst_wr_en-1-0").value == 0 && gebi("k1-reg_in_mux-1-4").value == 1) {
-    //		  alert("warning: clocking undriven sysdata into a general register");
-    //		}
-    //	  }
+	// If RCW fields come from the instruction, don't allow them to be set in microcode.
+	src1.setActive(rcw_ir_uc.valueName() == "rcw_from_uc");
+	src2.setActive(rcw_ir_uc.valueName() == "rcw_from_uc");
+	acn.setActive(acn_ir_uc.valueName() == "acn_from_uc");
+
+	// Similarly for dst, plus dst_wr_en must be set to enable it
+	dst.setActive(dst_wr_en.valueName() == "yes" && rcw_ir_uc.valueName() == "rcw_from_uc");
+
+	// If register write isn't happening, don't allow input path to be set
+	reg_in_mux.setActive(dst_wr_en.valueName() == "yes");
+
+	// If flags write isn't enabled, don't allow input path to be set
+	load_flgs_mux.setActive(alu_load_flgs.valueName() == "yes");
+
+	// If not an ALU operation, don't allow carry in to be suppressed
+	carry_en.setActive(alu_ctl.valueName() == "alu_phi1" || alu_ctl.valueName() == "alu_phi2");
+
+	// If memory is supposed to drive the bus, or nothing is driving the bus,
+	// don't allow memory to be written. Sysdata_src 5, 6, 7 are "undriven".
+	rw.setActive(sysdata_src.valueName() != "bus_mem" && dataBusActive());
+
+	// If we're not reading or writing memory, don't allow memory width selection
+	m16_en.setActive(rw.valueName() == "write" || sysdata_src.valueName() == "bus_mem");
+
+	// If nothing is driving the bus, don't allow it to be clocked into IR
+	load_ir.setActive(dataBusActive());
+
+	// Only allow IR bit 0 to be forced low when it's heading to the bus
+	ir0_en.setActive(sysdata_src.valueName() == "bus_ir");
+
+	// Arrows. Make visible arrows that show actual data flows.
+	busToReg.setVisible(reg_in_mux.enabled() && reg_in_mux.valueName() == "from_bus");
 }
 
 function redraw() {
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     ctx.strokeStyle = "rgb(0, 0, 0)";
     ctx.lineWidth = 0.5;
     ctx.fillStyle = "rgb(224, 224, 224)";
 
-	// for layout, this is helpful
-    drawGrid(ctx);
+	// for layout, this is helpful - draws a 1-box (SCALE pixel) grid
+    // drawGrid(ctx);
 
     if (!init) {
 		initialize(ctx);
         init = true;
     }
+
+	applyRules(ctx)
 
     for (let i = 0; i < areas.length; i++) {
         areas[i].draw();
@@ -478,8 +556,6 @@ function redraw() {
     for (let i = 0; i < controls.length; i++) {
         controls[i].draw();
     }
-
-	applyRules(ctx)
 }
 
 // This is called at onload() time and every time something changes
