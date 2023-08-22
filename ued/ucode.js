@@ -180,10 +180,6 @@ class Trap extends Rect {
 }
 
 class Line extends Path {
-    saveWidth;
-    saveStyle;
-    saveFill;
-
     btStart;
     btEnd;
 
@@ -191,6 +187,23 @@ class Line extends Path {
         super(ctx, [btStart, btEnd]);
         this.btStart = btStart;
         this.btEnd = btEnd;
+    }
+
+    finishDraw() {
+        let px = this.btEnd.scale();
+        this.ctx.lineTo(px[0], px[1]);
+        this.ctx.closePath();
+        this.ctx.stroke();
+    }
+}
+
+class Arrow extends Line {
+    saveWidth;
+    saveStyle;
+    saveFill;
+
+    constructor(ctx, btStart, btEnd) {
+        super(ctx, btStart, btEnd);
     }
 
     beforeBeginDraw() {
@@ -203,29 +216,10 @@ class Line extends Path {
     }
 
     finishDraw() {
-        let px = this.btEnd.scale();
-        this.ctx.lineTo(px[0], px[1]);
-        this.ctx.closePath();
-        this.ctx.stroke();
-    }
-
-    afterFinishDraw() {
-        this.ctx.lineWidth = this.saveWidth;
-        this.ctx.strokeStyle = this.saveStyle;
-        this.ctx.fillStyle = this.saveFill;
-    }
-}
-
-class Arrow extends Line {
-
-    constructor(ctx, btStart, btEnd) {
-        super(ctx, btStart, btEnd);
-    }
-
-    finishDraw() {
         super.finishDraw();
 
         // Arrowhead - computations in pixels
+		const size = 7;
         let px = this.btPoints[this.btPoints.length - 1].scale();
 
         this.ctx.beginPath();
@@ -234,24 +228,30 @@ class Arrow extends Line {
         if (this.btStart.btY == this.btEnd.btY) {
             // horizontal
             if (this.btStart.btX < this.btEnd.btX) {
-                // left to right
-                console.log("horiz LtoR");
+                this.ctx.lineTo(px[0] - size, px[1] - size);
+                this.ctx.lineTo(px[0] - size, px[1] + size);
             } else {
-                console.log("horiz RtoL");
+                this.ctx.lineTo(px[0] + size, px[1] - size);
+                this.ctx.lineTo(px[0] + size, px[1] + size);
             }
         } else {
             // vertical
             if (this.btStart.btY < this.btEnd.btY) {
-                console.log("vert Top to Bot");
-                // top to bottom
-                this.ctx.lineTo(px[0] - 7, px[1] - 7);
-                this.ctx.lineTo(px[0] + 7, px[1] - 7);
+                this.ctx.lineTo(px[0] - size, px[1] - size);
+                this.ctx.lineTo(px[0] + size, px[1] - size);
             } else {
-                console.log("vert Bot to Top");
+				this.ctx.lineTo(px[0] - size, px[1] + size);
+				this.ctx.lineTo(px[0] + size, px[1] + size);
             }
         }
 
         this.ctx.fill();
+    }
+
+    afterFinishDraw() {
+        this.ctx.lineWidth = this.saveWidth;
+        this.ctx.strokeStyle = this.saveStyle;
+        this.ctx.fillStyle = this.saveFill;
     }
 }
 
@@ -262,11 +262,15 @@ class Control extends Drawable {
     id; // control id for gebi()
     btUL; // upper left, in box coords
 
-    constructor(ctx, id, ul) {
+    constructor(ctx, id, ul = new Point(0, 0)) {
         super(ctx);
         this.id = id;
         this.btUL = ul;
     }
+
+	disable(tOrF) {
+		gebi(this.id).children[0].disabled = tOrF;
+	}
 
     draw() {
         let px = this.btUL.scale();
@@ -340,7 +344,7 @@ let areas; // array of areas
 let areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
     areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux;
 
-let lines; // array of fixed lines
+let arrows; // array of fixed arrows
 
 function initialize(ctx) {
 
@@ -357,33 +361,39 @@ function initialize(ctx) {
 	areaFlags = new Rect(ctx, new Point(6.5, 8), new Point(4.5, 0.5));
 	areaAluOut = new Rect(ctx, new Point(2, 7), new Point(4, 0.5));
 
-	// Fixed lines
-	mainAddrBus = new Line(ctx, new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
-	mainDataBus = new Line(ctx, new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5));
+	// Fixed arrows
+	mainAddrBus = new Arrow(ctx, new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
+	mainDataBus = new Arrow(ctx, new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5));
+	/* for testing the code to draw manhattan arrowheads. Also add to arrows[].
+	aN = new Arrow(ctx, new Point(9, 4), new Point(9, 3));
+	aE = new Arrow(ctx, new Point(9, 4), new Point(10, 4));
+	aW = new Arrow(ctx, new Point(9, 4), new Point(8, 4));
+	aS = new Arrow(ctx, new Point(9, 4), new Point(9, 5));
+	*/
 
 	// Controls. Their variable names and IDs match the microcode
 	// definitions and documentation, so makes sense in context.
-	src1 = new Control(ctx, "src1", new Point(14, 1));
-	src2 = new Control(ctx, "src2", new Point(14, 2));
-	dst = new Control(ctx, "dst", new Point(14, 3));
-	alu_ctl = new Control(ctx, "alu_ctl", new Point(14, 4));
-	acn = new Control(ctx, "acn", new Point(14, 5));
-	alu_load_hold = new Control(ctx, "alu_load_hold", new Point(14, 6));
-	alu_load_flgs = new Control(ctx, "alu_load_flgs", new Point(14, 7));
-	sysdata_src = new Control(ctx, "sysdata_src", new Point(14, 8));
-	reg_in_mux = new Control(ctx, "reg_in_mux", new Point(18, 1));
-	rcw_cross = new Control(ctx, "rcw_cross", new Point(18, 2));
-	sysaddr_src = new Control(ctx, "sysaddr_src", new Point(18, 3));
-	dst_wr_en = new Control(ctx, "dst_wr_en", new Point(18, 4));
-	rw = new Control(ctx, "rw", new Point(18, 5));
-	m16_en = new Control(ctx, "m16_en", new Point(18, 6));
-	load_ir = new Control(ctx, "load_ir", new Point(18, 7));
-	rcw_ir_uc = new Control(ctx, "rcw_ir_uc", new Point(18, 8));
-	carry_en = new Control(ctx, "carry_en", new Point(22, 1));
-	load_flgs_mux = new Control(ctx, "load_flgs_mux", new Point(22, 2));
-	acn_ir_uc = new Control(ctx, "acn_ir_uc", new Point(22, 3));
-	ir0_en = new Control(ctx, "ir0_en", new Point(22, 4));
-	carry_en = new Control(ctx, "carry_en", new Point(7, 6));
+	src1 = new Control(ctx, "src1");
+	src2 = new Control(ctx, "src2");
+	dst = new Control(ctx, "dst");
+	alu_ctl = new Control(ctx, "alu_ctl");
+	acn = new Control(ctx, "acn");
+	alu_load_hold = new Control(ctx, "alu_load_hold");
+	alu_load_flgs = new Control(ctx, "alu_load_flgs");
+	sysdata_src = new Control(ctx, "sysdata_src");
+	reg_in_mux = new Control(ctx, "reg_in_mux");
+	rcw_cross = new Control(ctx, "rcw_cross");
+	sysaddr_src = new Control(ctx, "sysaddr_src");
+	dst_wr_en = new Control(ctx, "dst_wr_en");
+	rw = new Control(ctx, "rw");
+	m16_en = new Control(ctx, "m16_en");
+	load_ir = new Control(ctx, "load_ir");
+	rcw_ir_uc = new Control(ctx, "rcw_ir_uc");
+	carry_en = new Control(ctx, "carry_en");
+	load_flgs_mux = new Control(ctx, "load_flgs_mux");
+	acn_ir_uc = new Control(ctx, "acn_ir_uc");
+	ir0_en = new Control(ctx, "ir0_en");
+	carry_en = new Control(ctx, "carry_en");
 
 	controls = [src1, src2, dst, alu_ctl, acn, alu_load_hold,
 		alu_load_flgs, sysdata_src, reg_in_mux, rcw_cross,
@@ -394,20 +404,21 @@ function initialize(ctx) {
 	areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
 		areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux];
 
-	lines = [mainAddrBus, mainDataBus];
+	arrows = [mainAddrBus, mainDataBus];
 
 	src1.setCenterTop(areaBank1.topMiddle());
 	src2.setCenterTop(areaBank2.topMiddle());
 	dst.setLowerLeft(areaBank1.lowerLeft());
-	dst_wr_en.setLowerRight(areaBank2.lowerRight());
+	dst.disable(true);
+	dst_wr_en.setCenterBottom(areaBank2.bottomMiddle());
 	alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
 	alu_ctl.setCenterTop(areaAlu.topMiddle());
 	acn.setCenterBottom(areaAlu.bottomMiddle());
 	reg_in_mux.setCenterTop(areaRegInMux.topMiddle());
 	rw.setCenterTop(areaMem.topMiddle());
 	m16_en.setCenterBottom(areaMem.bottomMiddle());
-	sysaddr_src.setCenterTop(new Point(12, 0));
-	sysdata_src.setCenterBottom(new Point(12, 10));
+	sysdata_src.setCenterTop(new Point(12, 0));
+	sysaddr_src.setCenterBottom(new Point(12, 10));
 	alu_load_flgs.setCenterTop(areaFlags.topMiddle());
 	load_flgs_mux.setCenterTop(areaFlagsMux.topMiddle());
 	load_ir.setCenterTop(areaIr.topMiddle());
@@ -417,6 +428,7 @@ function initialize(ctx) {
 	p = areaIr.bottomMiddle();
 	p.btY += 1;
 	acn_ir_uc.setCenterBottom(p);
+	carry_en.setUpperLeft(new Point(7, 5.5));
 }
 
 function applyRules(ctx) {
@@ -448,7 +460,7 @@ function redraw() {
     ctx.fillStyle = "rgb(224, 224, 224)";
 
 	// for layout, this is helpful
-    // drawGrid(ctx);
+    drawGrid(ctx);
 
     if (!init) {
 		initialize(ctx);
@@ -459,8 +471,8 @@ function redraw() {
         areas[i].draw();
     }
 
-    for (let i = 0; i < lines.length; i++) {
-        lines[i].draw();
+    for (let i = 0; i < arrows.length; i++) {
+        arrows[i].draw();
     }
 
     for (let i = 0; i < controls.length; i++) {
