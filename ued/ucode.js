@@ -100,7 +100,7 @@ class Quad extends Path {
         return this.btPoints[1];
 	}
 
-    topMiddle() {
+    topCenter() {
         let btTopLen = this.btPoints[1].btX - this.btPoints[0].btX;
         return new Point(this.btPoints[0].btX + btTopLen / 2, this.btPoints[0].btY);
     }
@@ -113,7 +113,7 @@ class Quad extends Path {
         return this.btPoints[3];
     }
 
-    bottomMiddle() {
+    bottomCenter() {
         let btTopLen = this.btPoints[1].btX - this.btPoints[0].btX;
         return new Point(this.btPoints[0].btX + btTopLen / 2, this.btPoints[2].btY);
     }
@@ -180,19 +180,23 @@ class Trap extends Rect {
 }
 
 class Line extends Path {
-    btStart;
-    btEnd;
-
-    constructor(ctx, btStart, btEnd) {
-        super(ctx, [btStart, btEnd]);
-        this.btStart = btStart;
-        this.btEnd = btEnd;
+    constructor(ctx, btPath) {
+        super(ctx, btPath);
     }
 
+	get btStart() {
+		return this.btPoints[0];
+	}
+
+	get btPrev() { // may return btStart()
+		return this.btPoints[this.btPoints.length - 2];
+	}
+
+	get btEnd() {
+		return this.btPoints[this.btPoints.length - 1];
+	}
+
     finishDraw() {
-        let px = this.btEnd.scale();
-        this.ctx.lineTo(px[0], px[1]);
-        this.ctx.closePath();
         this.ctx.stroke();
     }
 }
@@ -204,8 +208,8 @@ class Arrow extends Line {
     saveStyle;
     saveFill;
 
-    constructor(ctx, name, visible, btStart, btEnd) {
-        super(ctx, btStart, btEnd);
+    constructor(ctx, name, visible, btPath) {
+        super(ctx, btPath);
 		this.name = name;
 		this.visible = visible;
     }
@@ -233,15 +237,15 @@ class Arrow extends Line {
         super.finishDraw();
 
         // Arrowhead - computations in pixels
-		const size = 7;
-        let px = this.btPoints[this.btPoints.length - 1].scale();
+		const size = 5;
+        let px = this.btPoints[this.btPoints.length - 1].scale(); // endpoint of last segment
 
         this.ctx.beginPath();
-        this.ctx.moveTo(px[0], px[1]); // end pixel of the line
+        this.ctx.moveTo(px[0], px[1]);
 
-        if (this.btStart.btY == this.btEnd.btY) {
+        if (this.btPrev.btY == this.btEnd.btY) {
             // horizontal
-            if (this.btStart.btX < this.btEnd.btX) {
+            if (this.btPrev.btX < this.btEnd.btX) {
                 this.ctx.lineTo(px[0] - size, px[1] - size);
                 this.ctx.lineTo(px[0] - size, px[1] + size);
             } else {
@@ -250,7 +254,7 @@ class Arrow extends Line {
             }
         } else {
             // vertical
-            if (this.btStart.btY < this.btEnd.btY) {
+            if (this.btPrev.btY < this.btEnd.btY) {
                 this.ctx.lineTo(px[0] - size, px[1] - size);
                 this.ctx.lineTo(px[0] + size, px[1] - size);
             } else {
@@ -259,7 +263,8 @@ class Arrow extends Line {
             }
         }
 
-        this.ctx.fill();
+		this.ctx.closePath();
+        this.ctx.stroke();
     }
 
     afterFinishDraw() {
@@ -382,10 +387,10 @@ class Control extends Drawable {
 // For use during design, to be removed when design is complete.
 function drawGrid(ctx) {
     for (let row = 1; row < ROWS; row++) {
-        new Line(ctx, new Point(0, row), new Point(COLS, row)).draw();
+        new Line(ctx, [new Point(0, row), new Point(COLS, row)]).draw();
     }
     for (let col = 1; col < COLS; col++) {
-        new Line(ctx, new Point(col, 0), new Point(col, ROWS)).draw();
+        new Line(ctx, [new Point(col, 0), new Point(col, ROWS)]).draw();
     }
 }
 
@@ -418,14 +423,35 @@ function initialize(ctx) {
 	areaFlags = new Rect(ctx, new Point(6.5, 8), new Point(4.5, 0.5));
 	areaAluOut = new Rect(ctx, new Point(2, 7), new Point(4, 0.5));
 
+	areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
+		areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux];
+
 	// Arrows
 	mainAddrBus = new Arrow(ctx, "sysaddr", true,
-		new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5));
+		[new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5)]);
 	mainDataBus = new Arrow(ctx, "sysdata", true,
-		new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5));
-	busToReg = new Arrow(ctx, "busToReg", false,
-		new Point(areaRegInMux.topMiddle().btX, areaRegInMux.topMiddle().btY - 0.5),
-		areaRegInMux.topMiddle());
+		[new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5)]);
+	busToMux = new Arrow(ctx, "busToMux", false,
+		[new Point(areaRegInMux.topCenter().btX, areaRegInMux.topCenter().btY - 0.5),
+		areaRegInMux.topCenter()]);
+	muxToReg = new Arrow(ctx, "muxToReg", false,
+		[areaRegInMux.bottomCenter(), areaBank2.upperLeft()]);
+	aluToReg = new Arrow(ctx, "aluToReg", false,
+		[new Point(3, 7.5), new Point(3, 8), new Point(0.5, 8), new Point(0.5, 1), new Point(1, 1)])
+	aluToAddr = new Arrow(ctx, "aluToAddr", false,
+		[areaAluOut.bottomCenter(),
+		new Point(areaAluOut.bottomCenter().btX, areaAluOut.bottomCenter().btY + 2)])
+	aluAinput = new Arrow(ctx, "aluAinput", false,
+		[areaBank1.bottomCenter(),
+		 new Point(areaBank1.bottomCenter().btX, areaBank1.bottomCenter().btY + 1.5)]);
+	regToAluHold = new Arrow(ctx, "regToAluHold", false,
+		[areaBank2.bottomCenter(), areaPort2Hold.topCenter()]);
+	holdToAluBinput = new Arrow(ctx, "holdToAluBinput", false,
+		[areaPort2Hold.bottomCenter(),
+		new Point(areaPort2Hold.bottomCenter().btX, areaPort2Hold.bottomCenter().btY + 0.5)]);
+
+	arrows = [mainAddrBus, mainDataBus, busToMux, aluToReg, aluToAddr, aluAinput,
+			  muxToReg, regToAluHold, holdToAluBinput ];
 
 	// Controls. Their variable names and IDs match the microcode
 	// definitions and documentation, so makes sense in context.
@@ -457,30 +483,25 @@ function initialize(ctx) {
 		rcw_ir_uc, carry_en, load_flgs_mux, acn_ir_uc,
 		ir0_en];
 
-	areas = [areaRegInMux, areaBank1, areaBank2, areaPort2Hold, areaAlu,
-		areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux];
-
-	arrows = [mainAddrBus, mainDataBus, busToReg];
-
-	src1.setCenterTop(areaBank1.topMiddle());
-	src2.setCenterTop(areaBank2.topMiddle());
+	src1.setCenterTop(areaBank1.topCenter());
+	src2.setCenterTop(areaBank2.topCenter());
 	dst.setLowerLeft(areaBank1.lowerLeft());
-	dst_wr_en.setCenterBottom(areaBank2.bottomMiddle());
+	dst_wr_en.setCenterBottom(areaBank2.bottomCenter());
 	alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
-	alu_ctl.setCenterTop(areaAlu.topMiddle());
-	acn.setCenterBottom(areaAlu.bottomMiddle());
-	reg_in_mux.setCenterTop(areaRegInMux.topMiddle());
-	rw.setCenterTop(areaMem.topMiddle());
-	m16_en.setCenterBottom(areaMem.bottomMiddle());
+	alu_ctl.setCenterTop(areaAlu.topCenter());
+	acn.setCenterBottom(areaAlu.bottomCenter());
+	reg_in_mux.setCenterTop(areaRegInMux.topCenter());
+	rw.setCenterTop(areaMem.topCenter());
+	m16_en.setCenterBottom(areaMem.bottomCenter());
 	sysdata_src.setCenterTop(new Point(12, 0));
 	sysaddr_src.setCenterBottom(new Point(12, 10));
-	alu_load_flgs.setCenterTop(areaFlags.topMiddle());
-	load_flgs_mux.setCenterTop(areaFlagsMux.topMiddle());
-	load_ir.setCenterTop(areaIr.topMiddle());
-	ir0_en.setCenterBottom(areaIr.bottomMiddle());
-	rcw_cross.setCenterBottom(areaIx.bottomMiddle());
-	rcw_ir_uc.setCenterTop(areaIr.bottomMiddle());
-	p = areaIr.bottomMiddle();
+	alu_load_flgs.setCenterTop(areaFlags.topCenter());
+	load_flgs_mux.setCenterTop(areaFlagsMux.topCenter());
+	load_ir.setCenterTop(areaIr.topCenter());
+	ir0_en.setCenterBottom(areaIr.bottomCenter());
+	rcw_cross.setCenterBottom(areaIx.bottomCenter());
+	rcw_ir_uc.setCenterTop(areaIr.bottomCenter());
+	p = areaIr.bottomCenter();
 	p.btY += 1;
 	acn_ir_uc.setCenterBottom(p);
 	carry_en.setUpperLeft(new Point(7, 5.5));
@@ -523,7 +544,13 @@ function applyRules(ctx) {
 	ir0_en.setActive(sysdata_src.valueName() == "bus_ir");
 
 	// Arrows. Make visible arrows that show actual data flows.
-	busToReg.setVisible(reg_in_mux.enabled() && reg_in_mux.valueName() == "from_bus");
+	busToMux.setVisible(reg_in_mux.enabled() && reg_in_mux.valueName() == "from_bus");
+	muxToReg.setVisible(dst_wr_en.valueName() == "yes");
+	aluToReg.setVisible(reg_in_mux.enabled() && reg_in_mux.valueName() == "from_alu");
+	aluToAddr.setVisible(sysaddr_src.valueName() == "addr_alu");
+	aluAinput.setVisible(alu_ctl.valueName() == "alu_phi1");
+	regToAluHold.setVisible(alu_load_hold.valueName() == "yes");
+	holdToAluBinput.setVisible(alu_ctl.valueName() == "alu_phi1");
 }
 
 function redraw() {
@@ -536,7 +563,7 @@ function redraw() {
     ctx.fillStyle = "rgb(224, 224, 224)";
 
 	// for layout, this is helpful - draws a 1-box (SCALE pixel) grid
-    // drawGrid(ctx);
+    drawGrid(ctx);
 
     if (!init) {
 		initialize(ctx);
