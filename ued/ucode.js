@@ -427,10 +427,12 @@ function initialize(ctx) {
 		areaMem, areaIx, areaIr, areaAluOut, areaFlags, areaFlagsMux];
 
 	// Arrows
-	mainAddrBus = new Arrow(ctx, "sysaddr", true,
+	mainDataBus = new Arrow(ctx, "sysaddr", true,
 		[new Point(0.5, 0.5), new Point(COLS - 0.5, 0.5)]);
-	mainDataBus = new Arrow(ctx, "sysdata", true,
+	mainAddrBus = new Arrow(ctx, "sysdata", true,
 		[new Point(0.5, ROWS - 0.5), new Point(COLS - 0.5, ROWS - 0.5)]);
+	mainMemoryAddr = new Arrow(ctx, "mainMemoryAddr", true,
+		[new Point(areaMem.bottomCenter().btX, mainAddrBus.btPoints[0].btY), areaMem.bottomCenter()]);
 	busToMux = new Arrow(ctx, "busToMux", false,
 		[new Point(areaRegInMux.topCenter().btX, areaRegInMux.topCenter().btY - 0.5),
 		areaRegInMux.topCenter()]);
@@ -446,12 +448,48 @@ function initialize(ctx) {
 		 new Point(areaBank1.bottomCenter().btX, areaBank1.bottomCenter().btY + 1.5)]);
 	regToAluHold = new Arrow(ctx, "regToAluHold", false,
 		[areaBank2.bottomCenter(), areaPort2Hold.topCenter()]);
+	busToAluHold = new Arrow(ctx, "busToAluHold", false,
+		[new Point(9, 0.5), new Point(9, 4.5), areaPort2Hold.upperRight()]);
 	holdToAluBinput = new Arrow(ctx, "holdToAluBinput", false,
 		[areaPort2Hold.bottomCenter(),
 		new Point(areaPort2Hold.bottomCenter().btX, areaPort2Hold.bottomCenter().btY + 0.5)]);
+	aluOut = new Arrow(ctx, "aluOut", false,
+		[areaAlu.bottomCenter(), areaAluOut.topCenter()]);
+	aluOutFlags = new Arrow(ctx, "aluOutFlags", false,
+		[areaAlu.lowerRight(), new Point(areaFlagsMux.topCenter().btX, areaAlu.lowerRight().btY),
+		 areaFlagsMux.topCenter()]);
+	busToFlags = new Arrow(ctx, "busToFlags", false,
+		[new Point(areaFlagsMux.upperRight().btX, mainDataBus.btPoints[0].btY), areaFlagsMux.upperRight()]);
+	muxToFlags = new Arrow(ctx, "muxToFlags", false,
+		[areaFlagsMux.bottomCenter(), areaFlags.topCenter()]);
+	flagsToBus = new Arrow(ctx, "flagsToBus", false,
+		[areaFlags.bottomCenter(),
+		 new Point(areaFlags.bottomCenter().btX, areaFlags.bottomCenter().btY + 0.5),
+		 new Point(areaFlags.lowerRight().btX + 0.5, areaFlags.lowerRight().btY + 0.5),
+		 new Point(areaFlags.lowerRight().btX + 0.5, mainDataBus.btPoints[0].btY)]);
+	regToBus = new Arrow(ctx, "regToBus", false,
+		[new Point(areaBank2.upperRight().btX, areaBank2.upperRight().btY + 1),
+		 new Point(areaBank2.upperRight().btX + 1, areaBank2.upperRight().btY + 1),
+		 new Point(areaBank2.upperRight().btX + 1, mainDataBus.btPoints[0].btY)]);
+	memToBus = new Arrow(ctx, "memToBus", false,
+		[areaMem.topCenter(), new Point(areaMem.topCenter().btX, mainDataBus.btPoints[0].btY)]);
+	busToMem = new Arrow(ctx, "busToMem", false,
+		[new Point(areaMem.topCenter().btX, mainDataBus.btPoints[0].btY), areaMem.topCenter()]);
+	regToAddr = new Arrow(ctx, "regToAddr", false,
+		[new Point(areaBank1.lowerLeft().btX + 0.5, areaBank1.lowerLeft().btY),
+		 new Point(areaBank1.lowerLeft().btX + 0.5, mainAddrBus.btPoints[0].btY)]);
+	ixToAddr = new Arrow(ctx, "ixToAddr", false,
+		[areaIx.bottomCenter(), new Point(areaIx.bottomCenter().btX, mainAddrBus.btPoints[0].btY)]);
+	addrToData = new Arrow(ctx, "addrToData", false,
+		[new Point(areaIx.lowerRight().btX + 1, mainAddrBus.btPoints[0].btY),
+		 new Point(areaIx.lowerRight().btX + 1, mainDataBus.btPoints[0].btY)]);
+	dataToIr = new Arrow(ctx, "dataToIr", false,
+		[new Point(areaIr.topCenter().btX, mainDataBus.btPoints[0].btY), areaIr.topCenter()]);
 
-	arrows = [mainAddrBus, mainDataBus, busToMux, aluToReg, aluToAddr, aluAinput,
-			  muxToReg, regToAluHold, holdToAluBinput ];
+	arrows = [mainAddrBus, mainDataBus, mainMemoryAddr, busToMux, aluToReg, aluToAddr,
+			  aluAinput, muxToReg, regToAluHold, busToAluHold, holdToAluBinput, aluOut,
+			  aluOutFlags, busToFlags, muxToFlags, flagsToBus, regToBus, memToBus,
+			  busToMem, regToAddr, ixToAddr, addrToData, dataToIr ];
 
 	// Controls. Their variable names and IDs match the microcode
 	// definitions and documentation, so makes sense in context.
@@ -485,8 +523,8 @@ function initialize(ctx) {
 
 	src1.setCenterTop(areaBank1.topCenter());
 	src2.setCenterTop(areaBank2.topCenter());
-	dst.setLowerLeft(areaBank1.lowerLeft());
-	dst_wr_en.setCenterBottom(areaBank2.bottomCenter());
+	dst.setCenterTop(new Point(areaBank1.topCenter().btX, areaBank1.topCenter().btY + 1));
+	dst_wr_en.setCenterTop(new Point(areaBank2.topCenter().btX, areaBank2.topCenter().btY + 1));
 	alu_load_hold.setUpperLeft(areaPort2Hold.upperLeft());
 	alu_ctl.setCenterTop(areaAlu.topCenter());
 	acn.setCenterBottom(areaAlu.bottomCenter());
@@ -549,8 +587,21 @@ function applyRules(ctx) {
 	aluToReg.setVisible(reg_in_mux.enabled() && reg_in_mux.valueName() == "from_alu");
 	aluToAddr.setVisible(sysaddr_src.valueName() == "addr_alu");
 	aluAinput.setVisible(alu_ctl.valueName() == "alu_phi1");
-	regToAluHold.setVisible(alu_load_hold.valueName() == "yes");
+	busToAluHold.setVisible(alu_load_hold.valueName() == "yes" && alu_ctl.valueName() == "alu_in");
+	regToAluHold.setVisible(alu_load_hold.valueName() == "yes" && alu_ctl.valueName() != "alu_in");
 	holdToAluBinput.setVisible(alu_ctl.valueName() == "alu_phi1");
+	aluOut.setVisible(alu_ctl.valueName() == "alu_phi2");
+	aluOutFlags.setVisible(alu_load_flgs.valueName() == "yes" && load_flgs_mux.valueName() == "from_alu");
+	busToFlags.setVisible(alu_load_flgs.valueName() == "yes"  && load_flgs_mux.valueName() == "from_bus");
+	muxToFlags.setVisible(alu_load_flgs.valueName() == "yes");
+	flagsToBus.setVisible(sysdata_src.valueName() == "bus_f");
+	regToBus.setVisible(sysdata_src.valueName() == "bus_gr");
+	memToBus.setVisible(sysdata_src.valueName() == "bus_mem");
+	addrToData.setVisible(sysdata_src.valueName() == "bus_addr");
+	busToMem.setVisible(rw.valueName() == "write");
+	regToAddr.setVisible(sysaddr_src.valueName() == "addr_gr" || sysaddr_src.valueName() == "addr_op");
+	ixToAddr.setVisible(sysaddr_src.valueName() == "addr_ix");
+	dataToIr.setVisible(load_ir.valueName() == "yes");
 }
 
 function redraw() {
@@ -563,7 +614,7 @@ function redraw() {
     ctx.fillStyle = "rgb(224, 224, 224)";
 
 	// for layout, this is helpful - draws a 1-box (SCALE pixel) grid
-    drawGrid(ctx);
+    // drawGrid(ctx);
 
     if (!init) {
 		initialize(ctx);
