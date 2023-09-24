@@ -283,31 +283,57 @@ namespace PortPrivate {
       panic(PANIC_POST, 3);
     }
 
+    // The following section of the code exercises some historial
+    // and some still-existing startup time problems in the hardware.
+    // Turn on the LED solid and loop until the behavior is reliable.
+    // The flags problem (third loop below) was fixed, I think, on
+    // 2023-09-24. Memory read and write are still [often] unreliable
+    // at power on and this unreliability disappears as the parts
+    // warm up over a period of less than a minute. This makes the
+    // problem(s) very difficult to troubleshoot.
+
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, HIGH);
+
     // Read and write the first byte of YARC RAM as the quickest
-    // possible check for basic functionality. This is supposed
-    // to work with the YARC still in the power on reset state.
-    byte b1 = random();
-    byte b2;
-    WriteMem8(0, &b1, 1);
-    ReadMem8(0, &b2, 1);
-    if (b1 != b2) {
-      panic(PANIC_POST, 1);
-    }
-    
-    WriteMem8(1, &b1, 1);
-    ReadMem8(1, &b2, 1);
-    if (b1 != b2) {
-      panic(PANIC_POST, 2);
-    }
-  
-    ushort toWrite = random();
-    ushort toRead;
-    WriteMem16(0, &toWrite, 1);
-    ReadMem16(0, &toRead, 1);
-    if (toWrite != toRead) {
-      panic(PANIC_POST, 5);
+    // possible check for basic functionality. This or the following
+    // test (loop) still fails intermittently as of 2023-09-24. The
+    // SetDisplay shows a flickering counting pattern.
+
+    byte b1, b2, sequenceOK;
+    for (b1 = random(), sequenceOK = 0; sequenceOK < 100; ++b1) {
+      WriteMem8(0, &b1, 1);
+      ReadMem8(0, &b2, 1);
+      sequenceOK = (b1 == b2) ? 1 + sequenceOK : 0;
+      SetDisplay(b2 - b1);
     }
 
+    // And the same for words
+    ushort w1, w2; 
+    for (w1 = random(), sequenceOK = 0; sequenceOK < 100; ++w1) {
+      WriteMem16(0, &w1, 1);
+      ReadMem16(0, &w2, 1);
+      sequenceOK = (w1 == w2) ? 1 + sequenceOK : 0;
+      ushort diff = w2 - w1;
+      diff = ((diff >> 8) & 0xFF) | (diff & 0xFF);
+      SetDisplay(diff);
+    }
+
+    // And finally for the flags register. This was fixed, I believe,
+    // by a change that was wired on 2023-09-24.
+
+    for (b1 = 0, sequenceOK = 0; sequenceOK < 100; b1 = (1 + b1) & 0x0F) {
+      WriteFlags(b1);
+      b2 = ReadFlags() & 0x0F;
+      sequenceOK = (b1 == b2) ? 1 + sequenceOK : 0;
+      SetDisplay(b2 - b1);
+    }
+
+    // That's it for exercising known or recent startup-time failure paths.
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+
+    // ------------
     // Wait for the power on reset signal to clear
     for (long now = millis(), end = millis() + 5000; now < end; now = millis()) {
       if (!YarcIsPowerOnReset()) break;
