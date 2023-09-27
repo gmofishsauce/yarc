@@ -36,13 +36,13 @@ import (
 // spin off a Goroutine but we'd need fancy locking; it's easier to do
 // everything synchronously.
 
-const memorySectionBase = 0
-const memorySectionSize = 30 * 1024
-const microcodeSectionBase = memorySectionSize
-const microcodeSectionSize = 32 * 1024
-const aluSectionBase = memorySectionSize + microcodeSectionSize
-const aluSectionSize = 8 * 1024
-const binaryFileSize = memorySectionSize + microcodeSectionSize + aluSectionSize
+const MemorySectionBase = 0
+const MemorySectionSize = 30 * 1024
+const MicrocodeSectionBase = MemorySectionSize
+const MicrocodeSectionSize = 32 * 1024
+const AluSectionBase = MemorySectionSize + MicrocodeSectionSize
+const AluSectionSize = 8 * 1024
+const BinaryFileSize = MemorySectionSize + MicrocodeSectionSize + AluSectionSize
 const chunkSize = 64
 
 // Download the entire yarc.bin file (the "binary") to the Nano.
@@ -51,28 +51,28 @@ func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
 	var content []byte
 	var err error
 
-	if content, err = readFile(binary); err != nil {
+	if content, err = ReadFile(binary); err != nil {
 		return err
 	}
 	if err := doPoll(nano); err != nil {
 		return fmt.Errorf("during download: doPoll(): %s", err)
 	}
 
-	if err := doMemorySection(content[0:microcodeSectionBase], nano); err != nil {
+	if err := doMemorySection(content[0:MicrocodeSectionBase], nano); err != nil {
 		return err
 	}
 	if err := doPoll(nano); err != nil {
 		return fmt.Errorf("during download: doPoll(): %s", err)
 	}
 
-	if err := doMicrocodeSection(content[microcodeSectionBase:aluSectionBase], nano); err != nil {
+	if err := doMicrocodeSection(content[MicrocodeSectionBase:AluSectionBase], nano); err != nil {
 		return err
 	}
 	if err := doPoll(nano); err != nil {
 		return fmt.Errorf("during download: doPoll(): %s", err)
 	}
 
-	if err := doALUSection(content[aluSectionBase:binaryFileSize], nano); err != nil {
+	if err := doALUSection(content[AluSectionBase:BinaryFileSize], nano); err != nil {
 		return err
 	}
 	if err := doPoll(nano); err != nil {
@@ -83,10 +83,10 @@ func doDownload(binary *bufio.Reader, nano *arduino.Arduino) error {
 	return nil
 }
 
-func readFile(binary *bufio.Reader) ([]byte, error) {
-	var result []byte = make([]byte, binaryFileSize, binaryFileSize)
+func ReadFile(binary *bufio.Reader) ([]byte, error) {
+	var result []byte = make([]byte, BinaryFileSize, BinaryFileSize)
 	var err error
-	for i := 0; i < binaryFileSize; i++ {
+	for i := 0; i < BinaryFileSize; i++ {
 		result[i], err = binary.ReadByte()
 		if err != nil {
 			return nil, err
@@ -106,7 +106,7 @@ func doMemorySection(content []byte, nano *arduino.Arduino) error {
 	// memory; very old timers will get the joke.
 
 	var zeroes []byte = bytes.Repeat([]byte{0}, chunkSize)
-	for addr = memorySectionSize - chunkSize; addr >= 0; addr -= chunkSize {
+	for addr = MemorySectionSize - chunkSize; addr >= 0; addr -= chunkSize {
 		if bytes.Compare(content[addr:addr+chunkSize], zeroes) != 0 {
 			break
 		}
@@ -156,7 +156,7 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 	if chunkSize != 64 {
 		panic("doMicrocodeSection(): chunkSize must be 64")
 	}
-	if numOpcodes != microcodeSectionSize/ucodePerOp {
+	if numOpcodes != MicrocodeSectionSize/ucodePerOp {
 		panic("doMicrocodeSection(): constants incorrectly defined")
 	}
 	if len(content) != numOpcodes*ucodePerOp {
@@ -166,7 +166,7 @@ func doMicrocodeSection(content []byte, nano *arduino.Arduino) error {
 	var allNoops []byte = bytes.Repeat([]byte{0xFF}, ucodePerOp)
 	var nWritten int
 
-	for op := 0; op < microcodeSectionSize; op += ucodePerOp {
+	for op := 0; op < MicrocodeSectionSize; op += ucodePerOp {
 		if bytes.Compare(content[op:op+ucodePerOp], allNoops) == 0 {
 			continue
 		}
@@ -199,7 +199,7 @@ func doALUSection(content []byte, nano *arduino.Arduino) error {
 	var nWritten int
 
 	var zeroes []byte = bytes.Repeat([]byte{0}, chunkSize)
-	for addr = 0; addr < aluSectionSize; addr += chunkSize {
+	for addr = 0; addr < AluSectionSize; addr += chunkSize {
 		toWrite := content[addr : addr+chunkSize]
 		if bytes.Compare(toWrite, zeroes) == 0 {
 			continue
