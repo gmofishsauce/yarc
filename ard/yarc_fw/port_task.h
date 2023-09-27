@@ -305,7 +305,10 @@ namespace PortPrivate {
       WriteMem8(0, &b1, 1);
       ReadMem8(0, &b2, 1);
       sequenceOK = (b1 == b2) ? 1 + sequenceOK : 0;
-      SetDisplay(b2 - b1);
+      if ((millis() & 1024) == 0)
+        SetDisplay(b2 - b1);
+      else
+        SetDisplay(0x38);
     }
 
     // And the same for words
@@ -316,7 +319,10 @@ namespace PortPrivate {
       sequenceOK = (w1 == w2) ? 1 + sequenceOK : 0;
       ushort diff = w2 - w1;
       diff = ((diff >> 8) & 0xFF) | (diff & 0xFF);
-      SetDisplay(diff);
+      if ((millis() & 1024) == 0)
+        SetDisplay(b2 - b1);
+      else
+        SetDisplay(0xA0);
     }
 
     // And finally for the flags register. This was fixed, I believe,
@@ -326,7 +332,10 @@ namespace PortPrivate {
       WriteFlags(b1);
       b2 = ReadFlags() & 0x0F;
       sequenceOK = (b1 == b2) ? 1 + sequenceOK : 0;
-      SetDisplay(b2 - b1);
+      if ((millis() & 1024) == 0)
+        SetDisplay(b2 - b1);
+      else
+        SetDisplay(0x66);
     }
 
     // That's it for exercising known or recent startup-time failure paths.

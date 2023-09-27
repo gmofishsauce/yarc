@@ -146,6 +146,8 @@ namespace PortPrivate {
   constexpr REGISTER_ID AddrRegisterHigh      = ADDRHI;
   constexpr REGISTER_ID AddrRegisterLow       = ADDRLO;
   constexpr REGISTER_ID MachineControlRegisterInput = MCR_INPUT;
+  constexpr REGISTER_ID LowUnused6            = LOW_UNUSED_6;
+  constexpr REGISTER_ID LowUnused7            = LOW_UNUSED_7;
 
   // Register IDs on high decoder need bit 3 set
   constexpr REGISTER_ID WcsControlClock = (DECODER_SELECT_MASK|WCS_CLK);

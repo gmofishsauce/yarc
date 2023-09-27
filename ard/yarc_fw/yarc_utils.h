@@ -410,7 +410,7 @@ void WriteFlags(byte flags) {
 
   byte microcode[] = {
     LOAD_FLAGS_INDIRECT_R3,
-    MICROCODE_IDLE
+    MICROCODE_IDLE,
   };
   WriteMicrocode(SCRATCH_OPCODE_F0, microcode, 2);
 
