@@ -17,7 +17,7 @@
 # one byte of microcode at a time - K3, ..., K0.
 .set K3_NONE "src1=r3 src2=const_n1 dst=cond_r3"
 .set K2_NONE "acn=alu_pass alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
-.set K1_NONE "sysdata_src=bus_none reg_in_mux=from_bus dst_wr_en=no"
+.set K1_NONE "sysdata_src=bus_none reg_in_mux=from_bus rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=no"
 .set K0_NONE "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 
 .set NOOP "K3_NONE K2_NONE K1_NONE K0_NONE"
@@ -25,7 +25,7 @@
 # Microcode for an instruction fetch cycle (r3) => IR and phi1 of r3 += 2.
 .set FETCH_K3 "src1=r3 src2=const_p2 dst=cond_r3"
 .set FETCH_K2 "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=yes alu_load_flgs=no"
-.set FETCH_K1 "sysdata_src=bus_mem reg_in_mux=from_bus dst_wr_en=no"
+.set FETCH_K1 "sysdata_src=bus_mem reg_in_mux=from_bus rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=no"
 .set FETCH_K0 "rw=read m16_en=bit16 load_ir=yes rcw_ir_uc=rcw_from_uc carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
 .set FETCH "FETCH_K3 FETCH_K2 FETCH_K1 FETCH_K0"
 
@@ -36,7 +36,7 @@
 # support this combination - live and learn.
 .set DECODE_K3 "src1=r3 src2=const_n1 dst=r3"
 .set DECODE_K2 "acn=alu_add alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=no"
-.set DECODE_K1 "sysdata_src=bus_none reg_in_mux=from_alu dst_wr_en=yes"
+.set DECODE_K1 "sysdata_src=bus_none reg_in_mux=from_alu rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=yes"
 .set DECODE_K0 "K0_NONE"
 .set DECODE "DECODE_K3 DECODE_K2 DECODE_K1 DECODE_K0"
 

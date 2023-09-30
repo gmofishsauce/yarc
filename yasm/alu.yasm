@@ -21,7 +21,7 @@
 .set ALU_PHI1_K0_NO_CARRY "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
 
 .set ALU_PHI2_K2 "acn=alu_pass alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=yes"
-.set ALU_PHI2_K1 "sysdata_src=bus_none reg_in_mux=from_alu dst_wr_en=yes"
+.set ALU_PHI2_K1 "sysdata_src=bus_none reg_in_mux=from_alu rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=yes"
 .set ALU_PHI2_K0 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_ir carry_en=pass load_flgs_mux=from_alu acn_ir_uc=acn_from_ir ir0_en=pass"
 
 # Most of the microcode is the same for every ALU instruction. The exception is
