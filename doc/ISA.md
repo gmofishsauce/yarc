@@ -150,20 +150,20 @@ The base acronym MV is used only for register to register moves. Memory accesses
 
 | Opcode   | Mnemonic | Operands | Notes  |
 | :-----   | :------: | :------- | :----  |
-| 0xB0:IM8 | ldif     | imm8     | load immediate flags from imm8 3:0 (V N Z C) |
+| 0xB0:RCW | mvr      | src, dst | register to register move |
 | 0xB1:RCW | mvfr     | dst      | move flags to register **dst** |
-| 0xB200   | mvrf     | src      |  move register **src** to flags |
-| 0xB3:RCW | mvr      | src, dst | register to register move |
+| 0xB2:RCW | mvrf     | src      |  move register **src** to flags |
+| 0xB300   | TBD      |          | unassigned |
 | 0xB400   | TBD      |          |  unassigned      |
-| 0xB500   | ret      | none     | return |
+| 0xB500   | ret      | none     | @++ix3 => r3 |
 | 0xB600   | nop2     | none     | no operation, 2 machine cycles |
 | 0xB700   | nop3     | none     | no operation, 3 machine cycles |
 | 0xB8:RCW | pop      | dst      | @++ix3 => general register *dst* |
-| 0xB9:RCW | pop2     |          | pop r3 then pop r2 |
-| 0xBA:RCW | popall   |          | pop r3, r2 r1, r0 |
+| 0xB9:RCW | pop2     |          | pop r1 then pop r0 |
+| 0xBA:RCW | popall   |          | pop r3, r2, r1, r0 |
 | 0xBB     | TBD      |          | unassigned |
 | 0xBC:RCW | push     | src      | general register *src* => @ix3-- |   
-| 0xBD:RCW | push2    |          | push r2 then push r3 (PC) |   
+| 0xBD:RCW | push2    |          | push r0 then push r1 |   
 | 0xBE:RCW | pushall  | src      | push r0, r1, r2, r3 |   
 | 0xBF     | TBD   |             | unassigned |
 
@@ -180,7 +180,7 @@ C-line and D-line instructions refer to the general registers. E-line and F-line
 | 0xC0:RCW | ldrb   | @src, dst    | load register from sign-extended memory byte |
 | 0xC1:RCW | lddb   | immed16, dst | load direct register *dst* from sign-extended byte @immed16 |
 | 0xC2:RCW | ldsb   | immed16, @src, dst | load register *dst* from sign-extended byte @(src + immed16) |
-| 0xC3     | TBD    |              | unassigned |
+| 0xC3:imm8     | ldif   | imm8     | load immediate flags from imm8 3:0 (V N Z C) |
 | 0xC4:RCW | strb   | src, @dst    | store register *src* low byte to memory byte |
 | 0xC5:RCW | stdb   | src, immed16 | store direct register *src* low byte to @immed16 |
 | 0xC6:RCW | stsb   | immed16, src, @dst | store direct register *src* low byte to @(dst + immed16)  |
@@ -235,16 +235,4 @@ Index register 3 is the stack pointer. These operations treat the stack pointer 
 | 0xFE00   | TBD      |          | Hardwired as implementation of CALL |
 | 0xFF00   | TBD      |          | Hardwired as implementation of JMP |
 
-#### Additional Information
-
-The rotate instruction rotates the register specified by src1 and places the result in dst (often, src1 and dst will be the same). The rotation is specified by src2, which is usually one of the small constant registers 4..7. The operations are:
-
-| src2 value | Small constant value | Meaning |
-|:---------- | :------------------- | :------ |
-| 4          | 2                    | Rotate left. The LS bit and carry flag in the dst are set to the value of the MS bit from src1. Other bits are shifted left one position. |
-| 5          | 1                    | Rotate left through carry. The LS bit is set to the value of the carry flag. The carry flag is set to the value of the MS bit. Other bits are shifted left one position. |
-| 6          | -2                   | Rotate right. The MS bit and carry flag are set to the value of the LS bit. Other bits are shifted right one position. |
-| 7          | -1                   | Rotate right through carry. The MS bit is set to the value of the carry flag. The carry flag is set to the value of the LS bit. Other bits are shifted right one position. |
-
-For asf (arithmetic shift), the carry flag is not affected. The src2 operand specifies the amount of the shift as above, -1 or -2 positions right (corresponding to divide by 2 or 4) or 1 or 2 positions left (corresponding to multiply by 2 or 4). For right shifts, the MS bit of the word is duplicated at the left. For left shifts, zeroes are introduced at the right.
 
