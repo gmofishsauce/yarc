@@ -1,0 +1,75 @@
+# Copyright (c) 2023 Jeff Berkowitz (pdxjjb@gmail.com)
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+# Microcode for YARC instructions.
+# Opcodes 9000 through 9FFF are branch instructions
+
+# Conditional branch. Move the instruction register to the ALU port 2
+# holding register with byte sign extension. Add the r3 to the holding
+# register and conditionally write the result back to r3 based on the
+# value of flag selected by the ACN from the instruction register.
+
+# Microcode to move the instruction register to the ALU port 2 holding register
+# The high order bit of the src2 field needs to be set along with alu_ctl=alu_in
+# The register input mux and the write control dst_wr_en do not matter (off)
+.set K3_IR2HOLD "src1=r3 src2=4 dst=cond_r3"
+.set K2_IR2HOLD "acn=alu_pass alu_ctl=alu_in alu_load_hold=yes alu_load_flgs=no"
+.set K1_IR2HOLD "sysdata_src=bus_ir reg_in_mux=from_bus rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=no"
+.set K0_IR2HOLD "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+# Add the ALU holding register to r3 (phase 1) because alu_load_hold=no
+.set K3_ADD_PHI1 "src1=r3 src2=const_n1 dst=cond_r3"
+.set K2_ADD_PHI1 "acn=alu_add alu_ctl=alu_phi1 alu_load_hold=no alu_load_flgs=no"
+.set K1_ADD_PHI1 "sysdata_src=bus_none reg_in_mux=from_bus rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=no"
+.set K0_ADD_PHI1 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=force_low load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+# Add the ALU holding register to r3 (phase 2) but leave the result in the ALU holding register
+.set K3_ADD_PHI2 "src1=r3 src2=const_n1 dst=r3" # not used
+.set K2_ADD_PHI2 "acn=alu_add alu_ctl=alu_phi2 alu_load_hold=no alu_load_flgs=no"
+.set K1_ADD_PHI2 "sysdata_src=bus_none reg_in_mux=from_alu rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=no"
+.set K0_ADD_PHI2 "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_uc ir0_en=pass"
+
+# Conditionally move the ALU result register to the PC based on the condition in the IR
+.set K3_CMOVE "src1=r3 src2=const_n1 dst=cond_r3"
+.set K2_CMOVE "acn=alu_pass alu_ctl=alu_none alu_load_hold=no alu_load_flgs=no"
+.set K1_CMOVE "sysdata_src=bus_none reg_in_mux=from_alu rcw_routing=rcw_normal sysaddr_src=addr_gr dst_wr_en=yes"
+.set K0_CMOVE "rw=read m16_en=bit8 load_ir=no rcw_ir_uc=rcw_from_uc carry_en=pass load_flgs_mux=from_bus acn_ir_uc=acn_from_ir ir0_en=pass"
+
+.opcode br 0x90 2 .acn .rel
+.slot K3_IR2HOLD  K2_IR2HOLD  K1_IR2HOLD  K0_IR2HOLD  ;
+.slot K3_ADD_PHI1 K2_ADD_PHI1 K1_ADD_PHI1 K0_ADD_PHI1 ;
+.slot K3_ADD_PHI2 K2_ADD_PHI2 K1_ADD_PHI2 K0_ADD_PHI2 ;
+.slot K3_CMOVE    K2_CMOVE    K1_CMOVE    K0_CMOVE    ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+
+# Now we need to copy the microcode into the rest of the opcode slots for
+# all the different condition codes (the different values of the .acn fixup).
+.dup __br1  0x91 br
+.dup __br2  0x92 br
+.dup __br3  0x93 br
+.dup __br4  0x94 br
+.dup __br5  0x95 br
+.dup __br6  0x96 br
+.dup __br7  0x97 br
+.dup __br8  0x98 br
+.dup __br9  0x99 br
+.dup __brA  0x9A br
+.dup __brB  0x9B br
+.dup __brC  0x9C br
+.dup __brD  0x9D br
+.dup __brE  0x9E br
+.dup __brF  0x9F br

@@ -49,8 +49,11 @@
 .set NO_FETCH "FETCH load_ir=no"
 .set NO_DECODE "DECODE"
 
-.include "flow.yasm" # control flow instruction definitions
-.include "alu.yasm"  # ALU instructions
-.include "move.yasm" # load and store (move) instructions
-.include "rest.yasm" # the rest of the instructions
-
+.include "op0-7.yasm"
+.include "op8.yasm"
+.include "op9.yasm"
+.include "opA.yasm"
+.include "opB.yasm"
+.include "opC.yasm"
+.include "opD.yasm"
+.include "opE-F.yasm"
