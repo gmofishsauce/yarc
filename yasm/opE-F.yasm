@@ -17,3 +17,9 @@
 # Opcodes E000 through FBFF are indexed loads, stores, and moves
 # Opcodes FC00 through FFFF are reserved by the hardware
 
+.opcode t1 0xF4 0
+.slot NOOP ; #  sysaddr_src=addr_alu ;
+.slot FETCH ;
+.slot DECODE ;
+.endopcode
+

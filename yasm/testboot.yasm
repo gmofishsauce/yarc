@@ -38,62 +38,25 @@ fail_neg:				# negative test failed, detailed code in r0
 init:					# initialize the machine and run tests (for now)
 	ldiw REGSAVE, SP	# stack is predecrement push / pop postincrement
 
-# Here is the program I want to be able to write.
-# In order to do this I need to add the addressing
-# feature to the YARC, implement .db, .dw, and .align,
-# add the new microcode, and implement the system
-# call feature.
-
-# message:
-# .db 'Hark! A YARC!', 0
-# .align 2
-# 
-# PRINT_HELLO:
-# 	pushiw	message
-# 	pushiw	LINEBUF
-# 	call	copy
-# 	addiw	4, SP
-# 	system	sendbuf
-# 	jmp HALT
-# 
-# srcaddr: .dw 0
-# dstaddr: .dw 0
-
-# Copy bytes from from the first argument to the second,
-# stopping after copying the terminating nul byte. We
-# need memory locations for both addresses because of
-# YARC's desperate shortage of registers.
-
-# copy:
-# 	ldow	6, @SP, r0	# load r0 from @(SP + 6)
-# 	stdw r0, @srcaddr	# first argument (srcaddr)
-# 	ldow	4, @SP, r0	# load r0 from @(SP + 4)
-# 	stdw r0, @dstaddr	# second argument (dstaddr)
-# 
-# copyloop:
-# 	lddw r0, @srcaddr   # load the srcaddr
-# 	ldrb @r0, r1		# load a byte from source to r1
-# 	addib 1, r0
-# 	stdw r0, @srcaddr   # increment and save srcaddr
-# 	lddw @dstaddr, r0	# load the destination addr to r0
-# 	strb r1, @r0		# store the byte there
-# 	addib 1, r0			# increment and save the dstaddr
-# 	stdw r0, @dstaddr
-# 	cmp r1, 0			# was that saved byte a nul?
-# 	br nz, copyloop		# no, continue
-# 	ret					# done
-
-# End of the goal program.
-
 # Run all the tests
 
 run_tests:
+	jmp  debug_ix		# does not return (for now)
 	call test_c
 	call test_z
 	call test_n
 	call test_v
 	jmp  success
 
+debug_ix:
+	ldiw 0x7FF2, r2		# I/O address that toggles decoder line 1
+	ldiw 0x7FF2, r1
+	
+db_ix_loop:
+	t1					# test opcode in opE-F.yasm
+	strw	r2, r1
+	jmp  db_ix_loop
+	
 # === tests ===
 # Test the flags, starting with the carry flag
 test_c:
@@ -145,3 +108,49 @@ v_neg_fail:
 	ldiw 0x08, r0
 	jmp	 fail_neg
 
+# Here is the program I want to be able to write.
+# In order to do this I need to add the addressing
+# feature to the YARC, implement .db, .dw, and .align,
+# add the new microcode, and implement the system
+# call feature.
+
+# message:
+# .db 'Hark! A YARC!', 0
+# .align 2
+# 
+# PRINT_HELLO:
+# 	pushiw	message
+# 	pushiw	LINEBUF
+# 	call	copy
+# 	addiw	4, SP
+# 	system	sendbuf
+# 	jmp HALT
+# 
+# srcaddr: .dw 0
+# dstaddr: .dw 0
+
+# Copy bytes from from the first argument to the second,
+# stopping after copying the terminating nul byte. We
+# need memory locations for both addresses because of
+# YARC's desperate shortage of registers.
+
+# copy:
+# 	ldow	6, @SP, r0	# load r0 from @(SP + 6)
+# 	stdw r0, @srcaddr	# first argument (srcaddr)
+# 	ldow	4, @SP, r0	# load r0 from @(SP + 4)
+# 	stdw r0, @dstaddr	# second argument (dstaddr)
+# 
+# copyloop:
+# 	lddw r0, @srcaddr   # load the srcaddr
+# 	ldrb @r0, r1		# load a byte from source to r1
+# 	addib 1, r0
+# 	stdw r0, @srcaddr   # increment and save srcaddr
+# 	lddw @dstaddr, r0	# load the destination addr to r0
+# 	strb r1, @r0		# store the byte there
+# 	addib 1, r0			# increment and save the dstaddr
+# 	stdw r0, @dstaddr
+# 	cmp r1, 0			# was that saved byte a nul?
+# 	br nz, copyloop		# no, continue
+# 	ret					# done
+
+# End of the goal program.
